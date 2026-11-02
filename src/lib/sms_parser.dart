@@ -197,4 +197,61 @@ class SmsParser {
     if (a.isEmpty) return false;
     return !RegExp(r'^\+?[\d\s-]+$').hasMatch(a);
   }
+
+  // ---------- account balance ----------
+
+  static final _balance = RegExp(
+      r'(?:avl\.?\s*bal(?:ance)?|avail(?:able)?\.?\s*bal(?:ance)?|a/c\s*bal(?:ance)?|clear\s*bal(?:ance)?|'
+      r'total\s*bal(?:ance)?|\bbal(?:ance)?)\s*(?:is|:|-|of|in your a/c)?\s*(?:rs\.?|inr|₹)?\s*:?\s*'
+      r'(-?[0-9][0-9,]*(?:\.[0-9]{1,2})?)',
+      caseSensitive: false);
+
+  static final _account = RegExp(
+      r'(?:a/c|a/c\s*no\.?|ac|acct|account|card)\s*(?:no\.?|number)?\s*[:.]?\s*[x*.\s]*(\d{3,6})\b',
+      caseSensitive: false);
+
+  static final _creditWord = RegExp(r'\b(credited|received|deposited|refunded)\b', caseSensitive: false);
+
+  /// Reads balance information from any bank SMS (debit or credit).
+  /// Returns null if the SMS says nothing useful about an account balance.
+  static BalanceInfo? parseBalance(String body) {
+    final text = body
+        .replaceAll(RegExp(r'[\r\n]+'), ' | ')
+        .replaceAll(RegExp(r'[ \t]+'), ' ')
+        .trim();
+    if (RegExp(r'\botp\b|will be debited|to be debited|requested|failed|declined', caseSensitive: false)
+        .hasMatch(text)) {
+      return null;
+    }
+    final accM = _account.firstMatch(text);
+    var acct = accM?.group(1);
+    if (acct != null && acct.length > 4) acct = acct.substring(acct.length - 4);
+
+    double? bal;
+    final bm = _balance.firstMatch(text);
+    if (bm != null) bal = double.tryParse(bm.group(1)!.replaceAll(',', ''));
+
+    // Movement: debit (from the spend parser) or credit.
+    double delta = 0;
+    final spend = parse(body);
+    if (spend != null) {
+      delta = -spend.amount;
+    } else if (_creditWord.hasMatch(text) && !_debitWord.hasMatch(text)) {
+      final m = _amountCurrency.firstMatch(text);
+      final a = m == null ? null : double.tryParse(m.group(1)!.replaceAll(',', ''));
+      // Don't mistake the balance figure for the credited amount.
+      if (a != null && (bm == null || m!.start < bm.start)) delta = a;
+    }
+    if (bal == null && delta == 0) return null;
+    return BalanceInfo(account: acct ?? 'main', balance: bal, delta: delta);
+  }
+}
+
+class BalanceInfo {
+  final String account; // last digits of the account, or 'main'
+  final double? balance; // exact balance printed by the bank, if any
+  final double delta; // money out (negative) or in (positive)
+  const BalanceInfo({required this.account, this.balance, this.delta = 0});
+  @override
+  String toString() => 'BalanceInfo($account, bal=$balance, delta=$delta)';
 }

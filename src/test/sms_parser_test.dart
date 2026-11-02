@@ -69,4 +69,28 @@ void main() {
     expect(Categorizer.guess('RAJAN KURIES').chittiHint, isTrue);
     expect(Categorizer.guess('ANIL KUMAR').category, 'uncategorised');
   });
+
+  group('balances', () {
+    test('Canara debit with balance', () {
+      final b = SmsParser.parseBalance(
+          'An amount of INR 2,000.00 has been DEBITED to your account XXX123 on 02/11/2026 towards UPI/DR/430512121212/ANIL KUMAR. Total Avail.bal INR 10,512.00. - Canara Bank')!;
+      expect(b.account, '123');
+      expect(b.balance, 10512.0);
+      expect(b.delta, -2000.0);
+    });
+    test('credit with balance', () {
+      final b = SmsParser.parseBalance(
+          'Dear Customer, INR 15,000.00 credited to your A/c No XX1234 on 01-11-2026 by NEFT. Avl Bal: INR 60,210.50')!;
+      expect(b.account, '1234');
+      expect(b.balance, 60210.5);
+      expect(b.delta, 15000.0);
+    });
+    test('HDFC debit without balance', () {
+      final b = SmsParser.parseBalance(
+          'Sent Rs.1,499.00\nFrom HDFC Bank A/C *1234\nTo BIGBASKET\nOn 01/11/26\nRef 430511112222\nNot You?')!;
+      expect(b.account, '1234');
+      expect(b.balance, isNull);
+      expect(b.delta, -1499.0);
+    });
+  });
 }

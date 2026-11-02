@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../categories.dart';
 import '../config.dart';
 import '../repo.dart';
+import 'balances.dart';
 import 'charts.dart';
 import 'common.dart';
 
@@ -140,6 +141,8 @@ class _Body extends StatelessWidget {
         children: [
           Center(child: MonthSwitcher(month: month, onChanged: onMonth)),
           const SizedBox(height: 8),
+          BalancesCard(repo: repo),
+          const SizedBox(height: 12),
           _SummaryCard(budget: spendBudget, spent: spendSpent, spentBy: spentBy, cats: spendCats.toList()),
           const SizedBox(height: 12),
           _ChartCard(

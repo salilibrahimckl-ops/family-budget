@@ -32,6 +32,28 @@ class Txn {
         note = d.data()!['note'] as String?;
 }
 
+/// A bank account's balance, kept up to date from bank SMS.
+class BankAccount {
+  final String id;
+  final String member;
+  final String account; // last digits, or 'main'
+  final String? label;
+  final double? balance;
+  final bool exact; // true = printed by the bank / set by you; false = estimated
+  final DateTime? balanceAt;
+
+  BankAccount.fromDoc(DocumentSnapshot<Map<String, dynamic>> d)
+      : id = d.id,
+        member = d.data()!['member'] as String? ?? '?',
+        account = d.data()!['account'] as String? ?? 'main',
+        label = d.data()!['label'] as String?,
+        balance = (d.data()!['balance'] as num?)?.toDouble(),
+        exact = d.data()!['exact'] as bool? ?? false,
+        balanceAt = (d.data()!['balanceAt'] as Timestamp?)?.toDate();
+
+  String get title => label ?? (account == 'main' ? 'Bank account' : 'A/c ••$account');
+}
+
 /// Monthly budget: amount per category + optional personal limit per member.
 class Budget {
   final Map<String, double> categories;
@@ -138,6 +160,9 @@ class Repo {
   /// records are never overwritten, so your edits are kept.
   Future<bool> ingestSms(String body,
       {required DateTime receivedAt, required String member, required String source}) async {
+    try {
+      await updateBalance(body, when: receivedAt, member: member);
+    } catch (_) {}
     final p = SmsParser.parse(body);
     if (p == null) return false;
     final when = p.date != null && source == 'iphone' ? _withTime(p.date!, receivedAt) : receivedAt;
@@ -327,6 +352,85 @@ class Repo {
   Future<void> ignore(Txn t) => txns.doc(t.id).update({'category': kIgnored, 'chittiSuggest': false});
 
   Future<void> delete(Txn t) => txns.doc(t.id).delete();
+
+  // ---------- bank balances ----------
+
+  CollectionReference<Map<String, dynamic>> get accounts => family.collection('accounts');
+
+  Stream<List<BankAccount>> accountsStream() => accounts.snapshots().map(
+      (q) => q.docs.map(BankAccount.fromDoc).toList()..sort((a, b) => a.member.compareTo(b.member)));
+
+  static String _acctId(String member, String account) =>
+      '${member.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}_$account';
+
+  /// Uses the balance printed in a bank SMS when there is one (exact);
+  /// otherwise adjusts the last known balance by the amount debited/credited
+  /// (estimated). SMS older than the last one applied are ignored, so
+  /// re-scans never double-count.
+  Future<void> updateBalance(String body, {required DateTime when, required String member}) async {
+    final info = SmsParser.parseBalance(body);
+    if (info == null) return;
+    final ref = accounts.doc(_acctId(member, info.account));
+    await db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      final d = snap.data();
+      final last = (d?['lastAppliedMs'] as num?)?.toInt() ?? 0;
+      if (when.millisecondsSinceEpoch <= last) return;
+      double? balance;
+      bool exact;
+      if (info.balance != null) {
+        balance = info.balance;
+        exact = true;
+      } else if (d?['balance'] != null) {
+        balance = (d!['balance'] as num).toDouble() + info.delta;
+        exact = false;
+      } else {
+        balance = null; // no starting point yet: shown as "set balance"
+        exact = false;
+      }
+      tx.set(
+          ref,
+          {
+            'member': member,
+            'account': info.account,
+            'balance': balance,
+            'exact': exact,
+            'balanceAt': Timestamp.fromDate(when),
+            'lastAppliedMs': when.millisecondsSinceEpoch,
+          },
+          SetOptions(merge: true));
+    });
+  }
+
+  /// Set the balance by hand (e.g. from the bank app) and/or rename the account.
+  Future<void> setAccount(BankAccount a, {double? balance, String? label}) async {
+    final now = DateTime.now();
+    await accounts.doc(a.id).set({
+      if (balance != null) ...{
+        'balance': balance,
+        'exact': true,
+        'balanceAt': Timestamp.fromDate(now),
+        'lastAppliedMs': now.millisecondsSinceEpoch,
+      },
+      if (label != null) 'label': label.isEmpty ? FieldValue.delete() : label,
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> addAccount(String label, double balance) async {
+    final now = DateTime.now();
+    final acct = 'm${now.millisecondsSinceEpoch % 100000}';
+    await accounts.doc(_acctId(myName, acct)).set({
+      'member': myName,
+      'account': acct,
+      'label': label,
+      'balance': balance,
+      'exact': true,
+      'balanceAt': Timestamp.fromDate(now),
+      'lastAppliedMs': now.millisecondsSinceEpoch,
+    });
+  }
+
+  Future<void> deleteAccount(BankAccount a) => accounts.doc(a.id).delete();
 
   // ---------- iPhone inbox ----------
 

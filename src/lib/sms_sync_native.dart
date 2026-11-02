@@ -67,8 +67,10 @@ class SmsSync {
       columns: [SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],
       filter: SmsFilter.where(SmsColumn.DATE).greaterThan(sinceMs.toString()),
     );
+    // Oldest first, so bank balances end at the latest SMS.
+    final ordered = [...msgs]..sort((a, b) => (a.date ?? 0).compareTo(b.date ?? 0));
     var added = 0;
-    for (final m in msgs) {
+    for (final m in ordered) {
       if (!SmsParser.looksLikeBankSender(m.address)) continue;
       final ok = await repo.ingestSms(m.body ?? '',
           receivedAt: DateTime.fromMillisecondsSinceEpoch(m.date ?? now.millisecondsSinceEpoch),
