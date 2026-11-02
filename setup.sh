@@ -58,8 +58,40 @@ flutter test || echo "!! Some tests failed - the app still builds, but tell Clau
 
 echo "==> Building Android APK"
 # Always sign with the same key so new versions install as updates.
-mkdir -p "$HOME/.android"
-cp "$HERE/android-signing/debug.keystore" "$HOME/.android/debug.keystore"
+cp "$HERE/android-signing/debug.keystore" android/app/fixed.keystore
+python3 - <<'PY'
+import re, os
+for f in ['android/app/build.gradle.kts', 'android/app/build.gradle']:
+    if not os.path.exists(f): continue
+    s = open(f).read()
+    if 'fixed.keystore' in s: break
+    if f.endswith('.kts'):
+        block = '''
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("fixed.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+'''
+    else:
+        block = '''
+    signingConfigs {
+        debug {
+            storeFile file("fixed.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+    }
+'''
+    s = re.sub(r'^android \{\n', lambda m: m.group(0) + block, s, count=1, flags=re.M)
+    open(f, 'w').write(s)
+    print('signing config added to', f)
+    break
+PY
 flutter build apk --release ${BUILD_NUMBER:+--build-number=$BUILD_NUMBER}
 cp build/app/outputs/flutter-apk/app-release.apk "$HERE/FamilyBudget.apk"
 
