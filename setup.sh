@@ -33,6 +33,10 @@ fi
 echo "    receiver: $RECEIVER"
 sed "s#__SMS_RECEIVER__#$RECEIVER#" "$HERE/src/android/AndroidManifest.xml" > android/app/src/main/AndroidManifest.xml
 
+# The SMS plugin compiles Kotlin for an older JVM target than Java; that is harmless on Android.
+grep -q "kotlin.jvm.target.validation.mode" android/gradle.properties 2>/dev/null || \
+  echo "kotlin.jvm.target.validation.mode=IGNORE" >> android/gradle.properties
+
 # Firebase needs Android minSdk 23+
 for f in android/app/build.gradle.kts android/app/build.gradle; do
   [ -f "$f" ] && sed -i.bak -E 's/minSdk( =|) flutter\.minSdkVersion/minSdk\1 24/' "$f" || true
