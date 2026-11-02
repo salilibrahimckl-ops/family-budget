@@ -32,6 +32,54 @@ class GoldRate {
   }
 }
 
+/// A small gold coin: gold disc with a raised rim and a ₹ mark.
+class GoldCoin extends StatelessWidget {
+  const GoldCoin({super.key, this.size = 40});
+  final double size;
+  @override
+  Widget build(BuildContext context) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const RadialGradient(
+            center: Alignment(-0.35, -0.35),
+            colors: [Color(0xFFFFF1A8), Color(0xFFF2C94C), Color(0xFFC9971C), Color(0xFF9C7310)],
+            stops: [0.0, 0.35, 0.75, 1.0],
+          ),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 2, offset: const Offset(0, 1))],
+        ),
+        child: Center(
+          child: Container(
+            width: size * 0.72,
+            height: size * 0.72,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFFFF6C8).withValues(alpha: 0.8), width: size * 0.04),
+            ),
+            child: Center(
+              child: Text('₹',
+                  style: TextStyle(
+                      fontSize: size * 0.4, fontWeight: FontWeight.w800, color: const Color(0xFF7A5A0A), height: 1)),
+            ),
+          ),
+        ),
+      );
+}
+
+/// A green banknote for cash.
+class CashNote extends StatelessWidget {
+  const CashNote({super.key, this.size = 40});
+  final double size;
+  @override
+  Widget build(BuildContext context) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(color: const Color(0xFF2E7D32).withValues(alpha: 0.15), shape: BoxShape.circle),
+        child: Icon(Icons.payments, color: const Color(0xFF2E7D32), size: size * 0.55),
+      );
+}
+
 String grams(double g) => '${g.toStringAsFixed(g == g.roundToDouble() ? 0 : 2)} g';
 String pavan(double g) => '${(g / 8).toStringAsFixed((g / 8) == (g / 8).roundToDouble() ? 0 : 2)} pavan';
 
@@ -96,20 +144,23 @@ class _MoneyScreenState extends State<MoneyScreen> {
     final pending = receivables.where((m) => !m.received).toList();
     final received = receivables.where((m) => m.received).toList();
     final gold = items.where((m) => m.isGold).toList();
+    final cash = items.where((m) => m.kind == 'cash').toList();
     final assets = items.where((m) => m.kind == 'asset').toList();
 
     double bankOf(String n) =>
         accts.where((a) => a.member == n && a.balance != null).fold(0.0, (s, a) => s + a.balance!);
     double goldOf(String n) => gold.where((g) => g.member == n).fold(0.0, (s, g) => s + g.value(rates));
     double gramsOf(String n) => gold.where((g) => g.member == n).fold(0.0, (s, g) => s + g.grams);
+    double cashOf(String n) => cash.where((a) => a.member == n).fold(0.0, (s, a) => s + a.amount);
     double assetsOf(String n) => assets.where((a) => a.member == n).fold(0.0, (s, a) => s + a.amount);
     double pendingOf(String n) => pending.where((a) => a.member == n).fold(0.0, (s, a) => s + a.amount);
 
     final bankTotal = members.fold(0.0, (s, n) => s + bankOf(n));
     final goldTotal = members.fold(0.0, (s, n) => s + goldOf(n));
     final assetTotal = members.fold(0.0, (s, n) => s + assetsOf(n));
+    final cashTotal = members.fold(0.0, (s, n) => s + cashOf(n));
     final pendingTotal = pending.fold(0.0, (s, m) => s + m.amount);
-    final haveNow = bankTotal + goldTotal + assetTotal;
+    final haveNow = bankTotal + goldTotal + cashTotal + assetTotal;
 
     // Monthly set-aside history (last 6 months).
     final now = DateTime.now();
@@ -138,7 +189,8 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     style: tt.displaySmall?.copyWith(fontWeight: FontWeight.w700, color: cs.onPrimaryContainer)),
                 const SizedBox(height: 4),
                 Text(
-                  'Bank ${money(bankTotal)} · Gold ${money(goldTotal)} · Other savings ${money(assetTotal)}',
+                  'Bank ${money(bankTotal)} · Gold ${money(goldTotal)} · Cash ${money(cashTotal)}'
+                  ' · Other savings ${money(assetTotal)}',
                   style: tt.bodySmall?.copyWith(color: cs.onPrimaryContainer),
                 ),
                 if (pendingTotal > 0) ...[
@@ -159,11 +211,23 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     padding: const EdgeInsets.all(12),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(n, style: tt.titleSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      Text(money(bankOf(n) + goldOf(n) + assetsOf(n)),
+                      Text(money(bankOf(n) + goldOf(n) + cashOf(n) + assetsOf(n)),
                           style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 4),
                       Text('Bank ${money(bankOf(n))}', style: tt.bodySmall),
-                      Text('Gold ${pavan(gramsOf(n))} · ${money(goldOf(n))}', style: tt.bodySmall),
+                      Row(children: [
+                        const GoldCoin(size: 14),
+                        const SizedBox(width: 4),
+                        Flexible(
+                            child: Text('${pavan(gramsOf(n))} · ${money(goldOf(n))}',
+                                style: tt.bodySmall, overflow: TextOverflow.ellipsis)),
+                      ]),
+                      if (cashOf(n) > 0)
+                        Row(children: [
+                          const CashNote(size: 14),
+                          const SizedBox(width: 4),
+                          Text('Cash ${money(cashOf(n))}', style: tt.bodySmall),
+                        ]),
                       if (assetsOf(n) > 0) Text('Savings ${money(assetsOf(n))}', style: tt.bodySmall),
                       if (pendingOf(n) > 0)
                         Text('To receive ${money(pendingOf(n))}',
@@ -191,15 +255,14 @@ class _MoneyScreenState extends State<MoneyScreen> {
           const SizedBox(height: 16),
 
           // ---- Gold ----
-          _header(context, Icons.diamond_outlined, 'Gold',
-              gold.isEmpty ? null : '${pavan(gold.fold(0.0, (s, g) => s + g.grams))} · ${money(goldTotal)}'),
+          _header(context, Icons.circle, 'Gold',
+              gold.isEmpty ? null : '${pavan(gold.fold(0.0, (s, g) => s + g.grams))} · ${money(goldTotal)}',
+              leading: const GoldCoin(size: 22)),
           _goldRateCard(context, rates, manual),
           for (final g in gold)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-                  backgroundColor: const Color(0xFFD4A017).withValues(alpha: 0.2),
-                  child: const Icon(Icons.diamond, color: Color(0xFFB8860B))),
+              leading: const GoldCoin(),
               title: Text(g.title.isEmpty ? 'Gold' : g.title),
               subtitle: Text('${g.member} · ${grams(g.grams)} (${pavan(g.grams)}) · ${g.purity}K'),
               trailing: Text((rates[g.purity] ?? 0) > 0 ? money(g.value(rates)) : '—',
@@ -209,10 +272,25 @@ class _MoneyScreenState extends State<MoneyScreen> {
           if (gold.isEmpty) _hint(context, 'Add gold for each of you in grams or pavan.'),
           const SizedBox(height: 16),
 
+          // ---- Cash ----
+          _header(context, Icons.payments, 'Cash in hand', cashTotal > 0 ? money(cashTotal) : null,
+              leading: const CashNote(size: 22)),
+          if (cash.isEmpty) _hint(context, 'Cash kept at home or in your wallet.'),
+          for (final c in cash)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const CashNote(),
+              title: Text(c.title),
+              subtitle: Text([c.member, if (c.note != null && c.note!.isNotEmpty) c.note!].join(' · ')),
+              trailing: Text(money(c.amount), style: const TextStyle(fontWeight: FontWeight.w600)),
+              onTap: () => _editMoney(context, 'cash', members, c),
+            ),
+          const SizedBox(height: 16),
+
           // ---- Other savings ----
           _header(context, Icons.savings_outlined, 'Other savings', assetTotal > 0 ? money(assetTotal) : null),
           if (assets.isEmpty)
-            _hint(context, 'FD, mutual funds, chitti paid so far, cash at home… anything outside the bank balances.'),
+            _hint(context, 'FD, mutual funds, chitti paid so far… anything outside the bank balances.'),
           for (final a in assets)
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -237,12 +315,12 @@ class _MoneyScreenState extends State<MoneyScreen> {
     );
   }
 
-  Widget _header(BuildContext context, IconData icon, String title, String? trailing) {
+  Widget _header(BuildContext context, IconData icon, String title, String? trailing, {Widget? leading}) {
     final tt = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(children: [
-        Icon(icon, size: 20),
+        leading ?? Icon(icon, size: 20),
         const SizedBox(width: 8),
         Text(title, style: tt.titleMedium),
         const Spacer(),
@@ -315,7 +393,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.diamond_outlined),
+            leading: const GoldCoin(size: 28),
             title: const Text('Gold'),
             subtitle: const Text('In grams or pavan'),
             onTap: () {
@@ -324,9 +402,18 @@ class _MoneyScreenState extends State<MoneyScreen> {
             },
           ),
           ListTile(
+            leading: const CashNote(size: 28),
+            title: const Text('Cash in hand'),
+            subtitle: const Text('Cash at home or in your wallet'),
+            onTap: () {
+              Navigator.pop(ctx);
+              _editMoney(context, 'cash', members, null);
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.savings_outlined),
             title: const Text('Other savings'),
-            subtitle: const Text('FD, mutual fund, chitti so far, cash…'),
+            subtitle: const Text('FD, mutual fund, chitti so far…'),
             onTap: () {
               Navigator.pop(ctx);
               _editMoney(context, 'asset', members, null);
@@ -357,14 +444,17 @@ class _MoneyScreenState extends State<MoneyScreen> {
           padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.of(ctx).viewInsets.bottom),
           child: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(receivable ? 'Money to receive' : 'Other savings', style: Theme.of(ctx).textTheme.titleLarge),
+              Text(receivable ? 'Money to receive' : (kind == 'cash' ? 'Cash in hand' : 'Other savings'),
+                  style: Theme.of(ctx).textTheme.titleLarge),
               const SizedBox(height: 16),
               TextField(
                 controller: title,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
                   labelText: 'What is it?',
-                  hintText: receivable ? 'e.g. Stipend arrears, Loan from Rahul' : 'e.g. SBI FD, KSFE chitti paid',
+                  hintText: receivable
+                      ? 'e.g. Stipend arrears, Loan from Rahul'
+                      : (kind == 'cash' ? 'e.g. Cash at home, Wallet' : 'e.g. SBI FD, KSFE chitti paid'),
                   border: const OutlineInputBorder(),
                 ),
               ),
