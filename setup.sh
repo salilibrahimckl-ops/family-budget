@@ -14,7 +14,7 @@ fi
 cd "$APP"
 
 echo "==> Adding packages"
-flutter pub add firebase_core firebase_auth cloud_firestore another_telephony shared_preferences intl
+flutter pub add firebase_core firebase_auth cloud_firestore another_telephony shared_preferences intl http package_info_plus 'ota_update:^7.1.0'
 
 echo "==> Copying app code"
 rm -f test/widget_test.dart
@@ -32,6 +32,8 @@ else
 fi
 echo "    receiver: $RECEIVER"
 sed "s#__SMS_RECEIVER__#$RECEIVER#" "$HERE/src/android/AndroidManifest.xml" > android/app/src/main/AndroidManifest.xml
+mkdir -p android/app/src/main/res/xml
+cp "$HERE/src/android/res/xml/filepaths.xml" android/app/src/main/res/xml/filepaths.xml
 
 # The SMS plugin compiles Kotlin for an older JVM target than Java; that is harmless on Android.
 grep -q "kotlin.jvm.target.validation.mode" android/gradle.properties 2>/dev/null || \

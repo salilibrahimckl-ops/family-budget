@@ -6,6 +6,7 @@ import '../repo.dart';
 import 'balances.dart';
 import 'charts.dart';
 import 'common.dart';
+import '../updater.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -15,12 +16,14 @@ class HomeScreen extends StatefulWidget {
     required this.onMonth,
     required this.onRefresh,
     required this.onOpenTxns,
+    this.updateAvailable = false,
   });
   final Repo repo;
   final DateTime month;
   final ValueChanged<DateTime> onMonth;
   final Future<void> Function() onRefresh;
   final void Function({String? member}) onOpenTxns;
+  final bool updateAvailable;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -59,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onMonth: widget.onMonth,
             onRefresh: widget.onRefresh,
             onOpenTxns: widget.onOpenTxns,
+            updateAvailable: widget.updateAvailable,
             budget: bSnap.data!,
             txns: tSnap.data!.where((t) => t.category != kIgnored).toList(),
           );
@@ -77,7 +81,9 @@ class _Body extends StatelessWidget {
     required this.onOpenTxns,
     required this.budget,
     required this.txns,
+    this.updateAvailable = false,
   });
+  final bool updateAvailable;
   final Repo repo;
   final DateTime month;
   final ValueChanged<DateTime> onMonth;
@@ -141,6 +147,22 @@ class _Body extends StatelessWidget {
         children: [
           Center(child: MonthSwitcher(month: month, onChanged: onMonth)),
           const SizedBox(height: 8),
+          if (updateAvailable) ...[
+            Card(
+              color: Theme.of(context).colorScheme.primary,
+              child: ListTile(
+                leading: Icon(Icons.system_update, color: Theme.of(context).colorScheme.onPrimary),
+                title: Text('Update available',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontWeight: FontWeight.w600)),
+                subtitle: Text('Tap to install the new version',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
+                trailing: FilledButton.tonal(
+                    onPressed: () => showUpdateDialog(context), child: const Text('Update')),
+                onTap: () => showUpdateDialog(context),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           BalancesCard(repo: repo),
           const SizedBox(height: 12),
           _SummaryCard(budget: spendBudget, spent: spendSpent, spentBy: spentBy, cats: spendCats.toList()),

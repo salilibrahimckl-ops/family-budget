@@ -6,6 +6,7 @@ import '../config.dart';
 import '../repo.dart';
 import '../sms_sync.dart';
 import 'dev_options_screen.dart';
+import '../updater.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.repo, required this.sms, required this.onLeft});
@@ -139,6 +140,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               IconButton(icon: const Icon(Icons.copy), onPressed: () => _copy(shortcutUrl, 'Shortcut URL')),
             ]),
           ),
+        if (Updater.supported) _UpdateSection(),
         if (_devMode)
         Card(
           margin: const EdgeInsets.only(bottom: 12),
@@ -226,4 +228,61 @@ class _Section extends StatelessWidget {
           ]),
         ),
       );
+}
+
+
+class _UpdateSection extends StatefulWidget {
+  @override
+  State<_UpdateSection> createState() => _UpdateSectionState();
+}
+
+class _UpdateSectionState extends State<_UpdateSection> {
+  int? _current;
+  int? _latest;
+  bool _checking = false;
+  bool _checked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Updater.currentBuild().then((v) => mounted ? setState(() => _current = v) : null);
+  }
+
+  Future<void> _check() async {
+    setState(() => _checking = true);
+    final l = await Updater.checkForUpdate();
+    if (!mounted) return;
+    setState(() {
+      _latest = l;
+      _checking = false;
+      _checked = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final has = _latest != null;
+    return _Section(
+      icon: Icons.system_update,
+      title: 'App updates',
+      body: 'Installed version: build ${_current ?? '…'}'
+          '${_checked ? (has ? '\nNew version available: build $_latest' : '\nYou have the latest version.') : ''}',
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: has
+            ? FilledButton.icon(
+                icon: const Icon(Icons.download),
+                label: const Text('Update now'),
+                onPressed: () => showUpdateDialog(context),
+              )
+            : OutlinedButton.icon(
+                icon: _checking
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.refresh),
+                label: const Text('Check for update'),
+                onPressed: _checking ? null : _check,
+              ),
+      ),
+    );
+  }
 }

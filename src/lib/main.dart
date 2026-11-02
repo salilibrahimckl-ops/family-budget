@@ -11,6 +11,7 @@ import 'screens/settings_screen.dart';
 import 'screens/setup_screen.dart';
 import 'screens/transactions_screen.dart';
 import 'sms_sync.dart';
+import 'updater.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -135,6 +136,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       if (mounted) setState(() {});
     });
     _sync(first: true);
+    _checkUpdate();
     _timer = Timer.periodic(const Duration(minutes: 2), (_) => _sync());
   }
 
@@ -148,7 +150,16 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _sync();
+    if (state == AppLifecycleState.resumed) {
+      _sync();
+      _checkUpdate();
+    }
+  }
+
+  int? _updateBuild;
+  Future<void> _checkUpdate() async {
+    final b = await Updater.checkForUpdate();
+    if (mounted) setState(() => _updateBuild = b);
   }
 
   bool _syncing = false;
@@ -184,6 +195,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         onMonth: (m) => setState(() => _month = m),
         onRefresh: _sync,
         onOpenTxns: _openTxns,
+        updateAvailable: _updateBuild != null,
       ),
       TransactionsScreen(
         key: ValueKey('tx_$_txnMemberFilter'),

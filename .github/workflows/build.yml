@@ -34,6 +34,9 @@ jobs:
           mkdir -p /tmp/out && cp build-android.log /tmp/out/ || true
           cp FamilyBudget.apk /tmp/out/ 2>/dev/null || true
           echo "${{ job.status }} $(date -u)" > /tmp/out/STATUS
+          if [ -f /tmp/out/FamilyBudget.apk ]; then
+            echo "{\"build\": $((100 + ${{ github.run_number }})), \"sha\": \"${GITHUB_SHA::7}\"}" > /tmp/out/version.json
+          fi
           cd /tmp/out && git init -q && git checkout -q -b builds-android
           git config user.name github-actions; git config user.email github-actions@users.noreply.github.com
           git add -A && git commit -qm "Android build ${{ github.sha }}"
