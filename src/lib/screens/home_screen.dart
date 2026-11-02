@@ -92,6 +92,15 @@ class _Body extends StatelessWidget {
   final Budget budget;
   final List<Txn> txns;
 
+  Map<String, double> _spentByFor(String member) {
+    final m = <String, double>{};
+    for (final t in txns) {
+      if (t.member != member || catById(t.category).goal) continue;
+      m[t.category] = (m[t.category] ?? 0) + t.amount;
+    }
+    return m;
+  }
+
   @override
   Widget build(BuildContext context) {
     final spentBy = <String, double>{};
@@ -101,9 +110,6 @@ class _Body extends StatelessWidget {
     final spendCats = kCats.where((c) => !c.goal);
     final goalCats = kCats.where((c) => c.goal);
     final spendBudget = spendCats.fold<double>(0, (s, c) => s + (budget.categories[c.id] ?? 0));
-    final spendSpent = txns
-        .where((t) => !catById(t.category).goal)
-        .fold<double>(0, (s, t) => s + t.amount);
 
     final chittiAsks = txns.where((t) => t.chittiSuggest).toList();
     final untagged = txns.where((t) => t.category == kUncategorised).toList();
@@ -165,7 +171,38 @@ class _Body extends StatelessWidget {
           ],
           BalancesCard(repo: repo),
           const SizedBox(height: 12),
-          _SummaryCard(budget: spendBudget, spent: spendSpent, spentBy: spentBy, cats: spendCats.toList()),
+          _BudgetRing(
+            title: 'Family',
+            caption: 'Full circle = family spending budget',
+            budget: spendBudget,
+            spentBy: {
+              for (final e in spentBy.entries)
+                if (!catById(e.key).goal) e.key: e.value,
+            },
+            cats: spendCats.toList(),
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(builder: (context, box) {
+            final names = {...budget.members.keys, ...txns.map((t) => t.member)}.toList()..sort();
+            if (names.isEmpty) return const SizedBox.shrink();
+            final w = names.length == 1 ? box.maxWidth : (box.maxWidth - 12) / 2;
+            return Wrap(spacing: 12, runSpacing: 12, children: [
+              for (final n in names)
+                SizedBox(
+                  width: w,
+                  child: _BudgetRing(
+                    compact: true,
+                    title: n,
+                    caption: (budget.members[n] ?? 0) > 0
+                        ? 'Full circle = personal limit'
+                        : 'No personal limit: full circle = family budget',
+                    budget: (budget.members[n] ?? 0) > 0 ? budget.members[n]! : spendBudget,
+                    spentBy: _spentByFor(n),
+                    cats: spendCats.toList(),
+                  ),
+                ),
+            ]);
+          }),
           const SizedBox(height: 12),
           _ChartCard(
             title: 'Spent vs budget',
@@ -237,49 +274,96 @@ class _Body extends StatelessWidget {
   }
 }
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.budget, required this.spent, required this.spentBy, required this.cats});
-  final double budget, spent;
-  final Map<String, double> spentBy;
+/// Ring chart where the full circle (100%) is the spending budget.
+/// Coloured slices = share of the budget used by each category, grey = left.
+class _BudgetRing extends StatelessWidget {
+  const _BudgetRing({
+    required this.title,
+    required this.budget,
+    required this.spentBy,
+    required this.cats,
+    this.caption,
+    this.compact = false,
+  });
+  final String title;
+  final String? caption;
+  final double budget;
+  final Map<String, double> spentBy; // spending categories (+ untagged) only
   final List<Cat> cats;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final left = budget - spent;
-    final over = left < 0;
     final segments = [
       for (final c in cats) Segment(spentBy[c.id] ?? 0, c.color, c.label),
       if ((spentBy[kUncategorised] ?? 0) > 0) Segment(spentBy[kUncategorised]!, cs.error, 'To tag'),
     ];
-    final remainingSeg = Segment(over ? 0 : left, cs.primary.withValues(alpha: 0.12), 'Left');
+    final spent = segments.fold<double>(0, (s, e) => s + e.value);
+    final left = budget - spent;
+    final over = budget > 0 && left < 0;
+    final pct = budget > 0 ? (spent / budget * 100) : 0.0;
+    // When within budget the ring totals the budget (grey = left);
+    // when over, it totals what was spent and the centre turns red.
+    final ring = [
+      ...segments,
+      if (!over && budget > 0) Segment(left, cs.onSurface.withValues(alpha: 0.10), 'Left'),
+    ];
+    final size = compact ? 132.0 : 210.0;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+        padding: EdgeInsets.fromLTRB(compact ? 10 : 16, 14, compact ? 10 : 16, 14),
         child: Column(children: [
-          DonutChart(
-            segments: [...segments, remainingSeg],
-            size: 210,
-            thickness: 28,
-            center: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(over ? 'Over by' : 'Left', style: tt.bodyMedium),
-              Text(money(left.abs()),
-                  style: tt.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700, color: over ? cs.error : cs.primary)),
-              Text('of ${money(budget)}', style: tt.bodySmall),
-            ]),
-          ),
-          const SizedBox(height: 14),
-          Row(children: [
-            Expanded(child: _stat(context, 'Spent', money(spent), over ? cs.error : null)),
-            Expanded(child: _stat(context, 'Budget', money(budget), null)),
-            Expanded(child: _stat(context, over ? 'Over' : 'Remaining', money(left.abs()), over ? cs.error : cs.primary)),
-          ]),
-          const SizedBox(height: 12),
-          ChartLegend(segments),
+          Text(title,
+              style: (compact ? tt.titleSmall : tt.titleMedium)?.copyWith(fontWeight: FontWeight.w600),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+          if (caption != null)
+            Text(caption!, style: tt.labelSmall, textAlign: TextAlign.center, maxLines: 2),
+          SizedBox(height: compact ? 8 : 12),
+          if (over)
+            Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: cs.error, width: 2)),
+              child: _ring(ring, size - 6, compact, pct, over, left, budget, tt, cs),
+            )
+          else
+            _ring(ring, size, compact, pct, over, left, budget, tt, cs),
+          SizedBox(height: compact ? 8 : 14),
+          if (!compact)
+            Row(children: [
+              Expanded(child: _stat(context, 'Spent', money(spent), over ? cs.error : null)),
+              Expanded(child: _stat(context, 'Budget (100%)', budget > 0 ? money(budget) : 'not set', null)),
+              Expanded(
+                  child: _stat(context, over ? 'Over' : 'Left', money(left.abs()), over ? cs.error : cs.primary)),
+            ])
+          else
+            Text(budget > 0 ? '${money(spent)} of ${money(budget)}' : '${money(spent)} spent',
+                style: tt.bodySmall, textAlign: TextAlign.center),
+          SizedBox(height: compact ? 6 : 12),
+          ChartLegend(segments, total: budget > 0 ? budget : null, showMoney: !compact),
         ]),
       ),
+    );
+  }
+
+  Widget _ring(List<Segment> ring, double size, bool compact, double pct, bool over, double left,
+      double budget, TextTheme tt, ColorScheme cs) {
+    return DonutChart(
+      segments: ring,
+      size: size,
+      thickness: compact ? 16 : 28,
+      center: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(budget > 0 ? '${pct.round()}%' : '—',
+            style: (compact ? tt.titleLarge : tt.headlineMedium)
+                ?.copyWith(fontWeight: FontWeight.w700, color: over ? cs.error : cs.primary)),
+        Text(budget <= 0 ? 'no budget' : (over ? 'over budget' : 'used'),
+            style: compact ? tt.labelSmall : tt.bodySmall),
+        if (!compact && budget > 0)
+          Text(over ? 'over by ${money(left.abs())}' : '${money(left)} left',
+              style: tt.bodySmall?.copyWith(color: over ? cs.error : null)),
+      ]),
     );
   }
 

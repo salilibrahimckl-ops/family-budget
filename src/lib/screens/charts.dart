@@ -67,17 +67,22 @@ class _DonutPainter extends CustomPainter {
 
 /// Small legend chips under a chart.
 class ChartLegend extends StatelessWidget {
-  const ChartLegend(this.segments, {super.key});
+  const ChartLegend(this.segments, {super.key, this.total, this.showMoney = true});
   final List<Segment> segments;
+  /// When set, each item also shows its share of this total as a percentage.
+  final double? total;
+  final bool showMoney;
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    return Wrap(spacing: 14, runSpacing: 6, alignment: WrapAlignment.center, children: [
+    String pct(double v) => total != null && total! > 0 ? '${(v / total! * 100).round()}%' : '';
+    return Wrap(spacing: 12, runSpacing: 6, alignment: WrapAlignment.center, children: [
       for (final s in segments.where((s) => s.value > 0))
         Row(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 10, height: 10, decoration: BoxDecoration(color: s.color, shape: BoxShape.circle)),
           const SizedBox(width: 5),
-          Text('${s.label} ${money(s.value)}', style: tt.bodySmall),
+          Text([s.label, if (showMoney) money(s.value), if (total != null) pct(s.value)].join(' '),
+              style: tt.bodySmall),
         ]),
     ]);
   }
