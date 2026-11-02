@@ -1,0 +1,28 @@
+name: Gold rate (Kerala 22K / 24K)
+on:
+  schedule:
+    - cron: "37 0,4,8,12 * * *"   # about 6:07 AM, 10:07 AM, 2:07 PM and 6:07 PM IST
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths: ['tools/gold.py', '.github/workflows/gold.yml']
+permissions:
+  contents: write
+concurrency:
+  group: gold-rate
+  cancel-in-progress: false
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch today's rate
+        run: python3 tools/gold.py /tmp/gold.json
+      - name: Publish to the data branch
+        run: |
+          mkdir -p /tmp/out && cp /tmp/gold.json /tmp/out/gold.json
+          cd /tmp/out && git init -q && git checkout -q -b data
+          git config user.name github-actions; git config user.email github-actions@users.noreply.github.com
+          git add -A && git commit -qm "Gold rate $(date -u +%FT%TZ)"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data

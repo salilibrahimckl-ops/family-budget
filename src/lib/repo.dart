@@ -29,7 +29,15 @@ class Txn {
         date = (d.data()!['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
         source = d.data()!['source'] as String? ?? 'manual',
         chittiSuggest = d.data()!['chittiSuggest'] as bool? ?? false,
-        note = d.data()!['note'] as String?;
+        note = d.data()!['note'] as String?,
+        grams = (d.data()!['grams'] as num?)?.toDouble() ?? 0,
+        purity = (d.data()!['purity'] as num?)?.toInt() ?? 22;
+
+  bool get isGold => kind == 'gold';
+  double get pavan => grams / 8;
+
+  /// Value in rupees; gold uses today's rate per gram for its purity.
+  double value(Map<int, double> goldRates) => isGold ? grams * (goldRates[purity] ?? 0) : amount;
 }
 
 /// A bank account's balance, kept up to date from bank SMS.
@@ -52,6 +60,41 @@ class BankAccount {
         balanceAt = (d.data()!['balanceAt'] as Timestamp?)?.toDate();
 
   String get title => label ?? (account == 'main' ? 'Bank account' : 'A/c ••$account');
+}
+
+/// Money you expect to receive (debt payback, pending stipend…), savings you
+/// hold outside the bank accounts (FD, mutual fund, chitti so far…) or gold.
+class MoneyItem {
+  final String id;
+  final String kind; // 'receivable' | 'asset'
+  final String title;
+  final String member;
+  final double amount;
+  final DateTime? due;
+  final bool received;
+  final DateTime? receivedAt;
+  final String? note;
+  final double grams; // gold only
+  final int purity; // gold only: 22 or 24 (carat)
+
+  MoneyItem.fromDoc(DocumentSnapshot<Map<String, dynamic>> d)
+      : id = d.id,
+        kind = d.data()!['kind'] as String? ?? 'asset',
+        title = d.data()!['title'] as String? ?? '',
+        member = d.data()!['member'] as String? ?? '?',
+        amount = (d.data()!['amount'] as num?)?.toDouble() ?? 0,
+        due = (d.data()!['due'] as Timestamp?)?.toDate(),
+        received = d.data()!['received'] as bool? ?? false,
+        receivedAt = (d.data()!['receivedAt'] as Timestamp?)?.toDate(),
+        note = d.data()!['note'] as String?,
+        grams = (d.data()!['grams'] as num?)?.toDouble() ?? 0,
+        purity = (d.data()!['purity'] as num?)?.toInt() ?? 22;
+
+  bool get isGold => kind == 'gold';
+  double get pavan => grams / 8;
+
+  /// Value in rupees; gold uses today's rate per gram for its purity.
+  double value(Map<int, double> goldRates) => isGold ? grams * (goldRates[purity] ?? 0) : amount;
 }
 
 /// Monthly budget: amount per category + optional personal limit per member.
@@ -431,6 +474,81 @@ class Repo {
   }
 
   Future<void> deleteAccount(BankAccount a) => accounts.doc(a.id).delete();
+
+  // ---------- money to receive & other savings ----------
+
+  CollectionReference<Map<String, dynamic>> get money => family.collection('money');
+
+  Stream<List<MoneyItem>> moneyStream() => money.snapshots().map((q) => q.docs.map(MoneyItem.fromDoc).toList()
+    ..sort((a, b) => (a.due ?? DateTime(2100)).compareTo(b.due ?? DateTime(2100))));
+
+  Future<void> saveMoney({
+    String? id,
+    required String kind,
+    required String title,
+    required String member,
+    required double amount,
+    DateTime? due,
+    String? note,
+    double? grams,
+    int? purity,
+  }) async {
+    final data = <String, dynamic>{
+      'kind': kind,
+      'title': title,
+      'member': member,
+      'amount': amount,
+      if (grams != null) 'grams': grams,
+      if (purity != null) 'purity': purity,
+      'due': due == null ? null : Timestamp.fromDate(due),
+      'note': note,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (id == null) {
+      await money.add({...data, 'received': false});
+    } else {
+      await money.doc(id).set(data, SetOptions(merge: true));
+    }
+  }
+
+  Future<void> setReceived(MoneyItem m, bool received) => money.doc(m.id).update({
+        'received': received,
+        'receivedAt': received ? Timestamp.now() : null,
+      });
+
+  Future<void> deleteMoney(MoneyItem m) => money.doc(m.id).delete();
+
+  /// Today's gold rate per gram, by purity (22K / 24K), shared by the family.
+  Map<int, double> goldRatesFrom(Map<String, dynamic>? familyData) {
+    final r = familyData?['goldRates'];
+    if (r is! Map) return {};
+    return {
+      for (final e in r.entries)
+        if (int.tryParse('${e.key}') != null && e.value is num) int.parse('${e.key}'): (e.value as num).toDouble()
+    };
+  }
+
+  Future<void> setGoldRates(double? r22, double? r24) => family.update({
+        if (r22 != null) 'goldRates.22': r22,
+        if (r24 != null) 'goldRates.24': r24,
+        'goldRatesAt': FieldValue.serverTimestamp(),
+      });
+
+  /// Savings + chitti paid per month (all months), for the history chart.
+  Stream<Map<String, double>> setAsideByMonth() => txns
+      .where('category', whereIn: [
+        for (final c in CatStore.all)
+          if (c.goal) c.id
+      ].take(30).toList())
+      .snapshots()
+      .map((q) {
+        final m = <String, double>{};
+        for (final d in q.docs) {
+          final mk = d.data()['month'] as String? ?? '';
+          m[mk] = (m[mk] ?? 0) + ((d.data()['amount'] as num?)?.toDouble() ?? 0);
+        }
+        return m;
+      });
 
   // ---------- iPhone inbox ----------
 

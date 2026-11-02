@@ -7,6 +7,7 @@ import 'config.dart';
 import 'repo.dart';
 import 'screens/budget_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/money_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/setup_screen.dart';
 import 'screens/transactions_screen.dart';
@@ -204,6 +205,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         onMonth: (m) => setState(() => _month = m),
         initialMember: _txnMemberFilter,
       ),
+      MoneyScreen(repo: widget.repo),
       BudgetScreen(repo: widget.repo, month: _month),
       SettingsScreen(repo: widget.repo, sms: _sms, onLeft: widget.onLeft),
     ];
@@ -218,6 +220,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.pie_chart_outline), selectedIcon: Icon(Icons.pie_chart), label: 'Overview'),
           NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'Payments'),
+          NavigationDestination(
+              icon: Icon(Icons.account_balance_wallet_outlined),
+              selectedIcon: Icon(Icons.account_balance_wallet),
+              label: 'Money'),
           NavigationDestination(icon: Icon(Icons.tune), label: 'Budget'),
           NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
         ],
