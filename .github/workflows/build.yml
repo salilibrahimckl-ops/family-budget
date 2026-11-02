@@ -99,6 +99,20 @@ jobs:
           open('web/index.html', 'w').write(h)
           PY
           flutter build web --release --base-href /family-budget/ 2>&1 | tee -a ../build-web.log
+          # Replace Flutter's offline cache with one that clears itself, so the
+          # iPhone home-screen app always loads the newest version.
+          cat > build/web/flutter_service_worker.js <<'JS'
+          self.addEventListener('install', () => self.skipWaiting());
+          self.addEventListener('activate', (event) => {
+            event.waitUntil((async () => {
+              const keys = await caches.keys();
+              await Promise.all(keys.map((k) => caches.delete(k)));
+              await self.registration.unregister();
+              const clients = await self.clients.matchAll({ type: 'window' });
+              clients.forEach((c) => c.navigate(c.url));
+            })());
+          });
+          JS
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: { path: app/build/web }
