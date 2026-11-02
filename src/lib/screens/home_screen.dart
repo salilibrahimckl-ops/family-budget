@@ -109,7 +109,16 @@ class _Body extends StatelessWidget {
     }
     final spendCats = kCats.where((c) => !c.goal);
     final goalCats = kCats.where((c) => c.goal);
-    final spendBudget = spendCats.fold<double>(0, (s, c) => s + (budget.categories[c.id] ?? 0));
+    // Family 100% = category budgets for spending; if none are set, the
+    // personal limits added together.
+    final catBudget = spendCats.fold<double>(0, (s, c) => s + (budget.categories[c.id] ?? 0));
+    final personalTotal = budget.members.values.fold<double>(0, (s, v) => s + v);
+    final spendBudget = catBudget > 0 ? catBudget : personalTotal;
+    final familyCaption = catBudget > 0
+        ? 'Full circle = family spending budget'
+        : (personalTotal > 0
+            ? 'Full circle = both personal limits together'
+            : 'Set a budget in the Budget tab');
 
     final chittiAsks = txns.where((t) => t.chittiSuggest).toList();
     final untagged = txns.where((t) => t.category == kUncategorised).toList();
@@ -173,7 +182,7 @@ class _Body extends StatelessWidget {
           const SizedBox(height: 12),
           _BudgetRing(
             title: 'Family',
-            caption: 'Full circle = family spending budget',
+            caption: familyCaption,
             budget: spendBudget,
             spentBy: {
               for (final e in spentBy.entries)
@@ -336,7 +345,8 @@ class _BudgetRing extends StatelessWidget {
               Expanded(child: _stat(context, 'Spent', money(spent), over ? cs.error : null)),
               Expanded(child: _stat(context, 'Budget (100%)', budget > 0 ? money(budget) : 'not set', null)),
               Expanded(
-                  child: _stat(context, over ? 'Over' : 'Left', money(left.abs()), over ? cs.error : cs.primary)),
+                  child: _stat(context, over ? 'Over' : 'Left', budget > 0 ? money(left.abs()) : '—',
+                      over ? cs.error : cs.primary)),
             ])
           else
             Text(budget > 0 ? '${money(spent)} of ${money(budget)}' : '${money(spent)} spent',
