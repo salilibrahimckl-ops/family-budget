@@ -6,6 +6,8 @@ on:
   workflow_dispatch: {}
 permissions:
   contents: write
+  pages: write
+  id-token: write
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
@@ -64,3 +66,38 @@ jobs:
           git config user.name github-actions; git config user.email github-actions@users.noreply.github.com
           git add -A && git commit -qm "iOS build ${{ github.sha }}"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" builds-ios
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - name: Build web app (for the iPhone home screen)
+        shell: bash
+        run: |
+          set -o pipefail
+          SKIP_APK=1 bash setup.sh 2>&1 | tee build-web.log
+          cd app
+          flutter create --platforms web . 2>&1 | tee -a ../build-web.log
+          python3 - <<'PY'
+          import json, re
+          m = json.load(open('web/manifest.json'))
+          m.update(name='Family Budget', short_name='Budget', background_color='#16808A',
+                   theme_color='#16808A', display='standalone')
+          json.dump(m, open('web/manifest.json', 'w'), indent=2)
+          h = open('web/index.html').read()
+          h = re.sub(r'<title>.*?</title>', '<title>Family Budget</title>', h)
+          h = h.replace('content="family_budget"', 'content="Family Budget"')
+          open('web/index.html', 'w').write(h)
+          PY
+          flutter build web --release --base-href /family-budget/ 2>&1 | tee -a ../build-web.log
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: app/build/web }
+      - id: deploy
+        uses: actions/deploy-pages@v4
