@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config.dart';
 import '../repo.dart';
@@ -19,6 +20,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Session? _s;
   String? _token;
   bool _scanning = false;
+  bool _devMode = false;
+  int _taps = 0;
 
   @override
   void initState() {
@@ -29,10 +32,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _init() async {
     final s = await Session.load();
     final t = await widget.repo.myInboxToken();
+    final dev = (await SharedPreferences.getInstance()).getBool('devMode') ?? false;
+    final admin = await widget.repo.isAdmin();
     if (mounted) setState(() {
       _s = s;
       _token = t;
+      _devMode = dev && admin;
     });
+  }
+
+  /// Tap the version 7 times to turn developer mode on (family admin only).
+  Future<void> _versionTap() async {
+    _taps++;
+    if (_devMode || _taps < 7) {
+      if (!_devMode && _taps >= 4) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+              duration: const Duration(milliseconds: 700), content: Text('${7 - _taps} more taps…')));
+      }
+      return;
+    }
+    _taps = 0;
+    final admin = await widget.repo.isAdmin(claimIfUnset: true);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    if (!admin) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Developer mode is only for the family admin (the person who created the family).')));
+      return;
+    }
+    (await SharedPreferences.getInstance()).setBool('devMode', true);
+    setState(() => _devMode = true);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Developer mode is on')));
+    }
   }
 
   void _copy(String text, String what) {
@@ -105,6 +139,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               IconButton(icon: const Icon(Icons.copy), onPressed: () => _copy(shortcutUrl, 'Shortcut URL')),
             ]),
           ),
+        if (_devMode)
         Card(
           margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
@@ -142,6 +177,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ),
+        const SizedBox(height: 8),
+        Center(
+          child: InkWell(
+            onTap: _versionTap,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(_devMode ? 'Family Budget 1.1 · developer mode on' : 'Family Budget 1.1',
+                  style: tt.bodySmall),
+            ),
+          ),
+        ),
+        if (_devMode)
+          Center(
+            child: TextButton(
+              onPressed: () async {
+                (await SharedPreferences.getInstance()).setBool('devMode', false);
+                setState(() => _devMode = false);
+              },
+              child: const Text('Turn off developer mode'),
+            ),
+          ),
       ],
     );
   }

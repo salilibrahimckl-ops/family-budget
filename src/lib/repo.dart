@@ -76,6 +76,7 @@ class Repo {
       'name': familyName,
       'createdAt': FieldValue.serverTimestamp(),
       'members': {user.uid: myName},
+      'adminName': myName, // only this person can use Developer options
       'inboxTokens': {randomToken(): myName},
       'defaultBudget': {
         'categories': {for (final c in kCats) c.id: 0},
@@ -194,6 +195,20 @@ class Repo {
     if (_catsLoaded) return;
     CatStore.apply((await family.get()).data());
     _catsLoaded = true;
+  }
+
+  /// The family admin (creator) is the only one who can use Developer options.
+  /// Older families without an admin: the first person to turn on developer
+  /// mode becomes admin.
+  Future<bool> isAdmin({bool claimIfUnset = false}) async {
+    final d = (await family.get()).data();
+    final admin = d?['adminName'] as String?;
+    if (admin == null) {
+      if (!claimIfUnset) return false;
+      await family.update({'adminName': myName});
+      return true;
+    }
+    return admin == myName;
   }
 
   // ---------- categories (Developer options) ----------

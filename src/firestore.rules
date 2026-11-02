@@ -8,6 +8,11 @@ service cloud.firestore {
     function isMember(fid) {
       return request.auth != null && request.auth.uid in fam(fid).members;
     }
+    // Developer options (categories) can only be changed by the family admin.
+    function isAdmin(fid) {
+      let f = fam(fid);
+      return !('adminName' in f) || f.members[request.auth.uid] == f.adminName;
+    }
 
     match /families/{fid} {
       // Reading one family needs its (secret, random) id from the invite code.
@@ -16,7 +21,10 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.members.keys().hasOnly([request.auth.uid]);
       // Members can edit; a newcomer may only add themselves (join).
-      allow update: if isMember(fid) || (
+      allow update: if (isMember(fid) && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['cats', 'adminName'])
+          || isAdmin(fid)
+        )) || (
         request.auth != null
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'inboxTokens'])
         && request.resource.data.members.diff(resource.data.members).affectedKeys().hasOnly([request.auth.uid])
