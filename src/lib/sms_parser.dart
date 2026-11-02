@@ -245,6 +245,41 @@ class SmsParser {
     if (bal == null && delta == 0) return null;
     return BalanceInfo(account: acct ?? 'main', balance: bal, delta: delta);
   }
+
+  // ---------- card purchase OTP ----------
+
+  static final _cardOtp = RegExp(
+      r'(?:otp|one time password|one-time password).{0,80}?(?:purchase|transaction|txn|payment)\s+(?:of|for)\s+'
+      r'(?:rs\.?|inr|₹)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s*(?:at|on|to|with)\s+(.+?)'
+      r'(?:\s+(?:thru|through|using|via|with|on|from)\b|[.;,]|$)',
+      caseSensitive: false);
+  static final _cardDigits =
+      RegExp(r'card\s*(?:no\.?|number|ending(?:\s*with)?)?\s*[x*.\s]*(\d{4})\b', caseSensitive: false);
+
+  /// "123456 is OTP for online purchase of Rs. 456.00 at SWIGGY FOOD thru
+  /// State Bank Debit Card 9645" → amount, merchant, card. The OTP code
+  /// itself is never returned or stored.
+  static CardOtp? parseCardOtp(String body) {
+    final text = body.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final m = _cardOtp.firstMatch(text);
+    if (m == null) return null;
+    final amount = double.tryParse(m.group(1)!.replaceAll(',', ''));
+    if (amount == null || amount <= 0) return null;
+    var merchant = m.group(2)!.trim();
+    if (merchant.length > 60) merchant = merchant.substring(0, 60);
+    if (merchant.isEmpty) return null;
+    final card = _cardDigits.firstMatch(text)?.group(1);
+    return CardOtp(amount: amount, merchant: merchant.toUpperCase(), card: card);
+  }
+}
+
+class CardOtp {
+  final double amount;
+  final String merchant;
+  final String? card;
+  const CardOtp({required this.amount, required this.merchant, this.card});
+  @override
+  String toString() => 'CardOtp(₹$amount at $merchant, card $card)';
 }
 
 class BalanceInfo {

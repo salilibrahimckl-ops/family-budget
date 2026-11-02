@@ -32,6 +32,23 @@ class Txn {
         note = d.data()!['note'] as String?;
 }
 
+/// A card payment seen only as an OTP SMS, waiting for "did it go through?".
+class PendingCard {
+  final String id;
+  final double amount;
+  final String merchant;
+  final String? card;
+  final String member;
+  final DateTime at;
+  PendingCard.fromDoc(DocumentSnapshot<Map<String, dynamic>> d)
+      : id = d.id,
+        amount = (d.data()!['amount'] as num).toDouble(),
+        merchant = d.data()!['merchant'] as String? ?? 'Card payment',
+        card = d.data()!['card'] as String?,
+        member = d.data()!['member'] as String? ?? '?',
+        at = (d.data()!['at'] as Timestamp?)?.toDate() ?? DateTime.now();
+}
+
 /// A bank account's balance, kept up to date from bank SMS.
 class BankAccount {
   final String id;
@@ -199,7 +216,11 @@ class Repo {
       await updateBalance(body, when: receivedAt, member: member);
     } catch (_) {}
     final p = SmsParser.parse(body);
-    if (p == null) return false;
+    if (p == null) {
+      final otp = SmsParser.parseCardOtp(body);
+      if (otp != null) await _addPendingCard(otp, receivedAt, member);
+      return false;
+    }
     final when = p.date != null && source == 'iphone' ? _withTime(p.date!, receivedAt) : receivedAt;
     final id = p.ref != null
         ? 'ref_${p.ref}'
@@ -207,6 +228,7 @@ class Repo {
 
     final ref = txns.doc(id);
     if ((await ref.get()).exists) return false;
+    if (await _matchesCardPayment(p.amount, when, member)) return false;
 
     final key = Categorizer.payeeKey(p.payee, vpa: p.vpa);
     final rule = (await rules.doc(key).get()).data();
@@ -387,6 +409,77 @@ class Repo {
   Future<void> ignore(Txn t) => txns.doc(t.id).update({'category': kIgnored, 'chittiSuggest': false});
 
   Future<void> delete(Txn t) => txns.doc(t.id).delete();
+
+  // ---------- card payments seen only as an OTP ----------
+
+  CollectionReference<Map<String, dynamic>> get pending => family.collection('pending');
+
+  Stream<List<PendingCard>> pendingStream() => pending.snapshots().map(
+      (q) => q.docs.map(PendingCard.fromDoc).toList()..sort((a, b) => b.at.compareTo(a.at)));
+
+  Future<void> _addPendingCard(CardOtp o, DateTime at, String member) async {
+    // One OTP SMS = one pending item, even when re-scanned.
+    final id = 'otp_${member.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}_${at.millisecondsSinceEpoch ~/ 1000}';
+    final ref = pending.doc(id);
+    if ((await ref.get()).exists) return;
+    // Ignore OTPs we already turned into a payment or dismissed.
+    final done = await family.collection('pendingDone').doc(id).get();
+    if (done.exists) return;
+    await ref.set({
+      'amount': o.amount,
+      'merchant': o.merchant,
+      'card': o.card,
+      'member': member,
+      'at': Timestamp.fromDate(at),
+    });
+  }
+
+  /// Bank debit SMS that matches an OTP card payment (same person, same amount,
+  /// within 3 hours): drop the pending item, and don't double-count one the
+  /// user already confirmed.
+  Future<bool> _matchesCardPayment(double amount, DateTime when, String member) async {
+    bool near(DateTime t) => t.difference(when).inMinutes.abs() <= 180;
+    final p = await pending.where('member', isEqualTo: member).get();
+    for (final d in p.docs) {
+      final pc = PendingCard.fromDoc(d);
+      if ((pc.amount - amount).abs() < 0.01 && near(pc.at)) {
+        await family.collection('pendingDone').doc(d.id).set({'by': 'sms'});
+        await d.reference.delete();
+        return false; // let the real SMS create the payment
+      }
+    }
+    final card = await txns.where('source', isEqualTo: 'card').where('member', isEqualTo: member).get();
+    return card.docs.any((d) {
+      final t = Txn.fromDoc(d);
+      return (t.amount - amount).abs() < 0.01 && near(t.date);
+    });
+  }
+
+  Future<void> confirmCard(PendingCard pc, bool wentThrough) async {
+    if (wentThrough) {
+      await _loadCats();
+      final key = Categorizer.payeeKey(pc.merchant);
+      final rule = (await rules.doc(key).get()).data();
+      final category = rule?['category'] as String? ??
+          CatStore.matchKeywords(pc.merchant, null) ??
+          Categorizer.guess(pc.merchant).category;
+      await txns.doc('card_${pc.id}').set({
+        'amount': pc.amount,
+        'payee': pc.merchant,
+        'payeeKey': key,
+        'category': category,
+        'member': pc.member,
+        'date': Timestamp.fromDate(pc.at),
+        'month': monthKey(pc.at),
+        'source': 'card',
+        'note': pc.card != null ? 'Card ••${pc.card}' : 'Card payment',
+        'chittiSuggest': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await family.collection('pendingDone').doc(pc.id).set({'by': wentThrough ? 'yes' : 'no'});
+    await pending.doc(pc.id).delete();
+  }
 
   // ---------- bank balances ----------
 

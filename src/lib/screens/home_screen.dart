@@ -5,6 +5,7 @@ import '../config.dart';
 import '../repo.dart';
 import 'balances.dart';
 import 'charts.dart';
+import 'pending_cards.dart';
 import 'common.dart';
 import '../updater.dart';
 
@@ -233,6 +234,7 @@ class _Body extends StatelessWidget {
               today: isCurrent ? now.day : null,
             ),
           ),
+          PendingCards(repo: repo),
           for (final t in chittiAsks) ...[
             const SizedBox(height: 12),
             _ChittiCard(repo: repo, t: t),

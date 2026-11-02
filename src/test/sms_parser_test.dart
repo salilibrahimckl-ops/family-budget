@@ -93,4 +93,19 @@ void main() {
       expect(b.delta, -1499.0);
     });
   });
+
+  test('card purchase OTP (code is not kept)', () {
+    final o = SmsParser.parseCardOtp(
+        '079003 is OTP for online purchase of Rs. 456.00 at SWIGGY FOOD thru State Bank Debit Card 9645. Do not share this OTP with anyone. -SBI')!;
+    expect(o.amount, 456.0);
+    expect(o.merchant, 'SWIGGY FOOD');
+    expect(o.card, '9645');
+    expect(o.toString().contains('079003'), isFalse);
+    // Masked by the iPhone Shortcut
+    final m = SmsParser.parseCardOtp(
+        '****** is OTP for online purchase of Rs. 456.00 at SWIGGY FOOD thru State Bank Debit Card 9645.')!;
+    expect(m.amount, 456.0);
+    expect(SmsParser.parse('079003 is OTP for online purchase of Rs. 456.00 at SWIGGY FOOD'), isNull);
+    expect(SmsParser.parseCardOtp('123456 is your OTP to log in to YONO'), isNull);
+  });
 }
