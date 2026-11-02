@@ -24,7 +24,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          bash setup.sh 2>&1 | tee build-android.log
+          BUILD_NUMBER=$((100 + ${{ github.run_number }})) bash setup.sh 2>&1 | tee build-android.log
       - name: Publish result to builds-android branch
         if: always()
         shell: bash

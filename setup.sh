@@ -57,7 +57,10 @@ echo "==> Running parser tests"
 flutter test || echo "!! Some tests failed - the app still builds, but tell Claude which ones."
 
 echo "==> Building Android APK"
-flutter build apk --release
+# Always sign with the same key so new versions install as updates.
+mkdir -p "$HOME/.android"
+cp "$HERE/android-signing/debug.keystore" "$HOME/.android/debug.keystore"
+flutter build apk --release ${BUILD_NUMBER:+--build-number=$BUILD_NUMBER}
 cp build/app/outputs/flutter-apk/app-release.apk "$HERE/FamilyBudget.apk"
 
 echo ""
