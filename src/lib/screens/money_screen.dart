@@ -94,7 +94,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
   late final _accounts = widget.repo.accountsStream();
   late final _money = widget.repo.moneyStream();
   late final _family = widget.repo.familyStream();
-  late final _setAside = widget.repo.setAsideByMonth();
+  late final _setAside = widget.repo.setAsideStream();
   GoldRate? _auto;
   bool _showReceived = false;
 
@@ -112,7 +112,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
         stream: _accounts,
         builder: (context, accSnap) => StreamBuilder<List<MoneyItem>>(
           stream: _money,
-          builder: (context, monSnap) => StreamBuilder<Map<String, double>>(
+          builder: (context, monSnap) => StreamBuilder<SetAside>(
             stream: _setAside,
             builder: (context, saSnap) {
               final fam = famSnap.data?.data();
@@ -128,7 +128,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                 24: _auto?.rate24 ?? manual[24] ?? 0,
               };
               return _body(context, members, accSnap.data ?? const [], monSnap.data ?? const [],
-                  saSnap.data ?? const {}, rates, manual);
+                  saSnap.data ?? const SetAside({}, {}), rates, manual);
             },
           ),
         ),
@@ -137,7 +137,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
   }
 
   Widget _body(BuildContext context, List<String> members, List<BankAccount> accts, List<MoneyItem> items,
-      Map<String, double> setAside, Map<int, double> rates, Map<int, double> manual) {
+      SetAside setAside, Map<int, double> rates, Map<int, double> manual) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
     final receivables = items.where((m) => m.kind == 'receivable').toList();
@@ -160,13 +160,15 @@ class _MoneyScreenState extends State<MoneyScreen> {
     final assetTotal = members.fold(0.0, (s, n) => s + assetsOf(n));
     final cashTotal = members.fold(0.0, (s, n) => s + cashOf(n));
     final pendingTotal = pending.fold(0.0, (s, m) => s + m.amount);
-    final haveNow = bankTotal + goldTotal + cashTotal + assetTotal;
+    double paidInOf(String n) => setAside.byMember[n] ?? 0;
+    final paidIn = setAside.total;
+    final haveNow = bankTotal + goldTotal + cashTotal + assetTotal + paidIn;
 
     // Monthly set-aside history (last 6 months).
     final now = DateTime.now();
     final months = [for (var i = 5; i >= 0; i--) DateTime(now.year, now.month - i)];
     String mk(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}';
-    final allTimeSetAside = setAside.values.fold(0.0, (s, v) => s + v);
+    final allTimeSetAside = paidIn;
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
@@ -184,13 +186,18 @@ class _MoneyScreenState extends State<MoneyScreen> {
             child: Padding(
               padding: const EdgeInsets.all(18),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('What we have now', style: tt.bodyMedium?.copyWith(color: cs.onPrimaryContainer)),
+                Row(children: [
+                  Icon(Icons.savings, size: 18, color: cs.onPrimaryContainer),
+                  const SizedBox(width: 6),
+                  Text('Total savings till now', style: tt.bodyMedium?.copyWith(color: cs.onPrimaryContainer)),
+                ]),
                 Text(money(haveNow),
                     style: tt.displaySmall?.copyWith(fontWeight: FontWeight.w700, color: cs.onPrimaryContainer)),
                 const SizedBox(height: 4),
                 Text(
                   'Bank ${money(bankTotal)} · Gold ${money(goldTotal)} · Cash ${money(cashTotal)}'
-                  ' · Other savings ${money(assetTotal)}',
+                  ' · Other savings ${money(assetTotal)}'
+                  '${paidIn > 0 ? ' · Chitti & savings paid ${money(paidIn)}' : ''}',
                   style: tt.bodySmall?.copyWith(color: cs.onPrimaryContainer),
                 ),
                 if (pendingTotal > 0) ...[
@@ -211,7 +218,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     padding: const EdgeInsets.all(12),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(n, style: tt.titleSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      Text(money(bankOf(n) + goldOf(n) + cashOf(n) + assetsOf(n)),
+                      Text(money(bankOf(n) + goldOf(n) + cashOf(n) + assetsOf(n) + paidInOf(n)),
                           style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 4),
                       Text('Bank ${money(bankOf(n))}', style: tt.bodySmall),
@@ -229,6 +236,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                           Text('Cash ${money(cashOf(n))}', style: tt.bodySmall),
                         ]),
                       if (assetsOf(n) > 0) Text('Savings ${money(assetsOf(n))}', style: tt.bodySmall),
+                      if (paidInOf(n) > 0) Text('Chitti & savings paid ${money(paidInOf(n))}', style: tt.bodySmall),
                       if (pendingOf(n) > 0)
                         Text('To receive ${money(pendingOf(n))}',
                             style: tt.bodySmall?.copyWith(color: cs.tertiary, fontWeight: FontWeight.w600)),
@@ -304,11 +312,12 @@ class _MoneyScreenState extends State<MoneyScreen> {
 
           // ---- Monthly set aside ----
           _header(context, Icons.bar_chart, 'Set aside each month', 'all-time ${money(allTimeSetAside)}'),
-          _hint(context, 'Savings + Chitti payments recorded in the app.'),
+          _hint(context, 'Savings + Chitti payments recorded in the app (included in the total above). '
+              'Enter only what you paid *before* using the app under Other savings.'),
           const SizedBox(height: 8),
           BudgetBars(items: [
             for (final m in months)
-              (DateFormat('MMM').format(m), setAside[mk(m)] ?? 0, 0.0, const Color(0xFF1F6F43)),
+              (DateFormat('MMM').format(m), setAside.byMonth[mk(m)] ?? 0, 0.0, const Color(0xFF1F6F43)),
           ]),
         ],
       ),

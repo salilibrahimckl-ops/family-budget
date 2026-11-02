@@ -32,6 +32,14 @@ class Txn {
         note = d.data()!['note'] as String?;
 }
 
+/// Money moved into Savings / Chitti through the app.
+class SetAside {
+  final Map<String, double> byMonth;
+  final Map<String, double> byMember;
+  const SetAside(this.byMonth, this.byMember);
+  double get total => byMonth.values.fold(0.0, (s, v) => s + v);
+}
+
 /// A card payment seen only as an OTP SMS, waiting for "did it go through?".
 class PendingCard {
   final String id;
@@ -619,20 +627,24 @@ class Repo {
         'goldRatesAt': FieldValue.serverTimestamp(),
       });
 
-  /// Savings + chitti paid per month (all months), for the history chart.
-  Stream<Map<String, double>> setAsideByMonth() => txns
+  /// Savings + chitti paid (all months), by month and by person.
+  Stream<SetAside> setAsideStream() => txns
       .where('category', whereIn: [
         for (final c in CatStore.all)
           if (c.goal) c.id
       ].take(30).toList())
       .snapshots()
       .map((q) {
-        final m = <String, double>{};
+        final byMonth = <String, double>{};
+        final byMember = <String, double>{};
         for (final d in q.docs) {
+          final a = (d.data()['amount'] as num?)?.toDouble() ?? 0;
           final mk = d.data()['month'] as String? ?? '';
-          m[mk] = (m[mk] ?? 0) + ((d.data()['amount'] as num?)?.toDouble() ?? 0);
+          final who = d.data()['member'] as String? ?? '?';
+          byMonth[mk] = (byMonth[mk] ?? 0) + a;
+          byMember[who] = (byMember[who] ?? 0) + a;
         }
-        return m;
+        return SetAside(byMonth, byMember);
       });
 
   // ---------- iPhone inbox ----------
