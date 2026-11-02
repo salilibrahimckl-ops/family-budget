@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../categories.dart';
 import '../config.dart';
 import '../repo.dart';
+import 'charts.dart';
 import 'common.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -114,14 +115,53 @@ class _Body extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
 
-    return RefreshIndicator(
+    // Daily totals for the bar chart (spending categories only).
+    final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
+    final perDay = List<double>.filled(daysInMonth, 0);
+    for (final t in txns) {
+      if (!catById(t.category).goal && t.date.month == month.month && t.date.year == month.year) {
+        perDay[t.date.day - 1] += t.amount;
+      }
+    }
+    final now = DateTime.now();
+    final isCurrent = now.year == month.year && now.month == month.month;
+
+    return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'addSpend',
+        onPressed: () => showAddSheet(context, repo),
+        icon: const Icon(Icons.add),
+        label: const Text('Add spending'),
+      ),
+      body: RefreshIndicator(
       onRefresh: onRefresh,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
         children: [
           Center(child: MonthSwitcher(month: month, onChanged: onMonth)),
           const SizedBox(height: 8),
-          _SummaryCard(budget: spendBudget, spent: spendSpent),
+          _SummaryCard(budget: spendBudget, spent: spendSpent, spentBy: spentBy, cats: spendCats.toList()),
+          const SizedBox(height: 12),
+          _ChartCard(
+            title: 'Spent vs budget',
+            subtitle: 'Light bar = budget, solid bar = spent',
+            child: BudgetBars(items: [
+              for (final c in spendCats)
+                (c.label, spentBy[c.id] ?? 0, budget.categories[c.id] ?? 0, c.color),
+            ]),
+          ),
+          const SizedBox(height: 12),
+          _ChartCard(
+            title: 'Daily spending',
+            subtitle: spendBudget > 0
+                ? 'Dashed line = ${money(spendBudget / daysInMonth)} a day keeps you on budget'
+                : 'Set a budget to see your daily limit',
+            child: DailyBars(
+              perDay: perDay,
+              dailyBudget: spendBudget > 0 ? spendBudget / daysInMonth : 0,
+              today: isCurrent ? now.day : null,
+            ),
+          ),
           for (final t in chittiAsks) ...[
             const SizedBox(height: 12),
             _ChittiCard(repo: repo, t: t),
@@ -167,45 +207,82 @@ class _Body extends StatelessWidget {
               ),
         ],
       ),
+    ),
     );
   }
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.budget, required this.spent});
+  const _SummaryCard({required this.budget, required this.spent, required this.spentBy, required this.cats});
   final double budget, spent;
+  final Map<String, double> spentBy;
+  final List<Cat> cats;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final left = budget - spent;
-    final frac = budget <= 0 ? 0.0 : (spent / budget).clamp(0.0, 1.0);
     final over = left < 0;
+    final segments = [
+      for (final c in cats) Segment(spentBy[c.id] ?? 0, c.color, c.label),
+      if ((spentBy[kUncategorised] ?? 0) > 0) Segment(spentBy[kUncategorised]!, cs.error, 'To tag'),
+    ];
+    final remainingSeg = Segment(over ? 0 : left, cs.primary.withValues(alpha: 0.12), 'Left');
     return Card(
-      color: cs.primaryContainer,
       child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(over ? 'Over budget by' : 'Left to spend this month',
-              style: tt.bodyMedium?.copyWith(color: cs.onPrimaryContainer)),
-          const SizedBox(height: 4),
-          Text(money(left.abs()),
-              style: tt.displaySmall?.copyWith(
-                  color: over ? cs.error : cs.onPrimaryContainer, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: frac,
-              minHeight: 10,
-              backgroundColor: cs.surface.withValues(alpha: 0.5),
-              color: over ? cs.error : cs.primary,
-            ),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+        child: Column(children: [
+          DonutChart(
+            segments: [...segments, remainingSeg],
+            size: 210,
+            thickness: 28,
+            center: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text(over ? 'Over by' : 'Left', style: tt.bodyMedium),
+              Text(money(left.abs()),
+                  style: tt.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w700, color: over ? cs.error : cs.primary)),
+              Text('of ${money(budget)}', style: tt.bodySmall),
+            ]),
           ),
-          const SizedBox(height: 8),
-          Text('${money(spent)} spent of ${money(budget)}',
-              style: tt.bodySmall?.copyWith(color: cs.onPrimaryContainer)),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(child: _stat(context, 'Spent', money(spent), over ? cs.error : null)),
+            Expanded(child: _stat(context, 'Budget', money(budget), null)),
+            Expanded(child: _stat(context, over ? 'Over' : 'Remaining', money(left.abs()), over ? cs.error : cs.primary)),
+          ]),
+          const SizedBox(height: 12),
+          ChartLegend(segments),
+        ]),
+      ),
+    );
+  }
+
+  Widget _stat(BuildContext context, String label, String value, Color? color) {
+    final tt = Theme.of(context).textTheme;
+    return Column(children: [
+      Text(label, style: tt.bodySmall),
+      const SizedBox(height: 2),
+      Text(value, style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600, color: color)),
+    ]);
+  }
+}
+
+class _ChartCard extends StatelessWidget {
+  const _ChartCard({required this.title, required this.subtitle, required this.child});
+  final String title, subtitle;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: tt.titleMedium),
+          Text(subtitle, style: tt.bodySmall),
+          const SizedBox(height: 12),
+          child,
         ]),
       ),
     );

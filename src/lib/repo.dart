@@ -154,8 +154,9 @@ class Repo {
     if (rule?['category'] != null) {
       category = rule!['category'] as String;
     } else {
+      await _loadCats();
       final g = Categorizer.guess(p.payee, vpa: p.vpa);
-      category = g.category;
+      category = CatStore.matchKeywords(p.payee, p.vpa) ?? g.category;
       chittiAsk = g.chittiHint;
     }
 
@@ -187,6 +188,48 @@ class Repo {
     });
     return true;
   }
+
+  bool _catsLoaded = false;
+  Future<void> _loadCats() async {
+    if (_catsLoaded) return;
+    CatStore.apply((await family.get()).data());
+    _catsLoaded = true;
+  }
+
+  // ---------- categories (Developer options) ----------
+
+  /// Create or update a category. Built-ins only store overrides.
+  Future<void> saveCat(Cat c, {int? order}) async {
+    await family.update({
+      'cats.${c.id}': {
+        'label': c.label,
+        'icon': c.iconKey,
+        'color': c.color.toARGB32(),
+        'goal': c.goal,
+        'hidden': c.hidden,
+        'custom': c.custom,
+        'keywords': c.keywords,
+        if (order != null) 'order': order,
+      }
+    });
+  }
+
+  /// Removes a custom category; its payments move to "To tag".
+  Future<void> deleteCat(Cat c) async {
+    if (!c.custom) return;
+    await family.update({'cats.${c.id}': FieldValue.delete()});
+    final used = await txns.where('category', isEqualTo: c.id).get();
+    for (final d in used.docs) {
+      await d.reference.update({'category': kUncategorised});
+    }
+    final r = await rules.where('category', isEqualTo: c.id).get();
+    for (final d in r.docs) {
+      await d.reference.update({'category': FieldValue.delete()});
+    }
+  }
+
+  /// Restores a built-in category's original name, icon and colour.
+  Future<void> resetCat(Cat c) => family.update({'cats.${c.id}': FieldValue.delete()});
 
   DateTime _withTime(DateTime day, DateTime t) =>
       DateTime(day.year, day.month, day.day, t.hour, t.minute);

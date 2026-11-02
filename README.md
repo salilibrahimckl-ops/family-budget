@@ -99,6 +99,9 @@ From then on, every bank SMS she gets is sent to the family. Either phone turns 
 - **Overview:** shows how much is left this month in the family pool, each category, and each person's spending and balance.
 - **Red "needs a category" card:** payments to new payees, such as a person's name. Tap a payment and pick a category. The app uses that category for that payee from then on, unless you untick the box.
 - **"Is this your chitti?" card:** answer once per chit fund.
+- **Charts on Overview:** a ring chart shows what each category has used and what is left. Bar charts show spent against budget for each category and spending for each day of the month. The dashed line marks the daily amount that keeps you on budget.
+- **Add spending:** the button at the bottom of Overview adds a cash payment, or any payment the SMS reading missed.
+- **Settings → Developer options:** create your own categories, such as Medical or School fees. You can name each one, pick an icon and colour, and add keywords (for example `apollo, pharmacy`) so matching payments go there automatically. You can also rename or hide the built-in categories.
 - **Payments tab:** filter by person or category. Tap a payment to change its category or amount, add a note, or mark it as **Not a spend** (for example a transfer to your own account).
 - **+ Cash / other:** add cash payments yourself.
 

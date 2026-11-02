@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../config.dart';
 import '../repo.dart';
 import '../sms_sync.dart';
+import 'dev_options_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.repo, required this.sms, required this.onLeft});
@@ -104,6 +105,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               IconButton(icon: const Icon(Icons.copy), onPressed: () => _copy(shortcutUrl, 'Shortcut URL')),
             ]),
           ),
+        Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: ListTile(
+            leading: const Icon(Icons.developer_mode),
+            title: const Text('Developer options'),
+            subtitle: const Text('Add and name your own spending categories'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => DevOptionsScreen(repo: widget.repo))),
+          ),
+        ),
         _Section(
           icon: Icons.logout,
           title: 'Leave on this phone',

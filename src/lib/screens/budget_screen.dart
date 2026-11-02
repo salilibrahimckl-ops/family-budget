@@ -64,6 +64,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
     _load();
     final tt = Theme.of(context).textTheme;
     if (_cat.isEmpty) return const Center(child: CircularProgressIndicator());
+    for (final c in kCats) {
+      _cat.putIfAbsent(c.id, () => TextEditingController());
+    }
     final total = kCats.fold<double>(0, (s, c) => s + _val(_cat[c.id]));
     return RefreshIndicator(
       onRefresh: () {

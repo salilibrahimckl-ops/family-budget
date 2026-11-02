@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'categories.dart';
 import 'config.dart';
 import 'repo.dart';
 import 'screens/budget_screen.dart';
@@ -121,12 +122,18 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   late final SmsSync _sms = SmsSync(widget.repo);
   Timer? _timer;
+  StreamSubscription? _famSub;
   String? _txnMemberFilter;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Keep categories (incl. ones from Developer options) in sync on both phones.
+    _famSub = widget.repo.familyStream().listen((snap) {
+      CatStore.apply(snap.data());
+      if (mounted) setState(() {});
+    });
     _sync(first: true);
     _timer = Timer.periodic(const Duration(minutes: 2), (_) => _sync());
   }
@@ -135,6 +142,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    _famSub?.cancel();
     super.dispose();
   }
 
