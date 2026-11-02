@@ -1,0 +1,66 @@
+name: Build Family Budget apps
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['README.md']
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - name: Build APK
+        shell: bash
+        run: |
+          set -o pipefail
+          bash setup.sh 2>&1 | tee build-android.log
+      - name: Publish result to builds-android branch
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p /tmp/out && cp build-android.log /tmp/out/ || true
+          cp FamilyBudget.apk /tmp/out/ 2>/dev/null || true
+          echo "${{ job.status }} $(date -u)" > /tmp/out/STATUS
+          cd /tmp/out && git init -q && git checkout -q -b builds-android
+          git config user.name github-actions; git config user.email github-actions@users.noreply.github.com
+          git add -A && git commit -qm "Android build ${{ github.sha }}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" builds-android
+
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - name: Build unsigned IPA
+        shell: bash
+        run: |
+          set -o pipefail
+          SKIP_APK=1 bash setup.sh 2>&1 | tee build-ios.log
+          cd app
+          flutter build ios --release --no-codesign 2>&1 | tee -a ../build-ios.log
+          mkdir -p Payload && cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qry ../FamilyBudget.ipa Payload
+      - name: Publish result to builds-ios branch
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p /tmp/out && cp build-ios.log /tmp/out/ || true
+          cp FamilyBudget.ipa /tmp/out/ 2>/dev/null || true
+          echo "${{ job.status }} $(date -u)" > /tmp/out/STATUS
+          cd /tmp/out && git init -q && git checkout -q -b builds-ios
+          git config user.name github-actions; git config user.email github-actions@users.noreply.github.com
+          git add -A && git commit -qm "iOS build ${{ github.sha }}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" builds-ios

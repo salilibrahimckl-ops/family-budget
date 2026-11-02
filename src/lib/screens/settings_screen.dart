@@ -1,0 +1,161 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../config.dart';
+import '../repo.dart';
+import '../sms_sync.dart';
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key, required this.repo, required this.sms, required this.onLeft});
+  final Repo repo;
+  final SmsSync sms;
+  final VoidCallback onLeft;
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  Session? _s;
+  String? _token;
+  bool _scanning = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final s = await Session.load();
+    final t = await widget.repo.myInboxToken();
+    if (mounted) setState(() {
+      _s = s;
+      _token = t;
+    });
+  }
+
+  void _copy(String text, String what) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$what copied')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = _s;
+    final tt = Theme.of(context).textTheme;
+    if (s == null || _token == null) return const Center(child: CircularProgressIndicator());
+    final invite = Invite(s.cfg, s.familyId).encode();
+    final shortcutUrl = 'https://firestore.googleapis.com/v1/projects/${s.cfg.projectId}'
+        '/databases/(default)/documents/families/${s.familyId}/inbox/$_token/items?key=${s.cfg.apiKey}';
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text('Signed in as ${s.myName}', style: tt.titleLarge),
+        const SizedBox(height: 20),
+        _Section(
+          icon: Icons.group_add,
+          title: 'Invite your family',
+          body: 'On the other phone, install the app, choose "Join family" and paste this code.',
+          child: Row(children: [
+            Expanded(
+              child: Text(invite, maxLines: 2, overflow: TextOverflow.ellipsis, style: tt.bodySmall),
+            ),
+            IconButton(icon: const Icon(Icons.copy), onPressed: () => _copy(invite, 'Invite code')),
+          ]),
+        ),
+        if (SmsSync.supported)
+          _Section(
+            icon: Icons.sms_outlined,
+            title: 'Bank SMS (Android)',
+            body: 'New bank SMS are read automatically. Re-scan if something was missed '
+                '(already-added payments are skipped).',
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                icon: _scanning
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.refresh),
+                label: const Text('Re-scan this month'),
+                onPressed: _scanning
+                    ? null
+                    : () async {
+                        setState(() => _scanning = true);
+                        final now = DateTime.now();
+                        final n = await widget.sms.scan(from: DateTime(now.year, now.month, 1));
+                        if (!mounted) return;
+                        setState(() => _scanning = false);
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(SnackBar(content: Text('Added $n payment(s)')));
+                      },
+              ),
+            ),
+          )
+        else
+          _Section(
+            icon: Icons.bolt,
+            title: 'iPhone automation',
+            body: 'iPhone apps cannot read SMS, so a Shortcuts automation forwards bank SMS here. '
+                'See the setup guide. Use this URL in the "Get Contents of URL" action:',
+            child: Row(children: [
+              Expanded(
+                child: Text(shortcutUrl, maxLines: 3, overflow: TextOverflow.ellipsis, style: tt.bodySmall),
+              ),
+              IconButton(icon: const Icon(Icons.copy), onPressed: () => _copy(shortcutUrl, 'Shortcut URL')),
+            ]),
+          ),
+        _Section(
+          icon: Icons.logout,
+          title: 'Leave on this phone',
+          body: 'Removes the family from this phone only. Your data stays in the family. '
+              'Rejoin any time with the invite code and the same name.',
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () async {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (c) => AlertDialog(
+                    title: const Text('Leave on this phone?'),
+                    content: const Text('Copy the invite code first so you can rejoin.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+                      FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Leave')),
+                    ],
+                  ),
+                );
+                if (ok == true) widget.onLeft();
+              },
+              child: const Text('Leave'),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Section extends StatelessWidget {
+  const _Section({required this.icon, required this.title, required this.body, required this.child});
+  final IconData icon;
+  final String title, body;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(icon),
+              const SizedBox(width: 8),
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+            ]),
+            const SizedBox(height: 6),
+            Text(body),
+            const SizedBox(height: 8),
+            child,
+          ]),
+        ),
+      );
+}
