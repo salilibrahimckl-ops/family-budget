@@ -1,4 +1,4 @@
-name: Build Family Budget apps
+name: Build Family Budget apps (Android, iPhone, web)
 on:
   push:
     branches: [main]
