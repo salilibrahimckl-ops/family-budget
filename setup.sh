@@ -90,6 +90,13 @@ for f in ['android/app/build.gradle.kts', 'android/app/build.gradle']:
     }
 '''
     s = re.sub(r'^android \{\n', lambda m: m.group(0) + block, s, count=1, flags=re.M)
+    # The in-app updater (ota_update) needs core library desugaring.
+    if f.endswith('.kts'):
+        s = re.sub(r'compileOptions \{\n', lambda m: m.group(0) + '        isCoreLibraryDesugaringEnabled = true\n', s, count=1)
+        s += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+    else:
+        s = re.sub(r'compileOptions \{\n', lambda m: m.group(0) + '        coreLibraryDesugaringEnabled true\n', s, count=1)
+        s += '\ndependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"\n}\n'
     open(f, 'w').write(s)
     print('signing config added to', f)
     break
