@@ -29,15 +29,7 @@ class Txn {
         date = (d.data()!['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
         source = d.data()!['source'] as String? ?? 'manual',
         chittiSuggest = d.data()!['chittiSuggest'] as bool? ?? false,
-        note = d.data()!['note'] as String?,
-        grams = (d.data()!['grams'] as num?)?.toDouble() ?? 0,
-        purity = (d.data()!['purity'] as num?)?.toInt() ?? 22;
-
-  bool get isGold => kind == 'gold';
-  double get pavan => grams / 8;
-
-  /// Value in rupees; gold uses today's rate per gram for its purity.
-  double value(Map<int, double> goldRates) => isGold ? grams * (goldRates[purity] ?? 0) : amount;
+        note = d.data()!['note'] as String?;
 }
 
 /// A bank account's balance, kept up to date from bank SMS.
