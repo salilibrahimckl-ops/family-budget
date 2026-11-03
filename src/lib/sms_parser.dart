@@ -210,6 +210,15 @@ class SmsParser {
       r'(?:a/c|a/c\s*no\.?|ac|acct|account|card)\s*(?:no\.?|number)?\s*[:.]?\s*[x*.\s]*(\d{3,6})\b',
       caseSensitive: false);
 
+  // Who sent money in a credit SMS. Group 1 = payer.
+  static final List<RegExp> _payerPatterns = [
+    RegExp(r'upi/cr/\d+/([^/|]+?)(?:\s*/|\s*\||\.\s|\.?$)', caseSensitive: false),
+    RegExp(r'(?:from|by|vpa)\s+(?:vpa\s+)?([a-z0-9][a-z0-9._\-]{1,60}@[a-z][a-z0-9]{1,30})', caseSensitive: false),
+    RegExp(r'(?:from|by)\s+([a-z][a-z .&\x27\-]{1,40}?)(?:\s+on\b|\s+ref|\s+upi|\s+via|\s*\(|\s*\||[.,;]|$)',
+        caseSensitive: false),
+    RegExp(r'\b(salary|stipend|neft|imps|rtgs)\b', caseSensitive: false),
+  ];
+
   static final _creditWord = RegExp(r'\b(credited|received|deposited|refunded)\b', caseSensitive: false);
 
   /// Reads balance information from any bank SMS (debit or credit).
@@ -243,7 +252,21 @@ class SmsParser {
       if (a != null && (bm == null || m!.start < bm.start)) delta = a;
     }
     if (bal == null && delta == 0) return null;
-    return BalanceInfo(account: acct ?? 'main', balance: bal, delta: delta);
+    String? payer;
+    if (delta > 0) {
+      outer:
+      for (final p in _payerPatterns) {
+        for (final m in p.allMatches(text)) {
+          final c = m.group(1)!.trim();
+          if (c.length < 2 || RegExp(r'^[\d\s/x*-]+$', caseSensitive: false).hasMatch(c)) continue;
+          final l = c.toLowerCase();
+          if (RegExp(r'^(your|a/c|ac |account|rs\b|inr\b|the |a |an |you)').hasMatch(l)) continue;
+          payer = c.toUpperCase();
+          break outer;
+        }
+      }
+    }
+    return BalanceInfo(account: acct ?? 'main', balance: bal, delta: delta, payer: payer);
   }
 
   // ---------- card purchase OTP ----------
@@ -286,7 +309,8 @@ class BalanceInfo {
   final String account; // last digits of the account, or 'main'
   final double? balance; // exact balance printed by the bank, if any
   final double delta; // money out (negative) or in (positive)
-  const BalanceInfo({required this.account, this.balance, this.delta = 0});
+  final String? payer; // who sent the money (credits only), if the SMS says
+  const BalanceInfo({required this.account, this.balance, this.delta = 0, this.payer});
   @override
   String toString() => 'BalanceInfo($account, bal=$balance, delta=$delta)';
 }

@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../repo.dart';
 import 'charts.dart';
 import 'common.dart';
+import 'month_summary.dart';
 
 /// Today's Kerala gold rate, published by the "Gold rate" GitHub job.
 class GoldRate {
@@ -101,7 +102,11 @@ class _MoneyScreenState extends State<MoneyScreen> {
   @override
   void initState() {
     super.initState();
-    GoldRate.fetch().then((g) => mounted ? setState(() => _auto = g) : null);
+    GoldRate.fetch().then((g) {
+      if (!mounted) return;
+      setState(() => _auto = g);
+      if (g != null) widget.repo.rememberGoldRate(g.rate22);
+    });
   }
 
   @override
@@ -249,6 +254,10 @@ class _MoneyScreenState extends State<MoneyScreen> {
           ]),
           const SizedBox(height: 20),
 
+          // ---- Income & saving this month ----
+          MonthSummary(repo: widget.repo, members: members),
+          const SizedBox(height: 16),
+
           // ---- Money to receive ----
           _header(context, Icons.call_received, 'Money to receive', pendingTotal > 0 ? money(pendingTotal) : null),
           if (pending.isEmpty)
@@ -319,6 +328,10 @@ class _MoneyScreenState extends State<MoneyScreen> {
             for (final m in months)
               (DateFormat('MMM').format(m), setAside.byMonth[mk(m)] ?? 0, 0.0, const Color(0xFF1F6F43)),
           ]),
+          const SizedBox(height: 20),
+
+          // ---- Month-end leftovers ----
+          Leftovers(repo: widget.repo),
         ],
       ),
     );
@@ -392,6 +405,15 @@ class _MoneyScreenState extends State<MoneyScreen> {
       showDragHandle: true,
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.trending_up),
+            title: const Text('Income received'),
+            subtitle: const Text('Only if it did not come as a bank SMS'),
+            onTap: () {
+              Navigator.pop(ctx);
+              showAddIncome(context, widget.repo, members);
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.call_received),
             title: const Text('Money to receive'),

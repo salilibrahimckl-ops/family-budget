@@ -117,17 +117,61 @@ class MoneyItem {
 /// Monthly budget: amount per category + optional personal limit per member.
 class Budget {
   final Map<String, double> categories;
-  final Map<String, double> members;
-  const Budget(this.categories, this.members);
+  final Map<String, double> members; // personal spending limit
+  final Map<String, double> income; // expected monthly income per person
+  const Budget(this.categories, this.members, [this.income = const {}]);
 
   static Budget fromMap(Map<String, dynamic>? m) {
     Map<String, double> conv(dynamic x) => x is Map
         ? x.map((k, v) => MapEntry(k as String, (v as num).toDouble()))
         : <String, double>{};
-    return Budget(conv(m?['categories']), conv(m?['members']));
+    return Budget(conv(m?['categories']), conv(m?['members']), conv(m?['income']));
   }
 
-  Map<String, dynamic> toMap() => {'categories': categories, 'members': members};
+  Map<String, dynamic> toMap() => {'categories': categories, 'members': members, 'income': income};
+}
+
+/// Money that came in (salary, stipend, payback…). `counted` = false for
+/// transfers between the two of you, refunds, etc.
+class IncomeEntry {
+  final String id;
+  final double amount;
+  final String from;
+  final String member;
+  final DateTime date;
+  final String source; // sms | iphone | manual
+  final bool counted;
+  final String? note;
+  IncomeEntry.fromDoc(DocumentSnapshot<Map<String, dynamic>> d)
+      : id = d.id,
+        amount = (d.data()!['amount'] as num?)?.toDouble() ?? 0,
+        from = d.data()!['from'] as String? ?? 'Money in',
+        member = d.data()!['member'] as String? ?? '?',
+        date = (d.data()!['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        source = d.data()!['source'] as String? ?? 'manual',
+        counted = d.data()!['counted'] as bool? ?? true,
+        note = d.data()!['note'] as String?;
+}
+
+/// What was left at the end of a month, before the next month's income.
+class Closing {
+  final String month; // YYYY-MM
+  final DateTime at;
+  final bool auto;
+  final Map<String, Map<String, double>> members; // name -> {bank, cash, other, gold, goldGrams}
+  Closing.fromDoc(DocumentSnapshot<Map<String, dynamic>> d)
+      : month = d.id,
+        at = (d.data()!['at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        auto = d.data()!['auto'] as bool? ?? false,
+        members = {
+          for (final e in Map<String, dynamic>.from(d.data()!['members'] as Map? ?? {}).entries)
+            e.key: {
+              for (final f in Map<String, dynamic>.from(e.value as Map).entries)
+                f.key: (f.value as num?)?.toDouble() ?? 0
+            }
+        };
+  double total(String key) => members.values.fold(0.0, (s, m) => s + (m[key] ?? 0));
+  double get grand => total('bank') + total('cash') + total('other') + total('gold');
 }
 
 class Repo {
@@ -221,7 +265,14 @@ class Repo {
   Future<bool> ingestSms(String body,
       {required DateTime receivedAt, required String member, required String source}) async {
     try {
+      final info = SmsParser.parseBalance(body);
+      if (info != null && info.delta > 0 && DateTime.now().difference(receivedAt).inHours < 48) {
+        // First money in of a new month: remember last month's leftovers first.
+        // (Only for fresh SMS — an old SMS found by a re-scan would snapshot today's balances.)
+        await ensureClosing(monthKey(DateTime(receivedAt.year, receivedAt.month - 1)), before: receivedAt);
+      }
       await updateBalance(body, when: receivedAt, member: member);
+      if (info != null && info.delta > 0) await _addIncomeFromSms(info, receivedAt, member, source);
     } catch (_) {}
     final p = SmsParser.parse(body);
     if (p == null) {
@@ -417,6 +468,105 @@ class Repo {
   Future<void> ignore(Txn t) => txns.doc(t.id).update({'category': kIgnored, 'chittiSuggest': false});
 
   Future<void> delete(Txn t) => txns.doc(t.id).delete();
+
+  // ---------- income ----------
+
+  CollectionReference<Map<String, dynamic>> get income => family.collection('income');
+
+  Stream<List<IncomeEntry>> incomeStream(String month) => income
+      .where('month', isEqualTo: month)
+      .snapshots()
+      .map((q) => q.docs.map(IncomeEntry.fromDoc).toList()..sort((a, b) => b.date.compareTo(a.date)));
+
+  Future<void> _addIncomeFromSms(BalanceInfo info, DateTime when, String member, String source) async {
+    final id = 'in_${member.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}'
+        '_${when.millisecondsSinceEpoch ~/ 60000}_${(info.delta * 100).round()}';
+    final ref = income.doc(id);
+    if ((await ref.get()).exists) return;
+    final from = info.payer ?? 'Money in';
+    // Money from the other person in the family is a transfer, not income.
+    final fam = (await family.get()).data();
+    final names = Map<String, dynamic>.from(fam?['members'] as Map? ?? {}).values.cast<String>().toSet();
+    final fromLower = from.toLowerCase();
+    final internal = names.where((n) => n != member).any((n) {
+      final first = n.toLowerCase().split(' ').first;
+      return first.length >= 3 && fromLower.contains(first);
+    });
+    final refund = RegExp(r'refund|reversal|reversed|cashback', caseSensitive: false).hasMatch(from);
+    await ref.set({
+      'amount': info.delta,
+      'from': from,
+      'member': member,
+      'date': Timestamp.fromDate(when),
+      'month': monthKey(when),
+      'source': source,
+      'counted': !(internal || refund),
+      if (internal) 'note': 'Transfer between you two',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> addIncome({required double amount, required String from, required String member, required DateTime date, String? note}) =>
+      income.add({
+        'amount': amount,
+        'from': from,
+        'member': member,
+        'date': Timestamp.fromDate(date),
+        'month': monthKey(date),
+        'source': 'manual',
+        'counted': true,
+        'note': note,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+  Future<void> setIncomeCounted(IncomeEntry e, bool counted) => income.doc(e.id).update({'counted': counted});
+  Future<void> deleteIncome(IncomeEntry e) => income.doc(e.id).delete();
+
+  // ---------- month-end leftovers ----------
+
+  CollectionReference<Map<String, dynamic>> get closings => family.collection('closings');
+
+  Stream<List<Closing>> closingsStream() => closings
+      .snapshots()
+      .map((q) => q.docs.map(Closing.fromDoc).toList()..sort((a, b) => b.month.compareTo(a.month)));
+
+  /// Save what's left now as [month]'s closing, unless one exists already
+  /// (or [overwrite]). Uses the current bank balances, cash, other savings and gold.
+  Future<void> ensureClosing(String month, {DateTime? before, bool overwrite = false, bool auto = true}) async {
+    final ref = closings.doc(month);
+    if (!overwrite && (await ref.get()).exists) return;
+    final fam = (await family.get()).data();
+    final members = <String, Map<String, double>>{};
+    Map<String, double> m(String n) => members.putIfAbsent(n, () => {'bank': 0, 'cash': 0, 'other': 0, 'gold': 0, 'goldGrams': 0});
+    for (final n in Map<String, dynamic>.from(fam?['members'] as Map? ?? {}).values.cast<String>()) {
+      m(n);
+    }
+    for (final d in (await accounts.get()).docs) {
+      final a = BankAccount.fromDoc(d);
+      if (a.balance != null) m(a.member)['bank'] = m(a.member)['bank']! + a.balance!;
+    }
+    final rates = goldRatesFrom(fam);
+    final auto22 = (fam?['autoGold22'] as num?)?.toDouble();
+    for (final d in (await money.get()).docs) {
+      final it = MoneyItem.fromDoc(d);
+      final x = m(it.member);
+      if (it.kind == 'cash') x['cash'] = x['cash']! + it.amount;
+      if (it.kind == 'asset') x['other'] = x['other']! + it.amount;
+      if (it.isGold) {
+        final rate = it.purity == 22 ? (auto22 ?? rates[22] ?? 0) : (rates[24] ?? (auto22 ?? 0) / 0.916);
+        x['goldGrams'] = x['goldGrams']! + it.grams;
+        x['gold'] = x['gold']! + it.grams * rate;
+      }
+    }
+    await ref.set({
+      'members': members,
+      'at': Timestamp.fromDate(before ?? DateTime.now()),
+      'auto': auto,
+    });
+  }
+
+  /// Remember the automatic 22K rate so month-end snapshots can value gold.
+  Future<void> rememberGoldRate(double rate22) => family.update({'autoGold22': rate22});
 
   // ---------- card payments seen only as an OTP ----------
 

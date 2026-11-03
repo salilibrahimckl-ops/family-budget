@@ -17,6 +17,7 @@ class BudgetScreen extends StatefulWidget {
 class _BudgetScreenState extends State<BudgetScreen> {
   final _cat = <String, TextEditingController>{};
   final _mem = <String, TextEditingController>{};
+  final _inc = <String, TextEditingController>{};
   String? _loadedFor;
   bool _saving = false;
 
@@ -31,14 +32,17 @@ class _BudgetScreenState extends State<BudgetScreen> {
         .cast<String>()
         .toSet();
     names.addAll(b.members.keys);
+    names.addAll(b.income.keys);
     if (!mounted) return;
     setState(() {
       for (final c in kCats) {
         _cat[c.id] = TextEditingController(text: _fmt(b.categories[c.id]));
       }
       _mem.clear();
+      _inc.clear();
       for (final n in names) {
         _mem[n] = TextEditingController(text: _fmt(b.members[n]));
+        _inc[n] = TextEditingController(text: _fmt(b.income[n]));
       }
     });
   }
@@ -51,6 +55,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
     final b = Budget(
       {for (final c in kCats) c.id: _val(_cat[c.id])},
       {for (final e in _mem.entries) if (_val(e.value) > 0) e.key: _val(e.value)},
+      {for (final e in _inc.entries) if (_val(e.value) > 0) e.key: _val(e.value)},
     );
     await widget.repo.saveBudget(monthKey(widget.month), b);
     if (!mounted) return;
@@ -95,6 +100,31 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   textAlign: TextAlign.right,
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(prefixText: '₹ ', isDense: true, border: OutlineInputBorder()),
+                ),
+              ),
+            ]),
+          ),
+        const SizedBox(height: 16),
+        Text('Expected monthly income', style: tt.titleMedium),
+        const SizedBox(height: 4),
+        Text('Salary, stipend, etc. Used to show expected vs actual saving each month.',
+            style: tt.bodySmall),
+        const SizedBox(height: 12),
+        for (final e in _inc.entries)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(children: [
+              CircleAvatar(radius: 18, child: Text(e.key.isEmpty ? '?' : e.key[0].toUpperCase())),
+              const SizedBox(width: 12),
+              Expanded(child: Text(e.key)),
+              SizedBox(
+                width: 130,
+                child: TextField(
+                  controller: e.value,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.right,
+                  decoration: const InputDecoration(
+                      prefixText: '₹ ', hintText: 'Not set', isDense: true, border: OutlineInputBorder()),
                 ),
               ),
             ]),
