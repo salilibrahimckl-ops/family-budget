@@ -241,7 +241,12 @@ class _LeftoversState extends State<Leftovers> {
           const SizedBox(height: 8),
           if (list.isEmpty) Text('Nothing saved yet.', style: tt.bodySmall),
           for (var i = 0; i < list.length; i++) _closingCard(context, list[i], i + 1 < list.length ? list[i + 1] : null),
-          Wrap(spacing: 8, children: [
+          Wrap(spacing: 8, runSpacing: 4, children: [
+            FilledButton.tonalIcon(
+              icon: const Icon(Icons.edit_note),
+              label: const Text('Type in a month-end'),
+              onPressed: () => _editManual(context, null, list),
+            ),
             OutlinedButton.icon(
               icon: _saving
                   ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
@@ -283,6 +288,120 @@ class _LeftoversState extends State<Leftovers> {
     if (mounted) setState(() => _saving = false);
   }
 
+  Future<void> _editManual(BuildContext context, Closing? existing, List<Closing> all) async {
+    final fam = (await widget.repo.family.get()).data();
+    final names = Map<String, dynamic>.from(fam?['members'] as Map? ?? {}).values.cast<String>().toSet().toList()
+      ..sort();
+    if (existing != null) {
+      for (final n in existing.members.keys) {
+        if (!names.contains(n)) names.add(n);
+      }
+    }
+    final now = DateTime.now();
+    // Default month: last month, or the month being edited.
+    var month = existing?.month ?? monthKey(DateTime(now.year, now.month - 1));
+    final ctrls = <String, Map<String, TextEditingController>>{};
+    String f(double? v) => v == null || v == 0 ? '' : v.toStringAsFixed(v == v.roundToDouble() ? 0 : 2);
+    void fill(Closing? c) {
+      for (final n in names) {
+        final m = c?.members[n];
+        ctrls[n] = {
+          'bank': TextEditingController(text: f(m?['bank'])),
+          'cash': TextEditingController(text: f(m?['cash'])),
+          'other': TextEditingController(text: f(m?['other'])),
+          'pavan': TextEditingController(text: f(m == null ? null : (m['goldGrams'] ?? 0) / 8)),
+        };
+      }
+    }
+
+    fill(existing);
+    if (!context.mounted) return;
+    final months = [for (var i = 1; i <= 24; i++) monthKey(DateTime(now.year, now.month - i + 1))];
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setS) {
+        final tt = Theme.of(ctx).textTheme;
+        Widget field(String n, String key, String label, {String prefix = '₹ '}) => Expanded(
+              child: TextField(
+                controller: ctrls[n]![key],
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                    labelText: label, prefixText: prefix, isDense: true, border: const OutlineInputBorder()),
+              ),
+            );
+        return Padding(
+          padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.of(ctx).viewInsets.bottom),
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(existing == null ? 'Type in a month-end' : 'Edit month-end', style: tt.titleLarge),
+              const SizedBox(height: 4),
+              Text('What was left at the end of the month, before the next income came in.', style: tt.bodySmall),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: month,
+                decoration: const InputDecoration(labelText: 'Month', border: OutlineInputBorder(), isDense: true),
+                items: [
+                  for (final m in months)
+                    DropdownMenuItem(value: m, child: Text('${_label(m)} ${m.substring(0, 4)}')),
+                ],
+                onChanged: existing != null
+                    ? null
+                    : (v) => setS(() {
+                          month = v!;
+                          // Pre-fill if that month already has figures.
+                          fill(all.where((c) => c.month == month).firstOrNull);
+                        }),
+              ),
+              const SizedBox(height: 16),
+              for (final n in names) ...[
+                Text(n, style: tt.titleSmall),
+                const SizedBox(height: 8),
+                Row(children: [field(n, 'bank', 'Bank'), const SizedBox(width: 8), field(n, 'cash', 'Cash')]),
+                const SizedBox(height: 8),
+                Row(children: [
+                  field(n, 'other', 'Other savings'),
+                  const SizedBox(width: 8),
+                  field(n, 'pavan', 'Gold (pavan)', prefix: ''),
+                ]),
+                const SizedBox(height: 16),
+              ],
+              Row(children: [
+                if (existing != null)
+                  TextButton(
+                    onPressed: () async {
+                      await widget.repo.deleteClosing(existing.month);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    },
+                    child: const Text('Delete'),
+                  ),
+                const Spacer(),
+                FilledButton(
+                  onPressed: () async {
+                    double v(String n, String k) =>
+                        double.tryParse(ctrls[n]![k]!.text.replaceAll(',', '').trim()) ?? 0;
+                    await widget.repo.saveClosingManual(month, {
+                      for (final n in names)
+                        n: {
+                          'bank': v(n, 'bank'),
+                          'cash': v(n, 'cash'),
+                          'other': v(n, 'other'),
+                          'goldGrams': v(n, 'pavan') * 8,
+                        }
+                    });
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                  child: const Text('Save'),
+                ),
+              ]),
+            ]),
+          ),
+        );
+      }),
+    );
+  }
+
   String _label(String mk) {
     final p = mk.split('-');
     return DateFormat('MMMM').format(DateTime(int.parse(p[0]), int.parse(p[1])));
@@ -316,13 +435,19 @@ class _LeftoversState extends State<Leftovers> {
                 ),
               ]),
             ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '${c.auto ? 'Saved automatically' : 'Saved by hand'} on ${DateFormat('d MMM, h:mm a').format(c.at)}',
-              style: tt.labelSmall,
+          Row(children: [
+            Expanded(
+              child: Text(
+                '${c.auto ? 'Saved automatically' : 'Saved by hand'} on ${DateFormat('d MMM, h:mm a').format(c.at)}',
+                style: tt.labelSmall,
+              ),
             ),
-          ),
+            TextButton.icon(
+              icon: const Icon(Icons.edit, size: 16),
+              label: const Text('Edit'),
+              onPressed: () => _editManual(context, c, const []),
+            ),
+          ]),
         ],
       ),
     );

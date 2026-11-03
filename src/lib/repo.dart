@@ -565,6 +565,29 @@ class Repo {
     });
   }
 
+  /// Month-end leftovers typed in by hand. [values]: name -> {bank, cash, other, goldGrams}.
+  /// Gold is valued at the latest 22K rate.
+  Future<void> saveClosingManual(String month, Map<String, Map<String, double>> values) async {
+    final fam = (await family.get()).data();
+    final rate = (fam?['autoGold22'] as num?)?.toDouble() ?? goldRatesFrom(fam)[22] ?? 0;
+    await closings.doc(month).set({
+      'members': {
+        for (final e in values.entries)
+          e.key: {
+            'bank': e.value['bank'] ?? 0,
+            'cash': e.value['cash'] ?? 0,
+            'other': e.value['other'] ?? 0,
+            'goldGrams': e.value['goldGrams'] ?? 0,
+            'gold': (e.value['goldGrams'] ?? 0) * rate,
+          }
+      },
+      'at': Timestamp.now(),
+      'auto': false,
+    });
+  }
+
+  Future<void> deleteClosing(String month) => closings.doc(month).delete();
+
   /// Remember the automatic 22K rate so month-end snapshots can value gold.
   Future<void> rememberGoldRate(double rate22) => family.update({'autoGold22': rate22});
 
