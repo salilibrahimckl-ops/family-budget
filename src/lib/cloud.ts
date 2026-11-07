@@ -197,12 +197,16 @@ export async function syncUp() {
 
 export async function pullFeed() {
   const s = getState(); if (s.session?.mode !== 'cloud') return;
-  const rows: any[] = await call('/rest/v1/social_posts?select=id,user_id,kind,body,created_at,like_count,post_media(storage_path,media_type),profiles(id,username,display_name,bio,is_private,avatar_path),comments(id,user_id,body,created_at,parent_id)&order=created_at.desc&limit=40');
+  const rows: any[] = await call('/rest/v1/social_posts?select=id,user_id,kind,body,created_at,like_count,post_media(storage_path,media_type),comments(id,user_id,body,created_at,parent_id)&order=created_at.desc&limit=40');
+  // posts link to auth users, not profiles, so fetch the authors separately
+  const authorIds = [...new Set(rows.map((r: any) => r.user_id).concat(rows.flatMap((r: any) => (r.comments || []).map((c: any) => c.user_id))))].filter((id) => id !== s.session!.userId);
+  const authors: any[] = authorIds.length ? await call(`/rest/v1/profiles?select=id,username,display_name,bio,is_private,avatar_path&id=in.(${authorIds.join(',')})`) : [];
+  const byId = new Map(authors.map((a) => [a.id, a]));
   const { url } = cfg();
   update((d) => {
     for (const r of rows) {
-      const pr = r.profiles; if (pr && pr.id !== s.session!.userId) { const u = toUser(pr); const k = d.social.users.findIndex((x) => x.id === u.id); if (k >= 0) d.social.users[k] = { ...d.social.users[k], ...u }; else d.social.users.push(u); }
-      for (const c of r.comments || []) { if (!d.social.comments.find((x) => x.id === c.id)) d.social.comments.push({ id: c.id, postId: r.id, userId: localId(s, c.user_id), text: c.body, ts: Date.parse(c.created_at), parentId: c.parent_id || undefined }); }
+      const pr = byId.get(r.user_id); if (pr) { const u = toUser(pr); const k = d.social.users.findIndex((x) => x.id === u.id); if (k >= 0) d.social.users[k] = { ...d.social.users[k], ...u }; else d.social.users.push(u); }
+      for (const c of r.comments || []) { const cp = byId.get(c.user_id); if (cp && !d.social.users.find((x) => x.id === cp.id)) d.social.users.push(toUser(cp)); if (!d.social.comments.find((x) => x.id === c.id)) d.social.comments.push({ id: c.id, postId: r.id, userId: localId(s, c.user_id), text: c.body, ts: Date.parse(c.created_at), parentId: c.parent_id || undefined }); }
       const post: Post = { id: r.id, userId: r.user_id === s.session!.userId ? s.profile!.userId : r.user_id, ts: Date.parse(r.created_at), kind: r.kind, text: r.body || '', likes: r.like_count || 0, media: (r.post_media || []).map((m: any) => ({ art: `${url}/storage/v1/object/public/post-media/${m.storage_path}`, type: m.media_type })) };
       const i = d.social.posts.findIndex((x) => x.id === r.id);
       if (i >= 0) d.social.posts[i] = post; else d.social.posts.push(post);
