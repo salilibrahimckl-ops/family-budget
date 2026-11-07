@@ -33,6 +33,7 @@ export interface State {
     theme: 'dark' | 'light'; units: 'metric' | 'imperial'; asianBmi: boolean; hotClimate: boolean; lang: 'en' | 'ml';
     reminders: { water: boolean; every: number; from: number; to: number; workout: boolean };
     supabaseUrl: string; supabaseAnon: string; admin: boolean; plan: 'free' | 'premium'; seenIntro: boolean; hideChecklist?: boolean; watchedDemo?: boolean;
+    notify?: { meals: boolean; times: [string, string, string]; workout: boolean; workoutTime: string; nudges: boolean; asked?: boolean };
   };
   custom: { kcal?: number; protein?: number; water?: number };
   weights: { date: string; kg: number }[];
@@ -96,6 +97,7 @@ export function update(fn: (draft: State) => void) {
   persist();
   subs.forEach((s) => s());
 }
+export const subscribe = (f: () => void) => { subs.add(f); return () => { subs.delete(f); }; };
 export function useStore<T>(sel: (s: State) => T): T {
   return useSyncExternalStore((cb) => { subs.add(cb); return () => subs.delete(cb); }, () => sel(state));
 }

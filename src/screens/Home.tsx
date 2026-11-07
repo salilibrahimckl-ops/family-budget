@@ -4,7 +4,9 @@ import { dayTotals, userTargets, todaysPlan } from '../lib/coach';
 import { Card, Ring, Bar, Icon, Header, Logo, go, Bars, Avatar, Pill, fmt } from '../ui';
 import { useUnits, exById } from './common';
 import { bmi, bmiClass } from '../lib/calc';
-import { haptic, checkAchievements, t } from '../lib/extras';
+import { haptic, checkAchievements, t, toast } from '../lib/extras';
+import { checkForUpdate, applyUpdate, needsNewApk, APK_URL, isNativeApp, UpdateInfo } from '../lib/updater';
+import { Btn } from '../ui';
 
 export function Home() {
   const s = useStore((x) => x);
@@ -36,6 +38,7 @@ export function Home() {
         <button onClick={() => go('/coach')}><span><Icon n="spark" s={20} /></span>Ask coach</button>
       </div>
 
+      <UpdateBanner />
       <Checklist />
 
       <Card className="hero-card" onClick={() => go('/nutrition')}>
@@ -125,4 +128,12 @@ function Checklist() {
       {items.map(([l, ok, to, hint]) => <button key={l} className={'check-item' + (ok ? ' done' : '')} onClick={() => !ok && go(to)}><i>{ok ? '✓' : ''}</i>{l}{!ok && <em>{hint || 'Go'} →</em>}</button>)}
     </Card>
   );
+}
+
+function UpdateBanner() {
+  const [u, setU] = React.useState<UpdateInfo | null>(null); const [busy, setBusy] = React.useState('');
+  React.useEffect(() => { if (isNativeApp()) checkForUpdate().then(setU).catch(() => {}); }, []);
+  if (!u) return null;
+  return <Card className="checklist"><div className="row-b"><div><b>Update available ✨</b><small className="muted" style={{ display: 'block' }}>{u.notes[0] || `Version 1.0.${u.build}`}</small></div>
+    {needsNewApk(u) ? <a className="btn primary small" href={APK_URL}>Get it</a> : <Btn small disabled={!!busy} onClick={() => applyUpdate(setBusy).catch((e) => { toast(e.message); setBusy(''); })}>{busy || 'Update now'}</Btn>}</div></Card>;
 }

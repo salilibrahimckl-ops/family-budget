@@ -8,6 +8,8 @@ import { ask, askText } from '../lib/dialog';
 import { localCoach, cloudCoach, userTargets, dayTotals, weeklyPlanText, recommendProgram, buildSchedule } from '../lib/coach';
 import { cloudReady, isCloud, syncUp, pullFeed, cloudDeleteAccount } from '../lib/cloud';
 import { useUnits } from './common';
+import { notifyCfg, scheduleAll, requestPermission, remindersSupported, testNotification, DEFAULT_NOTIFY } from '../lib/reminders';
+import { checkForUpdate, applyUpdate, currentBuild, needsNewApk, APK_URL, isNativeApp, UpdateInfo } from '../lib/updater';
 
 export function Me() {
   const s = useStore((x) => x); const p = s.profile!; const u = useUnits();
@@ -108,6 +110,8 @@ export function Settings() {
       <Field label="Units"><Seg value={st.units} onChange={(v) => setS((d) => { d.settings.units = v; })} options={[{ v: 'metric', l: 'Metric (kg, cm, ml)' }, { v: 'imperial', l: 'Imperial (lb, in, oz)' }]} /></Field>
       <Field label="Language" hint="Malayalam is partially translated — more coming."><Seg value={st.lang} onChange={(v) => setS((d) => { d.settings.lang = v; })} options={[{ v: 'en', l: 'English' }, { v: 'ml', l: 'മലയാളം (beta)' }]} /></Field>
     </Card>
+    <UpdatesCard />
+    <RemindersCard />
     <Card><span className="lbl">Privacy</span>
       <Toggle on={p.private} onChange={(v) => setS((d) => { d.profile!.private = v; })} label="Private account" desc="Only followers you approve can see your posts" />
       <Toggle on={p.showStats} onChange={(v) => setS((d) => { d.profile!.showStats = v; })} label="Show body stats on profile" desc="Off by default. Weight, BMI and measurements stay private." />
@@ -201,4 +205,41 @@ function SaveAccount() {
     <Field label="Email"><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
     <Field label="Password"><input type="password" value={pw} onChange={(e) => setPw(e.target.value)} /></Field>
     <Btn full onClick={save}>Save my account</Btn></Card>;
+}
+
+function RemindersCard() {
+  const s = useStore((x) => x); const cfg = notifyCfg(s); const r = s.settings.reminders;
+  const supported = remindersSupported();
+  async function set(patch: Partial<typeof cfg>, water?: Partial<typeof r>) {
+    if (supported && !(await requestPermission())) { toast('Allow notifications in phone Settings → Apps → Bro’s Fitness → Notifications.'); return; }
+    update((d) => { d.settings.notify = { ...notifyCfg(d), ...patch }; if (water) Object.assign(d.settings.reminders, water); });
+    if (supported) scheduleAll();
+  }
+  const time = (v: string, on: (t: string) => void) => <input type="time" value={v} onChange={(e) => on(e.target.value)} style={{ width: 120 }} />;
+  return <Card><span className="lbl">Reminders & nudges</span>
+    {!supported && <p className="muted small">Notifications work in the Android app. (Web browsers on iPhone can’t schedule reminders.)</p>}
+    <Toggle on={cfg.workout} onChange={(v) => set({ workout: v })} label="Workout reminders" desc={`On training days at ${cfg.workoutTime}, plus a 9 pm push if it’s not done`} />
+    {cfg.workout && <div className="row">Remind me at {time(cfg.workoutTime, (t) => set({ workoutTime: t }))}</div>}
+    <Toggle on={cfg.meals} onChange={(v) => set({ meals: v })} label="Meal logging reminders" desc="Only if that meal isn’t logged yet" />
+    {cfg.meals && <div className="times-grid"><label><small>🍳 Breakfast</small>{time(cfg.times[0], (t) => set({ times: [t, cfg.times[1], cfg.times[2]] }))}</label><label><small>🍛 Lunch</small>{time(cfg.times[1], (t) => set({ times: [cfg.times[0], t, cfg.times[2]] }))}</label><label><small>🌙 Dinner</small>{time(cfg.times[2], (t) => set({ times: [cfg.times[0], cfg.times[1], t] }))}</label></div>}
+    <Toggle on={r.water} onChange={(v) => set({}, { water: v })} label="Water reminders" desc={`Every ${r.every} min between ${r.from}:00 and ${r.to}:00`} />
+    {r.water && <div className="chips">{[60, 90, 120, 180].map((m) => <Chip key={m} on={r.every === m} onClick={() => set({}, { every: m })}>Every {m >= 120 ? m / 60 + ' h' : m + ' min'}</Chip>)}</div>}
+    <Toggle on={cfg.nudges} onChange={(v) => set({ nudges: v })} label="Progress nudges" desc="Protein gap, falling behind on water, nothing logged yet" />
+    {supported && <Btn full kind="soft" icon="bell" onClick={async () => toast((await testNotification()) ? 'Test notification in 3 seconds…' : 'Notifications are blocked in phone settings')}>Send a test notification</Btn>}
+  </Card>;
+}
+
+export function UpdatesCard({ compact }: { compact?: boolean }) {
+  const [info, setInfo] = useState<UpdateInfo | null | undefined>(undefined);
+  const [busy, setBusy] = useState(''); const native = isNativeApp();
+  async function check() { setBusy('Checking…'); try { const u = await checkForUpdate(); setInfo(u); if (!u) toast('You’re on the latest version ✓'); } catch (e: any) { toast(e.message); } setBusy(''); }
+  async function install() { if (!info) return; try { await applyUpdate(setBusy); } catch (e: any) { toast(e.message); setBusy(''); } }
+  if (!native) return compact ? null : <Card><span className="lbl">App updates</span><p className="muted small">This web version updates automatically — just reopen the link.</p></Card>;
+  return <Card className={info ? 'checklist' : ''}><span className="lbl">App updates</span>
+    <p className="small">Version 1.0.{currentBuild()}</p>
+    {info && <><p><b>New version 1.0.{info.build} is ready</b></p><ul className="cue small">{info.notes.map((n, i) => <li key={i}>{n}</li>)}</ul></>}
+    {info && needsNewApk(info) ? <><p className="muted small">This update adds new phone features, so it needs a one-time reinstall.</p><a className="btn primary full" href={APK_URL}>Download update</a></>
+      : info ? <Btn full disabled={!!busy} onClick={install}>{busy || 'Update now'}</Btn>
+        : <Btn full kind="soft" disabled={!!busy} onClick={check}>{busy || 'Check for updates'}</Btn>}
+  </Card>;
 }

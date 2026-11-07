@@ -6,7 +6,8 @@ import { parseMeal, searchFoods, ParsedItem } from '../lib/nlp';
 import { Header, BackBtn, Card, Btn, Chip, Seg, Icon, Pill, Sheet, Empty, go, back, useRoute, Ring, Bar, Bars, LineChart, Field, NumIn, fmt, Toggle } from '../ui';
 import { allFoods, useUnits } from './common';
 import { bmi, bmiClass, healthyRange, GOALS, ACTIVITY } from '../lib/calc';
-import { toast, haptic, checkAchievements, streak, scheduleWaterReminders } from '../lib/extras';
+import { toast, haptic, checkAchievements, streak } from '../lib/extras';
+import { scheduleAll, requestPermission, remindersSupported } from '../lib/reminders';
 import { ask, askText } from '../lib/dialog';
 
 const SLOTS: { k: MealSlot; l: string; e: string }[] = [{ k: 'breakfast', l: 'Breakfast', e: '🌅' }, { k: 'lunch', l: 'Lunch', e: '🍛' }, { k: 'dinner', l: 'Dinner', e: '🌙' }, { k: 'snacks', l: 'Snacks', e: '🍌' }];
@@ -294,7 +295,7 @@ export function Water() {
 }
 function WaterSettings() {
   const s = useStore((x) => x); const r = s.settings.reminders; const tg = userTargets(s);
-  const setR = async (patch: Partial<typeof r>) => { update((d) => { Object.assign(d.settings.reminders, patch); }); const res = await scheduleWaterReminders({ ...r, ...patch }); if (res === 'denied') toast('Notifications are blocked. Allow them in your phone settings.'); else if (patch.water) toast(res === 'native' ? 'Reminders scheduled' : 'Reminders on while the app is open'); };
+  const setR = async (patch: Partial<typeof r>) => { update((d) => { Object.assign(d.settings.reminders, patch); }); if (!remindersSupported()) { if (patch.water) toast('Reminders work in the Android app'); return; } if (patch.water && !(await requestPermission())) { toast('Notifications are blocked. Allow them in phone Settings → Apps → Bro’s Fitness.'); return; } await scheduleAll(); if (patch.water) toast('Water reminders on 💧'); };
   return <Card>
     <span className="lbl">Target & reminders</span>
     <Field label={`Daily target (${s.custom.water ? 'custom' : 'suggested'})`}><div className="row"><NumIn value={s.custom.water || tg.water} step={100} onChange={(v) => update((d) => { d.custom.water = v; })} suffix="ml" />{s.custom.water && <button className="link" onClick={() => update((d) => { delete d.custom.water; })}>Reset</button>}</div></Field>

@@ -11,7 +11,9 @@ import { Feed, PostDetail, NewPost, UserProfile, Notifications, Challenges, Book
 import { Me, EditProfile, Settings, Premium, Coach } from './screens/Profile';
 import { Admin } from './screens/Admin';
 import { Dialogs } from './lib/dialog';
-import { CHALLENGES, startWebReminderLoop, scheduleWaterReminders, t, isNative } from './lib/extras';
+import { CHALLENGES, startWebReminderLoop, t, isNative } from './lib/extras';
+import { initReminders, requestPermission, scheduleAll } from './lib/reminders';
+import { markBootOk } from './lib/updater';
 import { consumeOAuthHash, isCloud, syncUp, pullFeed, bg } from './lib/cloud';
 
 function TabBar({ cur }: { cur: string }) {
@@ -75,7 +77,8 @@ function App() {
     capApp?.addListener?.('appUrlOpen', (e: any) => { const h = e.url.split('#')[1]; if (h) consumeOAuthHash('#' + h); });
     capApp?.addListener?.('backButton', () => { if (location.hash && !['#/home', '#/', ''].includes(location.hash)) history.back(); else capApp.exitApp?.(); });
     startWebReminderLoop();
-    if (isNative()) scheduleWaterReminders(getState().settings.reminders).catch(() => {});
+    markBootOk();
+    initReminders((r) => go(r));
   }, []);
   useEffect(() => {
     if (!session || !profile || !isCloud(getState())) return;
@@ -84,6 +87,7 @@ function App() {
     return () => clearInterval(i);
   }, [session?.userId, !!profile]);
   useEffect(() => {
+    if (profile && isNative() && !getState().settings.notify?.asked) { update((d) => { d.settings.notify = { ...(d.settings.notify || {} as any), asked: true } as any; }); setTimeout(() => requestPermission().then(() => scheduleAll()), 1500); }
     if (profile && !getState().notifications.length) update((d) => notify(d, { type: 'system', text: 'Welcome to Bro’s Fitness! Your plan and targets are ready. Tap Train to start today\'s workout.' }));
   }, [!!profile]);
 

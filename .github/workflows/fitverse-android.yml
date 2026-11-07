@@ -24,7 +24,7 @@ jobs:
           set -eo pipefail
           {
             npm install --no-audit --no-fund
-            npm run build
+            FV_BUILD=${{ github.run_number }} npm run build
             npx cap add android
             npx cap sync android
             python3 scripts/patch-android.py ${{ github.run_number }}
@@ -39,6 +39,7 @@ jobs:
           mkdir -p /tmp/out && cp build.log /tmp/out/ || true
           cp FITVERSE.apk /tmp/out/ 2>/dev/null || true
           cp www/index.html /tmp/out/fitverse-web.html 2>/dev/null || true
+          if [ -f /tmp/out/FITVERSE.apk ]; then cp dist-ota/version.json dist-ota/bundle.json /tmp/out/; fi
           echo "${{ job.status }} run ${{ github.run_number }} $(date -u)" > /tmp/out/STATUS
           cd /tmp/out && git init -q && git checkout -q -b fitverse-builds
           git config user.name github-actions; git config user.email github-actions@users.noreply.github.com
