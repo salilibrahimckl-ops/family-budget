@@ -36,23 +36,57 @@ export const workoutKcal = (s: State, w: { start: number; end: number; entries?:
   return Math.round(Math.max(byTime, bySets));
 };
 
+const CH_INFO: Record<string, { name: string; emoji: string; unit: string }> = {
+  pushup30: { name: 'Push-up challenge', emoji: '💪', unit: 'reps' }, plank30: { name: 'Plank challenge', emoji: '🧱', unit: 'seconds' }, steps10k: { name: 'Steps challenge', emoji: '👟', unit: 'steps' },
+};
+/** Calories from challenge check-ins (push-ups, plank, steps, custom reps/minutes) logged that day. */
+export function challengeBurn(s: State, date: string) {
+  const kg = weightOf(s); const out: { id: string; name: string; emoji: string; amount: number; unit: string; kcal: number; minutes: number }[] = [];
+  for (const [id, j] of Object.entries(s.challenges || {})) {
+    const amt = j.log?.[date] || 0; if (!amt) continue;
+    const cc = (s.customChallenges || []).find((c) => c.id === id);
+    const info = CH_INFO[id] || (cc ? { name: cc.name, emoji: cc.emoji, unit: cc.unit } : null); if (!info) continue;
+    const u = info.unit.toLowerCase();
+    let kcal = 0, minutes = 0;
+    if (/rep/.test(u)) { kcal = amt * 0.45 * kg / 70; minutes = amt * 3 / 60; }
+    else if (/sec/.test(u)) { kcal = 3.8 * kg * amt / 3600; minutes = amt / 60; }
+    else if (/min/.test(u)) { kcal = 5 * kg * amt / 60; minutes = amt; }
+    else if (/step/.test(u)) { if (s.watch?.connected && s.watch.daily[date]?.steps) continue; kcal = amt * 0.04 * kg / 70; minutes = amt / 110; }
+    else if (/km/.test(u)) { kcal = amt * kg * 0.9; minutes = amt * 10; }
+    else continue;
+    out.push({ id, name: info.name, emoji: info.emoji, amount: amt, unit: info.unit, kcal: Math.round(kcal), minutes: Math.round(minutes) });
+  }
+  return out;
+}
+
 export function burnFor(s: State, date = today()) {
   const acts = (s.activities || []).filter((a) => a.date === date);
+  const chs = challengeBurn(s, date);
   const wos = s.workouts.filter((w) => w.date === date);
-  const sport = acts.reduce((a, x) => a + x.kcal, 0), gym = wos.reduce((a, w) => a + workoutKcal(s, w), 0);
-  const minutes = acts.reduce((a, x) => a + x.minutes, 0) + wos.reduce((a, w) => a + Math.round((w.end - w.start) / 60000), 0);
+  const sport = acts.reduce((a, x) => a + x.kcal, 0) + chs.reduce((a, x) => a + x.kcal, 0), gym = wos.reduce((a, w) => a + workoutKcal(s, w), 0);
+  const minutes = acts.reduce((a, x) => a + x.minutes, 0) + chs.reduce((a, x) => a + x.minutes, 0) + wos.reduce((a, w) => a + Math.round((w.end - w.start) / 60000), 0);
   // A connected watch measures the whole day's active calories (it already includes workouts), so use whichever is higher.
   const w = s.watch?.connected ? s.watch.daily[date] : undefined;
   const watchKcal = Math.round(w?.kcal || 0);
-  return { kcal: Math.max(sport + gym, watchKcal), sport, gym, minutes, acts, wos, watchKcal, steps: w?.steps || s.steps[date] || 0, fromWatch: watchKcal > sport + gym };
+  return { kcal: Math.max(sport + gym, watchKcal), sport, gym, minutes, acts, wos, watchKcal, steps: w?.steps || s.steps[date] || 0, fromWatch: watchKcal > sport + gym, chs };
 }
 /** This calendar week (Mon–Sun) totals used for the friends leaderboard. */
 export function weekStats(s: State) {
   const d = new Date(); const dow = (d.getDay() + 6) % 7;
   const days = Array.from({ length: dow + 1 }, (_, i) => dayOffset(-i));
   let kcal = 0, minutes = 0, workouts = 0;
-  for (const day of days) { const b = burnFor(s, day); kcal += b.kcal; minutes += b.minutes; workouts += b.wos.length + b.acts.length; }
+  for (const day of days) { const b = burnFor(s, day); kcal += b.kcal; minutes += b.minutes; workouts += b.wos.length + b.acts.length + b.chs.length; }
   // streak: consecutive days (ending today or yesterday) with any training
-  let streak = 0; for (let i = 0; i < 365; i++) { const b = burnFor(s, dayOffset(-i)); if (b.wos.length || b.acts.length) streak++; else if (i > 0) break; }
+  let streak = 0; for (let i = 0; i < 365; i++) { const b = burnFor(s, dayOffset(-i)); if (b.wos.length || b.acts.length || b.chs.length) streak++; else if (i > 0) break; }
   return { week: days[days.length - 1], kcal, minutes, workouts, streak };
+}
+
+/** Total for a metric between two dates (inclusive), from this phone's workouts, sports and watch. */
+export function metricBetween(s: State, metric: 'kcal' | 'minutes' | 'sessions', start: string, end: string) {
+  let v = 0; const t = today();
+  for (let d = new Date(start + 'T12:00:00'); ; d.setDate(d.getDate() + 1)) {
+    const k = today(d); if (k > end || k > t) break;
+    const b = burnFor(s, k); v += metric === 'kcal' ? b.kcal : metric === 'minutes' ? b.minutes : b.wos.length + b.acts.length + b.chs.length;
+  }
+  return v;
 }

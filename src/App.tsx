@@ -10,6 +10,7 @@ import { Nutrition, AddFood, Water, Body, Targets } from './screens/Nutrition';
 import { Messages, ChatThread } from './screens/Chat';
 import { Invite } from './screens/Invite';
 import { LogActivity } from './screens/Activity';
+import { FriendChallengeDetail, refreshFriendChallenges } from './screens/FriendChallenges';
 import { Feed, PostDetail, NewPost, UserProfile, Notifications, Challenges, Bookmarks, SearchUsers } from './screens/Social';
 import { Me, EditProfile, Settings, Premium, Coach } from './screens/Profile';
 import { Admin } from './screens/Admin';
@@ -58,6 +59,7 @@ function Routes() {
     case 'search-users': return <SearchUsers />;
     case 'invite': return <Invite />;
     case 'activity': return <LogActivity />;
+    case 'fchallenge': return <FriendChallengeDetail key={b} id={b} />;
     case 'messages': return <Messages />;
     case 'chat': return <ChatThread key={b} other={b} />;
     case 'me': return <Me />;
@@ -101,7 +103,7 @@ function App() {
     const pushIfChanged = (force = false) => {
       const st = weekStats(getState()); const key = [st.week, st.kcal, st.minutes, st.workouts, st.streak].join('|');
       if (!force && key === lastKey) return; lastKey = key;
-      clearTimeout(timer); timer = setTimeout(() => { pushStats(st).catch((e) => { lastKey = ''; console.warn('stats', e); }); }, force ? 0 : 2500);
+      clearTimeout(timer); timer = setTimeout(() => { pushStats(st).catch((e) => { lastKey = ''; console.warn('stats', e); }); refreshFriendChallenges().catch(() => undefined); }, force ? 0 : 2500);
     };
     setTimeout(() => pushIfChanged(true), 3000);
     const unsub = subscribe(() => pushIfChanged());

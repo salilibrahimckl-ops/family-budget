@@ -9,6 +9,7 @@ import { checkForUpdate, smartUpdate, isNativeApp, UpdateInfo } from '../lib/upd
 import { Btn } from '../ui';
 
 import { StatusRow, FriendsBoard } from './Friends';
+import { FriendChallengesHome } from './FriendChallenges';
 import { BurnCard } from './Activity';
 import { burnFor } from '../lib/activity';
 
@@ -44,6 +45,7 @@ export function Home() {
 
       <StatusRow showAdd={false} />
       <UpdateBanner />
+      <FriendChallengesHome />
       <FriendsBoard />
       <Checklist />
 

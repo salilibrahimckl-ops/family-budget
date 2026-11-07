@@ -328,3 +328,36 @@ export async function changeUsername(name: string) {
   update((d) => { if (d.profile) d.profile.username = u; });
   return u;
 }
+
+// ─── Friend challenges ───
+export type Metric = 'kcal' | 'minutes' | 'sessions';
+export interface FChallenge { id: string; creator: string; title: string; metric: Metric; start: string; end: string; members: { userId: string; status: 'invited' | 'accepted' | 'declined'; progress: number; updated: number }[] }
+export async function createFriendChallenge(o: { title: string; metric: Metric; start: string; end: string; friends: string[] }) {
+  const s = getState(); const me = s.session!.userId;
+  const r = await call('/rest/v1/friend_challenges', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ creator_id: me, title: o.title, metric: o.metric, starts_on: o.start, ends_on: o.end }) });
+  const ch = Array.isArray(r) ? r[0] : r;
+  await call('/rest/v1/challenge_members', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify([{ challenge_id: ch.id, user_id: me, status: 'accepted' }, ...o.friends.map((f) => ({ challenge_id: ch.id, user_id: f, status: 'invited' }))]) });
+  return ch.id as string;
+}
+export async function myFriendChallenges(): Promise<FChallenge[]> {
+  const s = getState(); if (!isCloud(s)) return [];
+  const me = s.session!.userId;
+  const mine: any[] = await call(`/rest/v1/challenge_members?select=challenge_id,friend_challenges(id,creator_id,title,metric,starts_on,ends_on)&user_id=eq.${me}&status=neq.declined`);
+  const ids = mine.map((m) => m.challenge_id); if (!ids.length) return [];
+  const all: any[] = await call(`/rest/v1/challenge_members?select=challenge_id,user_id,status,progress,updated_at&challenge_id=in.(${ids.join(',')})`);
+  await loadProfiles(all.map((m) => m.user_id));
+  const st = getState();
+  return mine.filter((m) => m.friend_challenges).map((m) => { const c = m.friend_challenges; return {
+    id: c.id, creator: localId(st, c.creator_id), title: c.title, metric: c.metric, start: c.starts_on, end: c.ends_on,
+    members: all.filter((x) => x.challenge_id === c.id).map((x) => ({ userId: localId(st, x.user_id), status: x.status, progress: x.progress, updated: Date.parse(x.updated_at) })),
+  }; }).sort((a, b) => b.end.localeCompare(a.end));
+}
+export async function respondChallenge(id: string, status: 'accepted' | 'declined') {
+  const me = getState().session!.userId;
+  await call(`/rest/v1/challenge_members?challenge_id=eq.${id}&user_id=eq.${me}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status, updated_at: new Date().toISOString() }) });
+}
+export async function pushChallengeProgress(id: string, progress: number) {
+  const me = getState().session!.userId;
+  await call(`/rest/v1/challenge_members?challenge_id=eq.${id}&user_id=eq.${me}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ progress: Math.max(0, Math.round(progress)), updated_at: new Date().toISOString() }) });
+}
+export async function deleteFriendChallenge(id: string) { await call(`/rest/v1/friend_challenges?id=eq.${id}`, { method: 'DELETE' }); }

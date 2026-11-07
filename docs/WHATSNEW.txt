@@ -1,3 +1,5 @@
+Challenge friends: most calories, active minutes or workouts in 3–30 days
+Challenge check-ins (push-ups, plank, steps) now count in calories burnt
 Change your username and password in Settings → Account
 One-tap updates: press Update and the app installs everything itself
 Friends leaderboard on Home — see who burnt the most calories this week

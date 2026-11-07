@@ -7,6 +7,7 @@ import { isCloud, bg, cloudCreatePost, cloudLike, cloudComment, cloudFollow, clo
 import { JoinCard, useCloud } from './Join';
 import { useUnreadMessages } from './Chat';
 import { StatusRow } from './Friends';
+import { FriendChallengesSection, CreateChallenge } from './FriendChallenges';
 import { useUnits } from './common';
 
 export function meUser(s: State): SocialUser { const p = s.profile!; return { id: p.userId, name: p.name, username: p.username, bio: p.bio, avatarColor: '#C6FF3D', private: p.private, sample: false }; }
@@ -192,6 +193,7 @@ export function UserProfile({ id }: { id: string }) {
   const s = useStore((x) => x); const me = s.profile!.userId;
   const u = userOf(s, id);
   const [list, setList] = useState<'followers' | 'following' | null>(null);
+  const [chal, setChal] = useState(false);
   if (!u) return <div className="page"><Header left={<BackBtn />} title="User" /><Empty icon="user" title="User not found" /></div>;
   const isMe = id === me; const fs = followState(s, id);
   const posts = s.social.posts.filter((p) => p.userId === id && !p.removed);
@@ -218,6 +220,7 @@ export function UserProfile({ id }: { id: string }) {
       {!isMe && <div className="row">{blocked ? <Btn full kind="soft" onClick={() => update((d) => { d.social.blocks = d.social.blocks.filter((b) => b !== id); })}>Unblock</Btn>
         : <><Btn full kind={fs ? 'soft' : 'primary'} onClick={follow}>{fs === 'accepted' ? 'Following' : fs === 'pending' ? 'Requested' : 'Follow'}</Btn>
           <Btn full kind="soft" icon="send" onClick={() => (u.sample ? toast('This is a sample account — it can’t chat. Find real members in search.') : go('/chat/' + id))}>Message</Btn></>}</div>}
+      {!isMe && !u.sample && isCloud(s) && <><Btn full kind="soft" onClick={() => setChal(true)}>🏆 Challenge {u.name.split(' ')[0]}</Btn><CreateChallenge open={chal} onClose={() => setChal(false)} preselect={id} /></>}
       {isMe && <div className="row"><Btn full kind="soft" onClick={() => go('/edit-profile')}>Edit profile</Btn><Btn full kind="soft" onClick={() => go('/bookmarks')}>Saved</Btn></div>}
       {canSee ? (posts.length ? posts.map((p) => <PostCard key={p.id} p={p} />) : <Empty icon="camera" title="No posts yet" />)
         : <Empty icon="lock" title="This account is private" text="Follow to see their posts once they approve." />}
@@ -274,6 +277,8 @@ export function Challenges() {
   const [open, setOpen] = useState<string | null>(null);
   const earned = Object.keys(s.achievements).length;
   return <div className="page"><Header left={<BackBtn />} title="Challenges" />
+    <FriendChallengesSection />
+    <div className="row-b sec-h"><h3>Solo challenges</h3></div>
     {CHALLENGES.map((c) => { const pr = challengeProgress(s, c); return (
       <Card key={c.id} className="chal" onClick={() => setOpen(c.id)}>
         <span className="chal-e">{c.emoji}</span>
