@@ -22,11 +22,11 @@ const html = `<!DOCTYPE html>
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="FITVERSE" />
-<meta name="description" content="FITVERSE — premium fitness, nutrition and community app." />
+<meta name="apple-mobile-web-app-title" content="Bro’s Fitness" />
+<meta name="description" content="Bro’s Fitness — premium fitness, nutrition and community app." />
 <link rel="icon" href="data:image/svg+xml,${encodeURIComponent(icon)}" />
 <link rel="apple-touch-icon" href="data:image/svg+xml,${encodeURIComponent(icon)}" />
-<title>FITVERSE</title>
+<title>Bro’s Fitness</title>
 <style>${css}</style>
 </head>
 <body>

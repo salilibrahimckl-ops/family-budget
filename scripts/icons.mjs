@@ -10,7 +10,7 @@ for (const [k, s] of Object.entries(d)) {
   await sharp(svg).resize(s, s).composite([{ input: r, blend: 'dest-in' }]).png().toFile(`${dir}/ic_launcher_round.png`);
   await sharp(fg).resize(Math.round(s * 2.25), Math.round(s * 2.25)).png().toFile(`${dir}/ic_launcher_foreground.png`);
 }
-const splashSvg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1280"><rect width="1280" height="1280" fill="#0A0C0F"/><g transform="translate(440 400) scale(0.78)">${fs.readFileSync('assets/icon.svg','utf8').replace(/^<svg[^>]*>/,'').replace('</svg>','')}</g><text x="640" y="900" text-anchor="middle" font-family="Arial, sans-serif" font-weight="900" font-size="84" letter-spacing="8" fill="#fff">FIT<tspan fill="#C6FF3D">VERSE</tspan></text></svg>`);
+const splashSvg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1280"><rect width="1280" height="1280" fill="#0A0C0F"/><g transform="translate(440 400) scale(0.78)">${fs.readFileSync('assets/icon.svg','utf8').replace(/^<svg[^>]*>/,'').replace('</svg>','')}</g><text x="640" y="900" text-anchor="middle" font-family="Arial, sans-serif" font-weight="900" font-size="76" letter-spacing="6" fill="#fff">BRO’S <tspan fill="#C6FF3D">FITNESS</tspan></text></svg>`);
 fs.mkdirSync('assets/android/drawable', { recursive: true });
 await sharp(splashSvg).png().toFile('assets/android/drawable/splash.png');
 await sharp(svg).resize(1024, 1024).png().toFile('assets/icon-1024.png');

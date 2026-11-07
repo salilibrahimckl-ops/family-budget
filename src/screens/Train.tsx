@@ -5,6 +5,8 @@ import { PROGRAMS, Program } from '../data/programs';
 import { Header, BackBtn, Card, Btn, Chip, Seg, Icon, Pill, Sheet, Empty, go, back, useRoute, useTicker, fmt, NumIn, Field } from '../ui';
 import { allExercises, exById, LEVEL, useUnits } from './common';
 import { MuscleMap } from './MuscleMap';
+import { DemoVideo } from './DemoVideo';
+import { YT } from '../data/videos';
 import { todaysPlan, buildSchedule, recommendProgram } from '../lib/coach';
 import { e1rm } from '../lib/calc';
 import { toast, haptic, checkAchievements, share } from '../lib/extras';
@@ -78,7 +80,7 @@ export function Library({ pick }: { pick?: (e: Exercise) => void }) {
     && (!mech || e.mech === mech) && (!type || e.type === type) && (!where || (where === 'home' ? EQUIP_RANK[e.equip] <= 2 : EQUIP_RANK[e.equip] >= 3))), [s, q, muscle, eq, lvl, mech, where, type]);
   const filtering = q || muscle || eq || lvl || mech || where || type;
   return <>
-    <div className="search"><Icon n="search" s={18} /><input placeholder="Search 95+ exercises" value={q} onChange={(e) => setQ(e.target.value)} />{q && <button onClick={() => setQ('')}><Icon n="x" s={16} /></button>}</div>
+    <div className="search"><Icon n="search" s={18} /><input placeholder="Search 100 exercises" value={q} onChange={(e) => setQ(e.target.value)} />{q && <button onClick={() => setQ('')}><Icon n="x" s={16} /></button>}</div>
     <div className="chips scroll">
       <Chip on={where === 'gym'} onClick={() => setWhere(where === 'gym' ? '' : 'gym')}>🏢 Gym</Chip><Chip on={where === 'home'} onClick={() => setWhere(where === 'home' ? '' : 'home')}>🏠 Home</Chip>
       <Chip on={mech === 'compound'} onClick={() => setMech(mech === 'compound' ? '' : 'compound')}>Compound</Chip><Chip on={mech === 'isolation'} onClick={() => setMech(mech === 'isolation' ? '' : 'isolation')}>Isolation</Chip>
@@ -100,7 +102,7 @@ function ExRow({ e, onClick, right }: { e: Exercise; onClick?: () => void; right
   return (
     <Card className="ex-row" onClick={onClick}>
       <div className="ex-ic">{MUSCLES.find((m) => m.key === e.muscle)?.emoji}</div>
-      <div className="ex-t"><b>{e.name}</b><small>{EQ_NAME[e.equip]} · {e.mech} · {LEVEL[e.level]}</small></div>
+      <div className="ex-t"><b>{e.name}</b><small>{(YT[e.id] || e.video) ? '▶ Video · ' : ''}{EQ_NAME[e.equip]} · {e.mech} · {LEVEL[e.level]}</small></div>
       {right || <Icon n="chev" s={18} />}
     </Card>
   );
@@ -131,11 +133,8 @@ export function ExerciseDetail({ id }: { id: string }) {
         </Card>
       )}
       <Card className="demo">
-        <MuscleMap primary={e.muscle} secondary={e.secondary} />
         {premiumLocked ? <div className="demo-note"><Icon n="lock" s={16} /> Premium video — upgrade to watch.</div>
-          : e.video ? <video className="demo-video" src={e.video} controls playsInline preload="metadata" />
-            : <div className="demo-note"><Icon n="video" s={16} /> <div><b>Video demonstration not added yet.</b><small>FITVERSE only shows licensed demonstration videos; none is attached to this exercise. An admin can attach one from the Admin dashboard. Meanwhile follow the written cues below.</small></div></div>}
-        {!e.video && <a className="demo-link" href={`https://www.youtube.com/results?search_query=${encodeURIComponent(e.name + ' proper form')}`} target="_blank" rel="noreferrer">Search form videos on YouTube ↗</a>}
+          : <DemoVideo exId={e.id} name={e.name} custom={e.video} />}
       </Card>
       <div className="ex-stats">
         <div><small>Sets</small><b>{e.sets}</b></div><div><small>Reps</small><b>{e.reps}</b></div><div><small>Rest</small><b>{e.rest}</b></div><div><small>Level</small><b>{LEVEL[e.level]}</b></div>
@@ -145,7 +144,7 @@ export function ExerciseDetail({ id }: { id: string }) {
       <Section title="Execution" icon="play"><ol className="cue">{e.steps.map((x, i) => <li key={i}>{x}</li>)}</ol></Section>
       <Section title="Breathing" icon="drop"><p>{e.breath}</p></Section>
       <Section title="Posture & alignment" icon="check"><p>{e.posture}</p></Section>
-      <Section title="Muscles" icon="spark"><p><b>Primary:</b> {MUSCLES.find((m) => m.key === e.muscle)?.name}</p><p><b>Secondary:</b> {e.secondary.join(', ') || '—'}</p></Section>
+      <Section title="Muscles" icon="spark"><MuscleMap primary={e.muscle} secondary={e.secondary} /><p><b>Primary:</b> {MUSCLES.find((m) => m.key === e.muscle)?.name}</p><p><b>Secondary:</b> {e.secondary.join(', ') || '—'}</p></Section>
       <Section title="Common mistakes" icon="x"><ul className="bad">{e.mistakes.map((x, i) => <li key={i}>{x}</li>)}</ul></Section>
       <Section title="Safety" icon="shield"><ul className="warn">{e.safety.map((x, i) => <li key={i}>{x}</li>)}<li>Stop if you feel sharp or joint pain. Get medical advice for injuries, recent surgery or heart conditions before training.</li></ul></Section>
       <Section title="Equipment" icon="train"><p>{e.gear}</p></Section>
@@ -256,6 +255,7 @@ export function ActiveWorkout() {
   const [rest, setRest] = useState<{ until: number; total: number } | null>(null);
   const [picking, setPicking] = useState(false);
   const [restDefault, setRestDefault] = useState(90);
+  const [demo, setDemo] = useState<string | null>(null);
   useEffect(() => { if (rest && Date.now() >= rest.until) { setRest(null); haptic(); try { navigator.vibrate?.([200, 100, 200]); } catch { /* */ } toast('Rest over — next set 💪'); } });
   if (!a) return <div className="page"><Header left={<BackBtn />} title="Workout" /><Empty icon="train" title="No active workout" action={<Btn onClick={() => go('/train')}>Go to Train</Btn>} /></div>;
   const eqLevel = s.profile?.equipment || 'gym';
@@ -296,7 +296,7 @@ export function ActiveWorkout() {
         return (
           <Card key={ei} className="wo-ex-card">
             <div className="row-b"><div onClick={() => go('/exercise/' + e.id)}><b>{e.name}</b><small className="muted">{e.rest} rest · {pr ? `PR ${pr.w}×${pr.r}` : 'no PR yet'}</small></div>
-              <div className="row">{alt && <button className="icon-btn" title={`Swap to ${alt.name}`} onClick={() => mod((x) => { x.entries[ei].exId = alt.id; })}><Icon n="swap" s={18} /></button>}
+              <div className="row">{YT[e.id] && <button className="icon-btn" title="Watch demo" aria-label="Watch demo" onClick={() => setDemo(e.id)}><Icon n="play" s={16} fill /></button>}{alt && <button className="icon-btn" title={`Swap to ${alt.name}`} onClick={() => mod((x) => { x.entries[ei].exId = alt.id; })}><Icon n="swap" s={18} /></button>}
                 <button className="icon-btn" onClick={() => mod((x) => { x.entries.splice(ei, 1); })} aria-label="Remove exercise"><Icon n="trash" s={18} /></button></div></div>
             <div className="set-h"><span>Set</span><span>{u.wU}</span><span>Reps</span><span>✓</span></div>
             {en.sets.map((st, si) => (
@@ -321,6 +321,7 @@ export function ActiveWorkout() {
         <div className="bar"><i style={{ width: `${(1 - (rest.until - Date.now()) / (rest.total * 1000)) * 100}%` }} /></div>
         <div className="row"><Btn small kind="soft" onClick={() => setRest({ ...rest, until: rest.until - 15000 })}>−15s</Btn><Btn small kind="soft" onClick={() => setRest({ ...rest, until: rest.until + 15000, total: rest.total + 15 })}>+15s</Btn><Btn small onClick={() => setRest(null)}>Skip</Btn></div>
       </div></div>}
+      <Sheet open={!!demo} onClose={() => setDemo(null)} title={demo ? exById(s, demo)?.name : ''}>{demo && <DemoVideo exId={demo} name={exById(s, demo)?.name || ''} custom={exById(s, demo)?.video} />}</Sheet>
       <Sheet open={picking} onClose={() => setPicking(false)} title="Add exercise"><Library pick={(e) => { mod((x) => { x.entries.push({ exId: e.id, sets: [0, 1, 2].map(() => ({ w: 0, r: parseInt(e.reps) || 10, done: false })) }); }); setPicking(false); }} /></Sheet>
     </div>
   );
@@ -342,7 +343,7 @@ export function WorkoutSummary({ id }: { id: string }) {
       {w.prs.length > 0 && <Card className="pr-banner"><Icon n="trophy" /> {w.prs.length} new personal record{w.prs.length > 1 ? 's' : ''}: {w.prs.map((p) => exById(s, p)?.name).join(', ')}</Card>}
       {w.entries.map((e, i) => <Card key={i}><b>{exById(s, e.exId)?.name}</b><div className="muted small">{e.sets.map((x) => `${x.w ? x.w + ' kg × ' : ''}${x.r}`).join(' · ')}</div></Card>)}
       <Btn full icon="share" onClick={post}>Share to community</Btn><div style={{ height: 8 }} />
-      <Btn full kind="ghost" onClick={() => share(`I just finished ${w.name} on FITVERSE — ${mins} min, ${fmt.n(w.volume)} kg volume 💪`)}>Share outside the app</Btn>
+      <Btn full kind="ghost" onClick={() => share(`I just finished ${w.name} on Bro’s Fitness — ${mins} min, ${fmt.n(w.volume)} kg volume 💪`)}>Share outside the app</Btn>
     </div>
   );
 }

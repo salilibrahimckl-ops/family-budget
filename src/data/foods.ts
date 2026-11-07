@@ -1,4 +1,4 @@
-// FITVERSE food database. Values are per 100 g (or 100 ml for liquids), cooked/ready-to-eat unless noted.
+// Bro’s Fitness food database. Values are per 100 g (or 100 ml for liquids), cooked/ready-to-eat unless noted.
 // Sources: averages from the Indian Food Composition Tables (IFCT 2017, NIN) and USDA FoodData Central.
 // Home-cooked Kerala dishes vary with oil, coconut and recipe — those values are typical estimates and are labelled as such.
 

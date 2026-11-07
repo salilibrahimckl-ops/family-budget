@@ -32,7 +32,7 @@ export interface State {
   settings: {
     theme: 'dark' | 'light'; units: 'metric' | 'imperial'; asianBmi: boolean; hotClimate: boolean; lang: 'en' | 'ml';
     reminders: { water: boolean; every: number; from: number; to: number; workout: boolean };
-    supabaseUrl: string; supabaseAnon: string; admin: boolean; plan: 'free' | 'premium'; seenIntro: boolean;
+    supabaseUrl: string; supabaseAnon: string; admin: boolean; plan: 'free' | 'premium'; seenIntro: boolean; hideChecklist?: boolean; watchedDemo?: boolean;
   };
   custom: { kcal?: number; protein?: number; water?: number };
   weights: { date: string; kg: number }[];
@@ -102,7 +102,7 @@ export function useStore<T>(sel: (s: State) => T): T {
 export function resetAll() { try { localStorage.removeItem(KEY); } catch { /* */ } state = initial(); subs.forEach((s) => s()); }
 export function exportData() {
   const { accounts, session, ...rest } = state;
-  return JSON.stringify({ exportedAt: new Date().toISOString(), app: 'FITVERSE', data: rest }, null, 2);
+  return JSON.stringify({ exportedAt: new Date().toISOString(), app: 'Bro’s Fitness', data: rest }, null, 2);
 }
 
 export function notify(d: State, n: Omit<Notif, 'id' | 'ts' | 'read'>) {

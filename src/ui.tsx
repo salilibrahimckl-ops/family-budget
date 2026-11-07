@@ -1,4 +1,4 @@
-// FITVERSE design-system components.
+// Bro’s Fitness design-system components.
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { getMedia } from './lib/store';
 import { toastStore } from './lib/extras';
@@ -38,20 +38,20 @@ export function Icon({ n, s = 22, w = 2, fill }: { n: string; s?: number; w?: nu
 
 export function Logo({ s = 40 }: { s?: number }) {
   return (
-    <svg width={s} height={s} viewBox="0 0 512 512" aria-label="FITVERSE">
+    <svg width={s} height={s} viewBox="0 0 512 512" aria-label="Bro’s Fitness">
       <defs>
         <linearGradient id="lg-o" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#D4FF3A" /><stop offset="1" stopColor="#22E3B5" /></linearGradient>
         <radialGradient id="lg-b" cx=".3" cy=".25" r=".9"><stop offset="0" stopColor="#1F2630" /><stop offset="1" stopColor="#07090C" /></radialGradient>
       </defs>
       <rect width="512" height="512" rx="116" fill="url(#lg-b)" />
       <g transform="rotate(-24 256 256)"><ellipse cx="256" cy="262" rx="196" ry="84" fill="none" stroke="url(#lg-o)" strokeWidth="24" strokeDasharray="860 210" strokeLinecap="round" /></g>
-      <path d="M200 120h176l-20 60H262v40h92l-18 56h-74v116h-62z" fill="#fff" transform="skewX(-8) translate(30 0)" />
+      <path d="M196 118h118c56 0 92 28 92 74 0 28-14 48-38 59 33 10 52 35 52 68 0 52-39 83-103 83H196zM258 170v62h52c21 0 34-12 34-31s-13-31-34-31zM258 284v66h60c23 0 37-13 37-33s-14-33-37-33z" fill="#fff" fillRule="evenodd" transform="skewX(-8) translate(24 0)" />
       <circle cx="420" cy="170" r="24" fill="#D4FF3A" />
     </svg>
   );
 }
 export function Wordmark({ size = 22 }: { size?: number }) {
-  return <span className="wordmark" style={{ fontSize: size }}>FIT<span>VERSE</span></span>;
+  return <span className="wordmark" style={{ fontSize: size }}>BRO’S <span>FITNESS</span></span>;
 }
 
 // ─── Layout primitives ───

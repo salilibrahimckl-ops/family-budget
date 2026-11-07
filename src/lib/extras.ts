@@ -79,7 +79,7 @@ export const t = (k: string) => DICT[getState().settings.lang]?.[k] || DICT.en[k
 const cap = () => (window as any).Capacitor;
 export const isNative = () => !!cap()?.isNativePlatform?.();
 export function haptic() { try { cap()?.Plugins?.Haptics?.impact?.({ style: 'LIGHT' }); if (!isNative()) navigator.vibrate?.(8); } catch { /* */ } }
-export async function share(text: string, title = 'FITVERSE') {
+export async function share(text: string, title = 'Bro’s Fitness') {
   try { if (cap()?.Plugins?.Share && isNative()) { await cap().Plugins.Share.share({ title, text }); return true; } if (navigator.share) { await navigator.share({ title, text }); return true; } await navigator.clipboard.writeText(text); toast('Copied to clipboard'); return true; } catch { return false; }
 }
 export async function scheduleWaterReminders(s: State['settings']['reminders']) {
@@ -93,7 +93,7 @@ export async function scheduleWaterReminders(s: State['settings']['reminders']) 
   if (!s.water) return 'off';
   const perm = await LN.requestPermissions(); if (perm.display !== 'granted') return 'denied';
   const notifications: any[] = []; let id = 100;
-  for (let m = s.from * 60; m <= s.to * 60; m += s.every) notifications.push({ id: id++, title: 'Hydration check 💧', body: 'Time for a glass of water. Tap to log it in FITVERSE.', schedule: { on: { hour: Math.floor(m / 60), minute: m % 60 }, repeats: true, allowWhileIdle: true } });
+  for (let m = s.from * 60; m <= s.to * 60; m += s.every) notifications.push({ id: id++, title: 'Hydration check 💧', body: 'Time for a glass of water. Tap to log it in Bro’s Fitness.', schedule: { on: { hour: Math.floor(m / 60), minute: m % 60 }, repeats: true, allowWhileIdle: true } });
   await LN.schedule({ notifications });
   return 'native';
 }

@@ -84,7 +84,7 @@ function App() {
     return () => clearInterval(i);
   }, [session?.userId, !!profile]);
   useEffect(() => {
-    if (profile && !getState().notifications.length) update((d) => notify(d, { type: 'system', text: 'Welcome to FITVERSE! Your plan and targets are ready. Tap Train to start today\'s workout.' }));
+    if (profile && !getState().notifications.length) update((d) => notify(d, { type: 'system', text: 'Welcome to Bro’s Fitness! Your plan and targets are ready. Tap Train to start today\'s workout.' }));
   }, [!!profile]);
 
   if (!session) {

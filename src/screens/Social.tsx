@@ -76,7 +76,7 @@ export function PostCard({ p, full }: { p: Post; full?: boolean }) {
       <div className="post-a">
         <button className={liked ? 'liked' : ''} onClick={like}><Icon n="heart" fill={liked} /> {likes}</button>
         <button onClick={() => go('/post/' + p.id)}><Icon n="comment" /> {comments}</button>
-        <button onClick={() => share(`${u.name} on FITVERSE: ${p.text.slice(0, 140)}`)}><Icon n="share" /></button>
+        <button onClick={() => share(`${u.name} on Bro’s Fitness: ${p.text.slice(0, 140)}`)}><Icon n="share" /></button>
         <span style={{ flex: 1 }} />
         <button className={saved ? 'liked' : ''} onClick={() => update((d) => { d.social.bookmarks = saved ? d.social.bookmarks.filter((b) => b !== p.id) : [...d.social.bookmarks, p.id]; })}><Icon n="bookmark" fill={saved} /></button>
       </div>

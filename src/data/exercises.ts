@@ -1,4 +1,4 @@
-// FITVERSE exercise library.
+// Bro’s Fitness exercise library.
 // Coaching cues follow widely taught strength-coaching standards (NSCA / ACE style technique cues).
 // No demonstration videos are bundled. `video` stays empty until an admin attaches a licensed URL.
 

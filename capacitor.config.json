@@ -1,6 +1,6 @@
 {
   "appId": "com.fitverse.app",
-  "appName": "FITVERSE",
+  "appName": "Bro’s Fitness App",
   "webDir": "www",
   "backgroundColor": "#0A0C0F",
   "android": { "allowMixedContent": false },

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useStore, update, uid, putMedia, processImage, exportData, resetAll, getState, State, Profile as P } from '../lib/store';
+import { useStore, update, uid, putMedia, processImage, exportData, resetAll, getState, State, Profile as P, hashPw } from '../lib/store';
 import { Header, BackBtn, Card, Btn, Chip, Seg, Icon, Pill, Sheet, Empty, go, back, Avatar, Field, NumIn, Toggle, fmt, Logo, Wordmark } from '../ui';
 import { GOALS, ACTIVITY, Goal, Activity, bmi } from '../lib/calc';
 import { EQUIP, Equip } from '../data/exercises';
@@ -37,8 +37,8 @@ export function Me() {
       <div className="ex-stats"><div><small>Workouts</small><b>{s.workouts.length}</b></div><div><small>PRs</small><b>{Object.keys(s.prs).length}</b></div><div><small>Badges</small><b>{Object.keys(s.achievements).length}/{ACHIEVEMENTS.length}</b></div><div><small>Days logged</small><b>{new Set(s.meals.map((m) => m.date)).size}</b></div></div>
       {s.settings.plan === 'premium' ? <Analytics s={s} /> : <Card className="pro-teaser" onClick={() => go('/premium')}><Icon n="chart" /><div><b>Advanced analytics</b><small>Volume per muscle, 1RM trends, adherence — Premium</small></div><Icon n="chev" s={18} /></Card>}
       {items.map(([ic, l, to]) => <Card key={to} className="list-row" onClick={() => go(to)}><Icon n={ic} s={20} /><b style={{ flex: 1 }}>{l}</b><Icon n="chev" s={18} /></Card>)}
-      <Btn full kind="ghost" onClick={() => { update((d) => { d.session = null; }); location.hash = '#/'; }}>Sign out</Btn>
-      <p className="muted small center">FITVERSE 1.0.0 · {isCloud(s) ? 'Cloud sync' : 'On-device mode'}</p>
+      <Btn full kind="ghost" onClick={async () => { if (s.session?.email === 'guest' && !(await ask('You haven’t added an email and password yet, so you won’t be able to sign back in. Sign out anyway?'))) { go('/settings'); return; } update((d) => { d.session = null; }); location.hash = '#/'; }}>Sign out</Btn>
+      <p className="muted small center">Bro’s Fitness 1.0.0 · {isCloud(s) ? 'Cloud sync' : 'On-device mode'}</p>
     </div>
   );
 }
@@ -102,6 +102,7 @@ export function Settings() {
   const [url, setUrl] = useState(st.supabaseUrl); const [key, setKey] = useState(st.supabaseAnon); const [syncing, setSyncing] = useState(false);
   const setS = (fn: (d: State) => void) => update(fn);
   return <div className="page"><Header left={<BackBtn />} title="Settings" />
+    {s.session?.email === 'guest' && <SaveAccount />}
     <Card><span className="lbl">Appearance & units</span>
       <Field label="Theme"><Seg value={st.theme} onChange={(v) => setS((d) => { d.settings.theme = v; })} options={[{ v: 'dark', l: '🌙 Dark' }, { v: 'light', l: '☀️ Light' }]} /></Field>
       <Field label="Units"><Seg value={st.units} onChange={(v) => setS((d) => { d.settings.units = v; })} options={[{ v: 'metric', l: 'Metric (kg, cm, ml)' }, { v: 'imperial', l: 'Imperial (lb, in, oz)' }]} /></Field>
@@ -122,7 +123,7 @@ export function Settings() {
       <small className="muted">Status: {isCloud(s) ? `signed in to cloud as ${s.session!.email}` : cloudReady() ? 'configured — sign in with a cloud account' : 'on-device only'}</small>
     </Card>
     <Card><span className="lbl">Your data</span>
-      <Btn full kind="soft" icon="share" onClick={async () => { const json = exportData(); const blob = new Blob([json], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `fitverse-export-${new Date().toISOString().slice(0, 10)}.json`; a.click(); if ((window as any).Capacitor?.isNativePlatform?.()) share(json.slice(0, 20000), 'FITVERSE data export'); toast('Export created'); }}>Export my data (JSON)</Btn>
+      <Btn full kind="soft" icon="share" onClick={async () => { const json = exportData(); const blob = new Blob([json], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `fitverse-export-${new Date().toISOString().slice(0, 10)}.json`; a.click(); if ((window as any).Capacitor?.isNativePlatform?.()) share(json.slice(0, 20000), 'Bro’s Fitness data export'); toast('Export created'); }}>Export my data (JSON)</Btn>
       <div style={{ height: 8 }} />
       <Btn full kind="danger" icon="trash" onClick={async () => {
         if (!await ask('Delete your account and ALL data (profile, logs, photos, posts)? This cannot be undone.')) return;
@@ -131,7 +132,7 @@ export function Settings() {
         const keepAccounts = getState().accounts; resetAll(); update((d) => { d.accounts = keepAccounts; d.settings.seenIntro = true; }); location.hash = '#/';
       }}>Delete account</Btn>
     </Card>
-    <Card><span className="lbl">Health & safety</span><p className="muted small">FITVERSE provides general fitness and nutrition information, not medical advice. Consult a doctor before starting a new programme if you are pregnant, have a heart, kidney, metabolic or musculoskeletal condition, or are recovering from injury or surgery. Stop exercising and seek care if you feel chest pain, faintness or severe breathlessness.</p></Card>
+    <Card><span className="lbl">Health & safety</span><p className="muted small">Bro’s Fitness provides general fitness and nutrition information, not medical advice. Consult a doctor before starting a new programme if you are pregnant, have a heart, kidney, metabolic or musculoskeletal condition, or are recovering from injury or surgery. Stop exercising and seek care if you feel chest pain, faintness or severe breathlessness.</p></Card>
     <Card><span className="lbl">About</span><div className="row"><Logo s={40} /><div><Wordmark size={16} /><small className="muted"> v1.0.0</small></div></div>
       <p className="muted small">Food data: IFCT 2017 (NIN, Hyderabad) and USDA FoodData Central averages; barcode data from Open Food Facts (ODbL). Formulas: Mifflin-St Jeor (1990), Epley 1RM, WHO & Asian-Indian BMI cut-offs.</p>
       <Toggle on={st.admin} onChange={(v) => setS((d) => { d.settings.admin = v; })} label="Admin tools on this device" desc="In cloud mode admin rights come from the server (profiles.is_admin)." /></Card>
@@ -141,7 +142,7 @@ export function Settings() {
 export function Premium() {
   const s = useStore((x) => x); const on = s.settings.plan === 'premium';
   const feats = [['spark', 'Cloud AI coach (LLM)', 'Open-ended answers with your full context'], ['calendar', 'Advanced personalised plans', 'Muscle-Building Programme & more'], ['chart', 'Advanced analytics', 'Volume per muscle, adherence, 1RM trends'], ['food', 'Detailed nutrition recommendations', 'Meal ideas from your remaining macros'], ['video', 'Premium exercise videos', 'When licensed videos are uploaded'], ['trophy', 'Exclusive programmes', 'New plans added from the admin dashboard']];
-  return <div className="page"><Header left={<BackBtn />} title="FITVERSE Premium" />
+  return <div className="page"><Header left={<BackBtn />} title="Bro’s Fitness Premium" />
     <div className="pro-hero"><Logo s={64} /><h2>Train smarter with Premium</h2><p className="muted">Everything in Free — exercise library, workout tracker, BMI, nutrition & water tracking, and the community — stays free.</p></div>
     {feats.map(([i, t1, d]) => <Card key={t1} className="list-row"><Icon n={i} /><div><b>{t1}</b><small>{d}</small></div></Card>)}
     <Card><p className="small"><b>Billing is not connected in this version.</b> The app is built to plug in Google Play Billing and Apple In-App Purchases later (see docs/MONETISATION.md). For now you can preview Premium features for free.</p>
@@ -183,3 +184,21 @@ export function Coach() {
   </div>;
 }
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+function SaveAccount() {
+  const [email, setEmail] = useState(''); const [pw, setPw] = useState('');
+  async function save() {
+    const em = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) return toast('Enter a valid email');
+    if (pw.length < 8 || !/\d/.test(pw) || !/[a-z]/i.test(pw)) return toast('Password: 8+ characters with letters and numbers');
+    if (getState().accounts.some((a) => a.email === em)) return toast('That email is already used on this device');
+    const salt = uid() + uid(); const hash = await hashPw(pw, salt);
+    update((d) => { const a = d.accounts.find((x) => x.userId === d.session!.userId); if (a) Object.assign(a, { email: em, salt, hash }); d.session!.email = em; });
+    toast('Account saved — you can now sign in with this email');
+  }
+  return <Card className="checklist"><span className="lbl">Protect your progress</span>
+    <p className="muted small">You started without signing up. Add an email and password so you can sign back in later.</p>
+    <Field label="Email"><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+    <Field label="Password"><input type="password" value={pw} onChange={(e) => setPw(e.target.value)} /></Field>
+    <Btn full onClick={save}>Save my account</Btn></Card>;
+}

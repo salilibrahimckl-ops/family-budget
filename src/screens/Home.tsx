@@ -29,6 +29,15 @@ export function Home() {
       <Header big left={<Logo s={34} />} title={<>{greet}, {p.name.split(' ')[0]}</>} sub={new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
         right={<button className="icon-btn" onClick={() => go('/notifications')} aria-label="Notifications"><Icon n="bell" />{unread > 0 && <i className="badge">{unread > 9 ? '9+' : unread}</i>}</button>} />
 
+      <div className="quick">
+        <button onClick={() => go(s.active ? '/workout' : tp?.day ? '/workout/start/today' : '/train')}><span><Icon n="play" s={20} fill /></span>{s.active ? 'Resume' : 'Workout'}</button>
+        <button onClick={() => go('/food/add?mode=text')}><span><Icon n="food" s={20} /></span>Log food</button>
+        <button onClick={() => addWater(250)}><span><Icon n="drop" s={20} /></span>+ Water</button>
+        <button onClick={() => go('/coach')}><span><Icon n="spark" s={20} /></span>Ask coach</button>
+      </div>
+
+      <Checklist />
+
       <Card className="hero-card" onClick={() => go('/nutrition')}>
         <div className="hero-rings">
           <Ring value={tot.kcal} max={tg.kcal} size={148} stroke={14}>
@@ -93,5 +102,27 @@ export function Home() {
       })}
       <div style={{ height: 12 }} />
     </div>
+  );
+}
+
+function Checklist() {
+  const s = useStore((x) => x);
+  if (s.settings.hideChecklist) return null;
+  const items: [string, boolean, string, string][] = [
+    ['Set up your profile', !!s.profile, '/edit-profile', ''],
+    ['Watch an exercise demo', !!s.settings.watchedDemo, '/exercise/push-up', '1 min'],
+    ['Log your first meal', s.meals.length > 0, '/food/add?mode=text', '30 sec'],
+    ['Drink a glass of water', s.water.length > 0, '/water', '1 tap'],
+    ['Finish your first workout', s.workouts.length > 0, '/train', ''],
+    ['Ask the AI coach a question', s.coach.length > 0, '/coach', ''],
+  ];
+  const done = items.filter((i) => i[1]).length;
+  if (done === items.length) return null;
+  return (
+    <Card className="checklist">
+      <div className="row-b"><h3>Getting started · {done}/{items.length}</h3><button className="link muted" onClick={() => update((d) => { d.settings.hideChecklist = true; })}>Hide</button></div>
+      <Bar value={done} max={items.length} />
+      {items.map(([l, ok, to, hint]) => <button key={l} className={'check-item' + (ok ? ' done' : '')} onClick={() => !ok && go(to)}><i>{ok ? '✓' : ''}</i>{l}{!ok && <em>{hint || 'Go'} →</em>}</button>)}
+    </Card>
   );
 }

@@ -5,13 +5,18 @@ import { Btn, Field, Logo, Wordmark, Icon, Sheet } from '../ui';
 import { toast } from '../lib/extras';
 
 const SLIDES = [
-  { t: 'Train anywhere', d: '90+ exercises with step-by-step form, breathing and safety cues — and an instant home version of every gym move.', e: '🏋️', c: ['#D4FF3A', '#22E3B5'] },
+  { t: 'Train anywhere', d: '100 exercises with video demos, step-by-step form and safety cues — plus an instant home version of every gym move.', e: '🏋️', c: ['#D4FF3A', '#22E3B5'] },
   { t: 'Eat with a plan', d: 'Calories and macros built from Mifflin-St Jeor and your goal. Log rice, puttu, dosa or chicken in plain English.', e: '🍛', c: ['#FFB020', '#FF5A36'] },
   { t: 'Rise together', d: 'Share workouts and transformations, join challenges and earn badges. Your body data stays private unless you choose.', e: '🔥', c: ['#B388FF', '#4FC3F7'] },
 ];
 
 export function Welcome({ onDone }: { onDone: (mode: 'login' | 'register') => void }) {
   const [i, setI] = useState(0); const s = SLIDES[i];
+  React.useEffect(() => { const t = setInterval(() => setI((x) => (x + 1) % SLIDES.length), 4000); return () => clearInterval(t); }, []);
+  function quickStart() {
+    const id = 'u-' + uid();
+    update((d) => { d.accounts.push({ email: 'guest:' + id, salt: '', hash: '', userId: id }); d.session = { userId: id, email: 'guest', mode: 'local' }; d.settings.seenIntro = true; d.settings.admin = d.accounts.length === 1; });
+  }
   return (
     <div className="welcome">
       <div className="welcome-top"><Logo s={44} /><Wordmark size={20} /></div>
@@ -22,7 +27,8 @@ export function Welcome({ onDone }: { onDone: (mode: 'login' | 'register') => vo
       <div className="welcome-txt" key={'t' + i}><h2>{s.t}</h2><p>{s.d}</p></div>
       <div className="dots">{SLIDES.map((_, k) => <i key={k} className={k === i ? 'on' : ''} onClick={() => setI(k)} />)}</div>
       <div className="welcome-cta">
-        {i < SLIDES.length - 1 ? <Btn full onClick={() => setI(i + 1)}>Continue</Btn> : <Btn full onClick={() => onDone('register')}>Create your account</Btn>}
+        <Btn full onClick={quickStart}>Get started — it’s free</Btn>
+        <p className="muted small center" style={{ margin: '2px 0 4px' }}>No sign-up needed. Takes about 30 seconds.</p>
         <Btn full kind="ghost" onClick={() => onDone('login')}>I already have an account</Btn>
       </div>
     </div>
@@ -93,7 +99,7 @@ export function AuthScreen({ initial }: { initial: 'login' | 'register' }) {
   return (
     <div className="auth">
       <div className="auth-head"><Logo s={56} /><h2>{mode === 'register' ? 'Create account' : mode === 'login' ? 'Welcome back' : 'Reset password'}</h2>
-        <p>{mode === 'register' ? 'Start your FITVERSE journey.' : mode === 'login' ? 'Sign in to continue training.' : 'We\'ll help you get back in.'}</p></div>
+        <p>{mode === 'register' ? 'Start your Bro’s Fitness journey.' : mode === 'login' ? 'Sign in to continue training.' : 'We\'ll help you get back in.'}</p></div>
       <form onSubmit={submit} className="auth-form">
         <Field label="Email"><input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /></Field>
         {mode !== 'forgot' && (
@@ -126,7 +132,7 @@ export function AuthScreen({ initial }: { initial: 'login' | 'register' }) {
           <li>Create a free project at supabase.com and run <code>supabase/schema.sql</code>.</li>
           <li>In Supabase → Authentication → Providers, enable {oauthInfo === 'google' ? 'Google (needs a Google Cloud OAuth client ID)' : 'Apple (needs an Apple Developer account)'}.</li>
           <li>Add <code>com.fitverse.app://auth-callback</code> to the allowed redirect URLs.</li>
-          <li>In FITVERSE → Profile → Settings → Cloud, paste your project URL and anon key.</li>
+          <li>In Bro’s Fitness → Profile → Settings → Cloud, paste your project URL and anon key.</li>
         </ol>
         <p className="muted">Until then, create an account with email — it takes 10 seconds.</p>
         <Btn full onClick={() => { setOauthInfo(null); setMode('register'); }}>Use email instead</Btn>
