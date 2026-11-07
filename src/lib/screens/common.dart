@@ -162,12 +162,16 @@ class _TxnSheetState extends State<_TxnSheet> {
 }
 
 /// Add a cash / missed payment by hand.
-Future<void> showAddSheet(BuildContext context, Repo repo) {
+Future<void> showAddSheet(BuildContext context, Repo repo) async {
   final amount = TextEditingController();
   final payee = TextEditingController();
   final note = TextEditingController();
   var cat = 'food';
   var date = DateTime.now();
+  // Where the money came from: one of my bank accounts, cash, or nothing.
+  final myAccounts = (await repo.accountsStream().first).where((a) => a.member == repo.myName).toList();
+  String? paidFrom = myAccounts.isNotEmpty ? myAccounts.first.id : 'cash';
+  if (!context.mounted) return;
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -204,6 +208,29 @@ Future<void> showAddSheet(BuildContext context, Repo repo) {
                 onSelected: (_) => setS(() => cat = c.id),
               ),
           ]),
+          const SizedBox(height: 12),
+          Text('Paid from', style: Theme.of(ctx).textTheme.labelLarge),
+          const SizedBox(height: 6),
+          Wrap(spacing: 8, runSpacing: 6, children: [
+            for (final a in myAccounts)
+              ChoiceChip(
+                avatar: const Icon(Icons.account_balance, size: 16),
+                label: Text(a.title),
+                selected: paidFrom == a.id,
+                onSelected: (_) => setS(() => paidFrom = a.id),
+              ),
+            ChoiceChip(
+              avatar: const Icon(Icons.payments, size: 16),
+              label: const Text('Cash in hand'),
+              selected: paidFrom == 'cash',
+              onSelected: (_) => setS(() => paidFrom = 'cash'),
+            ),
+            ChoiceChip(
+              label: const Text("Don't change balances"),
+              selected: paidFrom == null,
+              onSelected: (_) => setS(() => paidFrom = null),
+            ),
+          ]),
           const SizedBox(height: 8),
           TextButton.icon(
             icon: const Icon(Icons.event),
@@ -227,6 +254,7 @@ Future<void> showAddSheet(BuildContext context, Repo repo) {
                   category: cat,
                   date: date,
                   note: note.text.trim().isEmpty ? null : note.text.trim(),
+                  paidFrom: paidFrom,
                 );
                 if (ctx.mounted) Navigator.pop(ctx);
               },

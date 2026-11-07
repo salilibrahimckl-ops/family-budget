@@ -6,6 +6,7 @@ import '../config.dart';
 import '../repo.dart';
 import '../sms_sync.dart';
 import 'dev_options_screen.dart';
+import 'sms_check_screen.dart';
 import '../updater.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -106,9 +107,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: 'Bank SMS (Android)',
             body: 'New bank SMS are read automatically. Re-scan if something was missed '
                 '(already-added payments are skipped).',
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+              OutlinedButton.icon(
+                icon: const Icon(Icons.fact_check_outlined),
+                label: const Text('Check bank SMS'),
+                onPressed: () => Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (_) => SmsCheckScreen(sms: widget.sms))),
+              ),
+              OutlinedButton.icon(
                 icon: _scanning
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.refresh),
@@ -125,7 +134,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             .showSnackBar(SnackBar(content: Text('Added $n payment(s)')));
                       },
               ),
-            ),
+            ]),
           )
         else
           _Section(

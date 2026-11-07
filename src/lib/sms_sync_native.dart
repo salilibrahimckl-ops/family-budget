@@ -81,4 +81,24 @@ class SmsSync {
     await Session.setLastScanMs(now.millisecondsSinceEpoch);
     return added;
   }
+
+  /// Recent SMS from bank-like senders, newest first (for the "Check bank SMS" screen).
+  Future<List<(String, String, DateTime)>> recentBankSms({int days = 7}) async {
+    if (!supported) return [];
+    final since = DateTime.now().subtract(Duration(days: days)).millisecondsSinceEpoch;
+    final msgs = await _telephony.getInboxSms(
+      columns: [SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],
+      filter: SmsFilter.where(SmsColumn.DATE).greaterThan(since.toString()),
+    );
+    final out = [
+      for (final m in msgs)
+        if (SmsParser.looksLikeBankSender(m.address))
+          (m.address ?? '', m.body ?? '', DateTime.fromMillisecondsSinceEpoch(m.date ?? 0))
+    ]..sort((a, b) => b.$3.compareTo(a.$3));
+    return out.take(40).toList();
+  }
+
+  /// Run one SMS through the app again (from the check screen).
+  Future<bool> ingestOne(String body, DateTime at) =>
+      repo.ingestSms(body, receivedAt: at, member: repo.myName, source: 'sms');
 }

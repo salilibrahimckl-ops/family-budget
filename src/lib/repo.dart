@@ -18,6 +18,7 @@ class Txn {
   final String source; // sms | iphone | manual
   final bool chittiSuggest;
   final String? note;
+  final String? paidFrom; // manual payments: bank account id or 'cash'
 
   Txn.fromDoc(DocumentSnapshot<Map<String, dynamic>> d)
       : id = d.id,
@@ -29,7 +30,8 @@ class Txn {
         date = (d.data()!['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
         source = d.data()!['source'] as String? ?? 'manual',
         chittiSuggest = d.data()!['chittiSuggest'] as bool? ?? false,
-        note = d.data()!['note'] as String?;
+        note = d.data()!['note'] as String?,
+        paidFrom = d.data()!['paidFrom'] as String?;
 }
 
 /// Money moved into Savings / Chitti through the app.
@@ -402,12 +404,14 @@ class Repo {
     });
   }
 
+  /// [paidFrom]: a bank account id, 'cash', or null (don't change any balance).
   Future<void> addManual({
     required double amount,
     required String payee,
     required String category,
     required DateTime date,
     String? note,
+    String? paidFrom,
   }) async {
     await txns.add({
       'amount': amount,
@@ -419,9 +423,25 @@ class Repo {
       'month': monthKey(date),
       'source': 'manual',
       'note': note,
+      'paidFrom': paidFrom,
       'chittiSuggest': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
+    await _adjustSource(paidFrom, -amount);
+  }
+
+  /// Move money out of (negative) or back into (positive) a bank account or cash.
+  Future<void> _adjustSource(String? paidFrom, double delta) async {
+    if (paidFrom == null || delta == 0) return;
+    if (paidFrom == 'cash') {
+      final cash = await money.where('kind', isEqualTo: 'cash').where('member', isEqualTo: myName).limit(1).get();
+      if (cash.docs.isNotEmpty) await cash.docs.first.reference.update({'amount': FieldValue.increment(delta)});
+      return;
+    }
+    final ref = accounts.doc(paidFrom);
+    final snap = await ref.get();
+    if (!snap.exists || snap.data()?['balance'] == null) return;
+    await ref.update({'balance': FieldValue.increment(delta), 'exact': false});
   }
 
   /// Change a transaction's category; optionally remember it for this payee
@@ -462,12 +482,16 @@ class Repo {
       if (note != null) 'note': note,
       if (payee != null) 'payee': payee.toUpperCase(),
     });
+    if (amount != null && t.paidFrom != null) await _adjustSource(t.paidFrom, t.amount - amount);
   }
 
   /// Ignored (not deleted) so a later SMS scan doesn't bring it back.
   Future<void> ignore(Txn t) => txns.doc(t.id).update({'category': kIgnored, 'chittiSuggest': false});
 
-  Future<void> delete(Txn t) => txns.doc(t.id).delete();
+  Future<void> delete(Txn t) async {
+    await txns.doc(t.id).delete();
+    await _adjustSource(t.paidFrom, t.amount); // give the money back
+  }
 
   // ---------- income ----------
 
