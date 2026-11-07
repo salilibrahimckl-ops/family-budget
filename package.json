@@ -1,0 +1,27 @@
+{
+  "name": "fitverse",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FITVERSE — AI-powered fitness, nutrition and social community app",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "icons": "node scripts/icons.mjs",
+    "android": "npm run build && npx cap sync android && npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/haptics": "^7.0.0",
+    "@capacitor/local-notifications": "^7.0.0",
+    "@capacitor/share": "^7.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0",
+    "esbuild": "^0.25.0",
+    "sharp": "^0.34.0",
+    "typescript": "^5.6.0"
+  }
+}
