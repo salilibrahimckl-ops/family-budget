@@ -409,3 +409,4 @@ button.link { background: none; border: 0; color: var(--accent, #C6FF3D); font-w
 .sv-nav { position: absolute; top: 90px; bottom: 80px; width: 35%; background: none; border: 0; z-index: 1; } .sv-nav.l { left: 0; } .sv-nav.r { right: 0; }
 .sv-open { position: absolute; bottom: calc(18px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.3); border-radius: 999px; padding: 10px 18px; font-weight: 600; z-index: 2; white-space: nowrap; }
 .watch-help { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; } .watch-help div { display: flex; flex-direction: column; } .watch-help small { color: var(--text-2); }
+.board-mid .sync { font-size: 10.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useStore, getState, Post } from '../lib/store';
 import { Card, Avatar, Icon, Media, go, fmt, Seg } from '../ui';
-import { isCloud, bg, leaderboard, pushStats, Board } from '../lib/cloud';
+import { isCloud, bg, leaderboard, pushStats, Board, statsSync } from '../lib/cloud';
 import { weekStats } from '../lib/activity';
 import { userOf } from './Social';
 
@@ -47,7 +47,8 @@ export function FriendsBoard() {
               <div key={r.userId} className={'board-row' + (r.userId === me ? ' me' : '')} onClick={() => r.userId !== me && go('/user/' + r.userId)}>
                 <span className="rank">{i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>
                 <Avatar name={u?.name || '?'} color={u?.avatarColor} src={(u as any)?.photo} media={r.userId === me ? s.profile!.avatar : undefined} size={34} />
-                <div className="board-mid"><b>{u?.name || 'Member'}</b><i style={{ width: Math.max(4, (r[by] / top) * 100) + '%' }} /></div>
+                <div className="board-mid"><b>{u?.name || 'Member'}</b><i style={{ width: Math.max(4, (r[by] / top) * 100) + '%' }} />
+                  <small className="sync">{r.userId === me ? (statsSync.err ? '⚠ not sent: ' + statsSync.err.slice(0, 60) : statsSync.at ? 'synced ' + fmt.ago(statsSync.at) : 'syncing…') : r.updated > 0 ? 'updated ' + fmt.ago(r.updated) : 'not synced yet — needs app update'}</small></div>
                 <span className="board-val">{fmt.n(r[by])}{unit && <small> {unit}</small>}{r.streak > 1 && <small className="streak"> 🔥{r.streak}</small>}</span>
               </div>
             );
