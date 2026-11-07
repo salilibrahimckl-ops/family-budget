@@ -7,6 +7,7 @@ import { Header, BackBtn, Card, Btn, Chip, Seg, Icon, Pill, Sheet, Empty, go, ba
 import { allFoods, useUnits } from './common';
 import { bmi, bmiClass, healthyRange, GOALS, ACTIVITY } from '../lib/calc';
 import { toast, haptic, checkAchievements, streak, scheduleWaterReminders } from '../lib/extras';
+import { ask, askText } from '../lib/dialog';
 
 const SLOTS: { k: MealSlot; l: string; e: string }[] = [{ k: 'breakfast', l: 'Breakfast', e: '🌅' }, { k: 'lunch', l: 'Lunch', e: '🍛' }, { k: 'dinner', l: 'Dinner', e: '🌙' }, { k: 'snacks', l: 'Snacks', e: '🍌' }];
 const defaultSlot = (): MealSlot => { const h = new Date().getHours(); return h < 11 ? 'breakfast' : h < 16 ? 'lunch' : h < 18 ? 'snacks' : 'dinner'; };
@@ -182,7 +183,7 @@ function TextEntry({ foods, slot, date }: { foods: Food[]; slot: MealSlot; date:
       ))}
       {ready.length > 0 && <Card className="nl-total"><span className="lbl">Estimated total</span><MacroRow m={total} /><p className="muted small">These are estimates based on typical values. Adjust amounts above if needed.</p>
         <Btn full onClick={() => { ready.forEach((i) => logFood(i.food!, i.grams!, slot, date, true)); toast(`Logged ${ready.length} item${ready.length > 1 ? 's' : ''} as estimates`); back(); }}>Log {ready.length} item{ready.length > 1 ? 's' : ''} to {slot}</Btn>
-        <Btn full kind="ghost" icon="star" onClick={() => { const name = prompt('Name this meal', text.slice(0, 30)); if (!name) return; update((d) => { d.favourites.push({ id: uid(), name, items: ready.map((i) => ({ foodId: i.food!.id, grams: i.grams! })) }); }); toast('Saved to favourites'); }}>Save as favourite meal</Btn></Card>}
+        <Btn full kind="ghost" icon="star" onClick={async () => { const name = await askText('Name this meal', text.slice(0, 30)); if (!name) return; update((d) => { d.favourites.push({ id: uid(), name, items: ready.map((i) => ({ foodId: i.food!.id, grams: i.grams! })) }); }); toast('Saved to favourites'); }}>Save as favourite meal</Btn></Card>}
     </>}
   </>;
 }
@@ -196,7 +197,7 @@ function Favourites({ slot, date }: { slot: MealSlot; date: string }) {
         <button className="icon-btn" onClick={() => update((d) => { d.favourites = d.favourites.filter((x) => x.id !== f.id); })} aria-label="Delete"><Icon n="trash" s={18} /></button>
         <Btn small onClick={() => { f.items.forEach((i) => { const fd = foods.find((x) => x.id === i.foodId); if (fd) logFood(fd, i.grams, slot, date); }); toast(`Logged ${f.name}`); back(); }}>Log</Btn></Card>; })}
     {!s.favourites.length && <Empty icon="star" title="No saved meals yet" text="Save the meal you just logged, or save one from the Describe tab." />}
-    {todayMeals.length > 0 && <Btn full kind="soft" icon="star" onClick={() => { const name = prompt('Name this meal', `My ${slot}`); if (!name) return; update((d) => { d.favourites.push({ id: uid(), name, items: todayMeals.map((m) => ({ foodId: m.foodId, grams: m.grams })) }); }); toast('Saved'); }}>Save this {slot} ({todayMeals.length} items) as a favourite</Btn>}
+    {todayMeals.length > 0 && <Btn full kind="soft" icon="star" onClick={async () => { const name = await askText('Name this meal', `My ${slot}`); if (!name) return; update((d) => { d.favourites.push({ id: uid(), name, items: todayMeals.map((m) => ({ foodId: m.foodId, grams: m.grams })) }); }); toast('Saved'); }}>Save this {slot} ({todayMeals.length} items) as a favourite</Btn>}
   </>;
 }
 

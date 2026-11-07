@@ -4,6 +4,7 @@ import { Header, BackBtn, Card, Btn, Chip, Seg, Icon, Pill, Sheet, Empty, go, ba
 import { GOALS, ACTIVITY, Goal, Activity, bmi } from '../lib/calc';
 import { EQUIP, Equip } from '../data/exercises';
 import { toast, ACHIEVEMENTS, share, t } from '../lib/extras';
+import { ask, askText } from '../lib/dialog';
 import { localCoach, cloudCoach, userTargets, dayTotals, weeklyPlanText, recommendProgram, buildSchedule } from '../lib/coach';
 import { cloudReady, isCloud, syncUp, pullFeed, cloudDeleteAccount } from '../lib/cloud';
 import { useUnits } from './common';
@@ -67,12 +68,13 @@ function AvatarEdit() {
 export function EditProfile() {
   const s = useStore((x) => x); const [p, setP] = useState<P>(s.profile!);
   const set = <K extends keyof P>(k: K, v: P[K]) => setP((x) => ({ ...x, [k]: v }));
-  function save() {
+  async function save() {
     if (p.name.trim().length < 2) return toast('Name is too short');
     const taken = s.social.users.some((u) => u.username === p.username && u.id !== p.userId);
     if (taken) return toast('That username is taken');
     const replan = p.days !== s.profile!.days || p.equipment !== s.profile!.equipment || p.goal !== s.profile!.goal || p.experience !== s.profile!.experience;
-    update((d) => { d.profile = p; if (replan && confirm('Your training settings changed. Update your weekly plan to match?')) { const prog = recommendProgram({ ...d, profile: p }); d.plan = { programId: prog.id, schedule: buildSchedule(p.days, prog.days.length) }; } });
+    const doReplan = replan && await ask('Your training settings changed. Update your weekly plan to match?');
+    update((d) => { d.profile = p; if (doReplan) { const prog = recommendProgram({ ...d, profile: p }); d.plan = { programId: prog.id, schedule: buildSchedule(p.days, prog.days.length) }; } });
     toast('Profile saved'); back();
   }
   return <div className="page"><Header left={<BackBtn />} title="Edit profile" right={<Btn small onClick={save}>Save</Btn>} />
@@ -123,8 +125,8 @@ export function Settings() {
       <Btn full kind="soft" icon="share" onClick={async () => { const json = exportData(); const blob = new Blob([json], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `fitverse-export-${new Date().toISOString().slice(0, 10)}.json`; a.click(); if ((window as any).Capacitor?.isNativePlatform?.()) share(json.slice(0, 20000), 'FITVERSE data export'); toast('Export created'); }}>Export my data (JSON)</Btn>
       <div style={{ height: 8 }} />
       <Btn full kind="danger" icon="trash" onClick={async () => {
-        if (!confirm('Delete your account and ALL data (profile, logs, photos, posts)? This cannot be undone.')) return;
-        if (isCloud(s)) { try { await cloudDeleteAccount(); } catch (e: any) { if (!confirm('Cloud deletion failed (' + e.message + '). Delete local data anyway?')) return; } }
+        if (!await ask('Delete your account and ALL data (profile, logs, photos, posts)? This cannot be undone.')) return;
+        if (isCloud(s)) { try { await cloudDeleteAccount(); } catch (e: any) { if (!await ask('Cloud deletion failed (' + e.message + '). Delete local data anyway?')) return; } }
         const email = s.session?.email; update((d) => { d.accounts = d.accounts.filter((a) => a.email !== email); });
         const keepAccounts = getState().accounts; resetAll(); update((d) => { d.accounts = keepAccounts; d.settings.seenIntro = true; }); location.hash = '#/';
       }}>Delete account</Btn>

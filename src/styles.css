@@ -302,3 +302,5 @@ small { color: var(--text-2); }
 
 @media (min-width: 600px) { .main { padding-left: 20px; padding-right: 20px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+.dlg-bg { align-items: center; padding: 24px; z-index: 300; } .dlg { background: var(--bg-2); border: 1px solid var(--line); border-radius: 22px; padding: 20px; width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 14px; animation: pop .2s; }
+.dlg p { margin: 0; font-size: 15.5px; font-weight: 600; } .dlg-a { display: flex; justify-content: flex-end; gap: 8px; }

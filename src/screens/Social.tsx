@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useStore, update, uid, today, putMedia, processImage, validateVideo, notify, State, Post, getState, SocialUser } from '../lib/store';
 import { Header, BackBtn, Card, Btn, Chip, Seg, Icon, Pill, Sheet, Empty, go, back, Avatar, Media, fmt, Field, NumIn } from '../ui';
 import { toast, share, checkAchievements, CHALLENGES, challengeProgress, ACHIEVEMENTS } from '../lib/extras';
+import { ask, askText } from '../lib/dialog';
 import { isCloud, bg, cloudCreatePost, cloudLike, cloudComment, cloudFollow, cloudReport, pullFeed } from '../lib/cloud';
 import { useUnits } from './common';
 
@@ -81,7 +82,7 @@ export function PostCard({ p, full }: { p: Post; full?: boolean }) {
       </div>
       <Sheet open={menu} onClose={() => setMenu(false)}>
         {p.userId === me ? <Btn full kind="danger" icon="trash" onClick={() => { update((d) => { d.social.posts = d.social.posts.filter((x) => x.id !== p.id); }); setMenu(false); toast('Post deleted'); }}>Delete post</Btn> : <>
-          <Btn full kind="soft" icon="shield" onClick={() => { const reason = prompt('Why are you reporting this post? (spam, harassment, unsafe advice, nudity, other)'); if (!reason) return; update((d) => { d.social.reports.push({ id: uid(), postId: p.id, reason, ts: Date.now(), status: 'open' }); }); if (isCloud(s)) bg(cloudReport(p.id, reason)); setMenu(false); toast('Reported. Our moderators will review it.'); }}>Report post</Btn>
+          <Btn full kind="soft" icon="shield" onClick={async () => { const reason = await askText('Why are you reporting this post? (spam, harassment, unsafe advice, nudity, other)'); if (!reason) return; update((d) => { d.social.reports.push({ id: uid(), postId: p.id, reason, ts: Date.now(), status: 'open' }); }); if (isCloud(s)) bg(cloudReport(p.id, reason)); setMenu(false); toast('Reported. Our moderators will review it.'); }}>Report post</Btn>
           <div style={{ height: 8 }} />
           <Btn full kind="danger" icon="x" onClick={() => { update((d) => { d.social.blocks.push(p.userId); d.social.follows = d.social.follows.filter((f) => !(f.from === me && f.to === p.userId)); }); setMenu(false); toast(`Blocked @${u.username}`); }}>Block @{u.username}</Btn></>}
       </Sheet>
@@ -285,7 +286,7 @@ function ChallengeSheet({ id, onClose }: { id: string | null; onClose: () => voi
       <h4 className="sec-h">Leaderboard <small className="muted">(optional)</small></h4>
       {board.map((b, i) => <div key={i} className="lb-row"><span>{i + 1}</span><b>{b.name}</b><em>{b.v} {c.auto === 'workout' ? 'wks' : 'days'}</em></div>)}
       {!me.leaderboard && <p className="muted small">You're hidden from leaderboards. Change this in Settings → Privacy.</p>}
-      <Btn full kind="ghost" onClick={() => { if (confirm('Leave this challenge? Progress will be lost.')) { update((d) => { delete d.challenges[c.id]; }); onClose(); } }}>Leave challenge</Btn>
+      <Btn full kind="ghost" onClick={async () => { if (await ask('Leave this challenge? Progress will be lost.')) { update((d) => { delete d.challenges[c.id]; }); onClose(); } }}>Leave challenge</Btn>
     </>}
   </Sheet>;
 }

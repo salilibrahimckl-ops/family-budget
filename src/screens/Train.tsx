@@ -8,6 +8,7 @@ import { MuscleMap } from './MuscleMap';
 import { todaysPlan, buildSchedule, recommendProgram } from '../lib/coach';
 import { e1rm } from '../lib/calc';
 import { toast, haptic, checkAchievements, share } from '../lib/extras';
+import { ask, askText } from '../lib/dialog';
 
 const short = (n: string) => (/^Day [A-Z0-9]/.test(n) ? 'D' + n.slice(4, 5) : n.split(/[ &/]/)[0].slice(0, 5));
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -224,9 +225,9 @@ export function RoutineEditor({ id }: { id: string }) {
 }
 
 // ─────────── Active workout ───────────
-export function startWorkout(name: string, items: { id: string; sets: number; reps: string }[], programId?: string) {
+export async function startWorkout(name: string, items: { id: string; sets: number; reps: string }[], programId?: string) {
   const s = getState();
-  if (s.active && !confirm('A workout is already in progress. Discard it and start a new one?')) { go('/workout'); return; }
+  if (s.active && !await ask('A workout is already in progress. Discard it and start a new one?')) { go('/workout'); return; }
   const lastFor = (exId: string) => { for (const w of s.workouts) { const e = w.entries.find((x) => x.exId === exId); if (e) return e.sets; } return null; };
   update((d) => {
     d.active = { name, programId, start: Date.now(), home: false, entries: items.map((it) => {
@@ -263,8 +264,8 @@ export function ActiveWorkout() {
   const totalSets = a.entries.reduce((n, e) => n + e.sets.length, 0);
   const volume = a.entries.reduce((v, e) => v + e.sets.filter((x) => x.done).reduce((q, x) => q + x.w * x.r, 0), 0);
 
-  function finish() {
-    if (!doneSets) { if (confirm('No sets are ticked as done, so there is nothing to save. Discard this workout?')) { update((d) => { d.active = null; }); go('/train'); } return; }
+  async function finish() {
+    if (!doneSets) { if (await ask('No sets are ticked as done, so there is nothing to save. Discard this workout?')) { update((d) => { d.active = null; }); go('/train'); } return; }
     const st = getState(); const act = st.active!;
     const prs: string[] = [];
     const entries = act.entries.map((e) => ({ ...e, sets: e.sets.filter((x) => x.done) })).filter((e) => e.sets.length);
@@ -314,7 +315,7 @@ export function ActiveWorkout() {
         <span className="muted small">Default rest</span>{[60, 90, 120, 180].map((r) => <Chip key={r} on={restDefault === r} onClick={() => setRestDefault(r)}>{r}s</Chip>)}
         <Btn small kind="ghost" icon="timer" onClick={() => setRest({ until: Date.now() + restDefault * 1000, total: restDefault })}>Rest</Btn>
       </div>
-      <Btn full kind="danger" onClick={() => { if (confirm('Discard this workout? Nothing will be saved.')) { update((d) => { d.active = null; }); go('/train'); } }}>Discard workout</Btn>
+      <Btn full kind="danger" onClick={async () => { if (await ask('Discard this workout? Nothing will be saved.')) { update((d) => { d.active = null; }); go('/train'); } }}>Discard workout</Btn>
       {rest && <div className="rest-ov"><div className="rest-card">
         <small>Rest</small><b>{fmt.dur(Math.max(0, rest.until - Date.now()))}</b>
         <div className="bar"><i style={{ width: `${(1 - (rest.until - Date.now()) / (rest.total * 1000)) * 100}%` }} /></div>
@@ -359,7 +360,7 @@ function History({ s }: { s: State }) {
     ))}
     <Sheet open={!!w} onClose={() => setOpen(null)} title={w?.name}>
       {w && <>{w.entries.map((e, i) => <div key={i} className="hist-ex"><b>{exById(s, e.exId)?.name}</b><span>{e.sets.map((x) => `${x.w ? x.w + '×' : ''}${x.r}`).join(' · ')}</span></div>)}
-        <Btn full kind="danger" onClick={() => { if (confirm('Delete this workout from history?')) { update((d) => { d.workouts = d.workouts.filter((q) => q.id !== w.id); }); setOpen(null); } }}>Delete workout</Btn></>}
+        <Btn full kind="danger" onClick={async () => { if (await ask('Delete this workout from history?')) { update((d) => { d.workouts = d.workouts.filter((q) => q.id !== w.id); }); setOpen(null); } }}>Delete workout</Btn></>}
     </Sheet>
   </>;
 }

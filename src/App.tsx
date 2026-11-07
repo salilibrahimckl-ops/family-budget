@@ -10,6 +10,7 @@ import { Nutrition, AddFood, Water, Body, Targets } from './screens/Nutrition';
 import { Feed, PostDetail, NewPost, UserProfile, Notifications, Challenges, Bookmarks, SearchUsers } from './screens/Social';
 import { Me, EditProfile, Settings, Premium, Coach } from './screens/Profile';
 import { Admin } from './screens/Admin';
+import { Dialogs } from './lib/dialog';
 import { CHALLENGES, startWebReminderLoop, scheduleWaterReminders, t, isNative } from './lib/extras';
 import { consumeOAuthHash, isCloud, syncUp, pullFeed, bg } from './lib/cloud';
 
@@ -87,17 +88,17 @@ function App() {
   }, [!!profile]);
 
   if (!session) {
-    if (!seenIntro && !authMode) return <><Welcome onDone={(m) => { update((d) => { d.settings.seenIntro = true; }); setAuthMode(m); }} /><Toasts /></>;
-    return <><AuthScreen initial={authMode || 'login'} key={authMode || 'login'} /><Toasts /></>;
+    if (!seenIntro && !authMode) return <><Welcome onDone={(m) => { update((d) => { d.settings.seenIntro = true; }); setAuthMode(m); }} /><Toasts /><Dialogs /></>;
+    return <><AuthScreen initial={authMode || 'login'} key={authMode || 'login'} /><Toasts /><Dialogs /></>;
   }
-  if (!profile || profile.userId !== session.userId) return <><Onboarding /><Toasts /></>;
+  if (!profile || profile.userId !== session.userId) return <><Onboarding /><Toasts /><Dialogs /></>;
   const tabRoots = ['home', 'train', 'nutrition', 'community', 'me', undefined];
   const showTabs = tabRoots.includes(parts[0]);
   return (
     <div className={'app' + (showTabs ? ' with-tabs' : '')}>
       <main className="main"><Routes /></main>
       {showTabs && <TabBar cur={parts[0] || 'home'} />}
-      <Toasts />
+      <Toasts /><Dialogs />
     </div>
   );
 }
