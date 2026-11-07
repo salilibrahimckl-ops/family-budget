@@ -11,7 +11,7 @@ import { SignInButtons, inPreview, WEB_APP_URL } from './Join';
 import { WatchCard } from './Watch';
 import { useUnits } from './common';
 import { notifyCfg, scheduleAll, requestPermission, remindersSupported, testNotification, DEFAULT_NOTIFY } from '../lib/reminders';
-import { checkForUpdate, applyUpdate, currentBuild, needsNewApk, APK_URL, isNativeApp, UpdateInfo } from '../lib/updater';
+import { checkForUpdate, smartUpdate, currentBuild, needsNewApk, APK_URL, isNativeApp, UpdateInfo } from '../lib/updater';
 
 export function Me() {
   const s = useStore((x) => x); const p = s.profile!; const u = useUnits();
@@ -250,13 +250,12 @@ export function UpdatesCard({ compact }: { compact?: boolean }) {
   const [info, setInfo] = useState<UpdateInfo | null | undefined>(undefined);
   const [busy, setBusy] = useState(''); const native = isNativeApp();
   async function check() { setBusy('Checking…'); try { const u = await checkForUpdate(); setInfo(u); if (!u) toast('You’re on the latest version ✓'); } catch (e: any) { toast(e.message); } setBusy(''); }
-  async function install() { if (!info) return; try { await applyUpdate(setBusy); } catch (e: any) { toast(e.message); setBusy(''); } }
+  async function install() { if (!info) return; try { await smartUpdate(info, setBusy); } catch (e: any) { toast(e.message); setBusy(''); } }
   if (!native) return compact ? null : <Card><span className="lbl">App updates</span><p className="muted small">This web version updates automatically — just reopen the link.</p></Card>;
   return <Card className={info ? 'checklist' : ''}><span className="lbl">App updates</span>
     <p className="small">Version 1.0.{currentBuild()}</p>
     {info && <><p><b>New version 1.0.{info.build} is ready</b></p><ul className="cue small">{info.notes.map((n, i) => <li key={i}>{n}</li>)}</ul></>}
-    {info && needsNewApk(info) ? <><p className="muted small">This update adds new phone features, so it needs a one-time reinstall.</p><a className="btn primary full" href={APK_URL}>Download update</a></>
-      : info ? <Btn full disabled={!!busy} onClick={install}>{busy || 'Update now'}</Btn>
+    {info ? <><Btn full disabled={!!busy} onClick={install}>{busy || 'Update'}</Btn>{needsNewApk(info) && <p className="muted small">Includes new phone features: after downloading, Android asks you to tap <b>Update</b> once. Your data stays.</p>}</>
         : <Btn full kind="soft" disabled={!!busy} onClick={check}>{busy || 'Check for updates'}</Btn>}
   </Card>;
 }

@@ -1,0 +1,1 @@
+{ "_readme": "Bump nativeBuild to the CI run number of a build that adds native code (plugins, permissions). Older installs then get the APK through the Update button.", "nativeBuild": 21 }

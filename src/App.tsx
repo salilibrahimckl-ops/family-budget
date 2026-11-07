@@ -18,6 +18,7 @@ import { CHALLENGES, startWebReminderLoop, t, isNative, toast } from './lib/extr
 import { initReminders, requestPermission, scheduleAll } from './lib/reminders';
 import { markBootOk } from './lib/updater';
 import { syncWatch } from './lib/watch';
+import { UpdatePrompt } from './screens/UpdatePrompt';
 import { consumeOAuthHash, isCloud, syncUp, pullFeed, bg, ensureProfile } from './lib/cloud';
 
 function TabBar({ cur }: { cur: string }) {
@@ -113,6 +114,7 @@ function App() {
     <div className={'app' + (showTabs ? ' with-tabs' : '')}>
       <main className="main"><Routes /></main>
       {showTabs && <TabBar cur={parts[0] || 'home'} />}
+      <UpdatePrompt />
       <Toasts /><Dialogs />
     </div>
   );

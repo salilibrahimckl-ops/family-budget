@@ -54,6 +54,17 @@ if os.path.exists(vg):
 g = 'android/app/build.gradle'; t = open(g).read()
 t = re.sub(r'versionCode \d+', f'versionCode {100 + run}', t); t = re.sub(r'versionName "[^"]*"', f'versionName "1.0.{run}"', t)
 open(g, 'w').write(t)
+# In-app installer for native updates (one tap → Android's Install dialog)
+jd = 'android/app/src/main/java/com/fitverse/app'
+os.makedirs(jd, exist_ok=True)
+for jf in ['ApkInstallerPlugin.java', 'MainActivity.java']: shutil.copy('native/' + jf, os.path.join(jd, jf))
+ms = open(m).read()
+if 'REQUEST_INSTALL_PACKAGES' not in ms:
+    ms = ms.replace('</manifest>', '    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\n</manifest>'); open(m, 'w').write(ms)
+fp = res + '/xml/file_paths.xml'
+if os.path.exists(fp):
+    x = open(fp).read()
+    if '<cache-path' not in x: x = x.replace('</paths>', '    <cache-path name="cache" path="." />\n</paths>'); open(fp, 'w').write(x)
 # Health Connect client needs Android Gradle Plugin 8.9.1+
 for bg in ['android/build.gradle'] + glob.glob('node_modules/*/android/build.gradle') + glob.glob('node_modules/@*/*/android/build.gradle'):
     try:

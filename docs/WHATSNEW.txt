@@ -1,6 +1,6 @@
+One-tap updates: press Update and the app installs everything itself
 Friends leaderboard on Home — see who burnt the most calories this week
 Status row: friends’ posts from the last 24 h, WhatsApp-style
 Log 18 sports — badminton, football, swimming, running, brisk walking and more — with calorie estimates
 “Burnt today” card adds gym sessions and sports together
 Invite friends for Android and iPhone from Profile or Community
-Smartwatch sync (Android): Samsung, Fitbit, Garmin and others through Health Connect — Settings → Smartwatch

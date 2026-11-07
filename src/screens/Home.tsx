@@ -5,7 +5,7 @@ import { Card, Ring, Bar, Icon, Header, Logo, go, Bars, Avatar, Pill, fmt } from
 import { useUnits, exById } from './common';
 import { bmi, bmiClass } from '../lib/calc';
 import { haptic, checkAchievements, t, toast } from '../lib/extras';
-import { checkForUpdate, applyUpdate, needsNewApk, APK_URL, isNativeApp, UpdateInfo } from '../lib/updater';
+import { checkForUpdate, smartUpdate, isNativeApp, UpdateInfo } from '../lib/updater';
 import { Btn } from '../ui';
 
 import { StatusRow, FriendsBoard } from './Friends';
@@ -143,5 +143,5 @@ function UpdateBanner() {
   React.useEffect(() => { if (isNativeApp()) checkForUpdate().then(setU).catch(() => {}); }, []);
   if (!u) return null;
   return <Card className="checklist"><div className="row-b"><div><b>Update available ✨</b><small className="muted" style={{ display: 'block' }}>{u.notes[0] || `Version 1.0.${u.build}`}</small></div>
-    {needsNewApk(u) ? <a className="btn primary small" href={APK_URL}>Get it</a> : <Btn small disabled={!!busy} onClick={() => applyUpdate(setBusy).catch((e) => { toast(e.message); setBusy(''); })}>{busy || 'Update now'}</Btn>}</div></Card>;
+    <Btn small disabled={!!busy} onClick={() => smartUpdate(u, setBusy).catch((e) => { toast(e.message); setBusy(''); })}>{busy || 'Update'}</Btn></div></Card>;
 }

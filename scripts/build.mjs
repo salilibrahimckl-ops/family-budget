@@ -47,7 +47,8 @@ console.log('www/index.html', (html.length / 1024).toFixed(0) + ' KB', 'build', 
 const ota = path.join(root, 'dist-ota'); fs.mkdirSync(ota, { recursive: true });
 const notesFile = path.join(root, 'docs/WHATSNEW.txt');
 const notes = fs.existsSync(notesFile) ? fs.readFileSync(notesFile, 'utf8').split('\n').map((l) => l.trim()).filter(Boolean).slice(0, 6) : [];
-fs.writeFileSync(path.join(ota, 'version.json'), JSON.stringify({ build: BUILD, notes, date: new Date().toISOString(), minBuiltIn: MIN_BUILT_IN }));
+const NATIVE = (() => { try { return JSON.parse(fs.readFileSync(path.join(root, 'config/native.json'), 'utf8')).nativeBuild || 0; } catch { return 0; } })();
+fs.writeFileSync(path.join(ota, 'version.json'), JSON.stringify({ build: BUILD, notes, date: new Date().toISOString(), minBuiltIn: MIN_BUILT_IN, nativeBuild: NATIVE }));
 fs.writeFileSync(path.join(ota, 'bundle.json'), JSON.stringify({ build: BUILD, js, css }));
 // iPhone / browser web app (served from GitHub Pages at /family-budget/fitness/). A tiny loader that always runs the
 // newest published bundle, keeps a copy for offline use, and can be added to the iPhone home screen.

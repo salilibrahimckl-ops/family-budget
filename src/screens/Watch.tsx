@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useStore } from '../lib/store';
 import { Card, Btn, Icon, fmt } from '../ui';
 import { hasBridge, isAndroidApp, connectWatch, disconnectWatch, syncWatch, openHealthSettings, installHealthConnect } from '../lib/watch';
-import { APK_URL } from '../lib/updater';
+import { UpdatesCard } from './Profile';
 import { toast } from '../lib/extras';
 import { ask } from '../lib/dialog';
 
@@ -34,8 +34,8 @@ export function WatchCard() {
     <Card><span className="lbl">⌚ Smartwatch & health apps</span>
       {!isAndroidApp() ? <p className="muted small">Watch sync works in the Android app through Health Connect. On iPhone, Apple Watch data can’t be read by a web app — log sports manually.</p>
         : !bridge ? <>
-          <p className="muted small">Watch sync needs the newest Android app (one-time install — your data stays).</p>
-          <Btn full kind="soft" icon="share" onClick={() => { location.href = APK_URL; }}>Download new version</Btn>
+          <p className="muted small">Watch sync comes with the newest app version. Tap Update — your data stays.</p>
+          <UpdatesCard compact />
         </>
         : w?.connected ? <>
           <p className="muted small">Connected through Health Connect · last sync {w.lastSync ? fmt.ago(w.lastSync) : '—'}. Steps, active calories and sports sessions from your watch are added automatically.</p>
