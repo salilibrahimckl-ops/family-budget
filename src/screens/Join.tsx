@@ -47,18 +47,18 @@ export function EmailCodeSheet({ open, onClose, onDone }: { open: boolean; onClo
     catch (e: any) { setErr(/expired|invalid/i.test(e.message) ? 'That code is wrong or expired. Send a new one.' : netMsg(e)); } finally { setBusy(false); }
   }
   return (
-    <Sheet open={open} onClose={onClose} title={step === 'email' ? 'Email sign-in' : 'Enter code'}>
+    <Sheet open={open} onClose={onClose} title={step === 'email' ? 'Email sign-in' : 'Check your email'}>
       {step === 'email' ? <>
-        <p className="muted">No password needed — we email you a 6-digit code. The same email works on every phone.</p>
+        <p className="muted">No password needed — we email you a sign-in link. The same email works on every phone.</p>
         <Field label="Your email"><input type="email" inputMode="email" autoComplete="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder="you@gmail.com" /></Field>
         {err && <div className="err">{err}</div>}
-        <Btn full disabled={busy} onClick={send}>{busy ? 'Sending…' : 'Send my code'}</Btn>
+        <Btn full disabled={busy} onClick={send}>{busy ? 'Sending…' : 'Email me a sign-in link'}</Btn>
       </> : <>
-        <p className="muted">We sent a code to <b>{email.trim()}</b>. Type it below — or just tap the sign-in link in that email.</p>
+        <p className="muted">We sent an email to <b>{email.trim()}</b>. Open it on this phone and tap <b>Sign in</b> — you’ll come straight back here, signed in. (Check Spam if it isn’t there in a minute.)</p><p className="muted small">If your email shows a 6-digit code instead, type it here:</p>
         <Field label="6-digit code"><input className="otp" inputMode="numeric" autoComplete="one-time-code" autoFocus maxLength={8} value={code} onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={(e) => e.key === 'Enter' && verify()} placeholder="••••••" /></Field>
         {err && <div className="err">{err}</div>}
         <Btn full disabled={busy} onClick={verify}>{busy ? 'Checking…' : 'Sign in'}</Btn>
-        <div className="row" style={{ marginTop: 8, justifyContent: "center", gap: 18 }}><button className="link" onClick={() => { setStep("email"); setErr(""); }}>Use a different email</button><button className="link" disabled={busy} onClick={send}>Resend code</button></div>
+        <div className="row" style={{ marginTop: 8, justifyContent: "center", gap: 18 }}><button className="link" onClick={() => { setStep("email"); setErr(""); }}>Use a different email</button><button className="link" disabled={busy} onClick={send}>Send again</button></div>
       </>}
     </Sheet>
   );
