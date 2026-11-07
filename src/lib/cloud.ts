@@ -13,7 +13,9 @@ let refreshing: Promise<void> | null = null;
 async function call(path: string, init: RequestInit & { auth?: boolean } = {}, retried = false): Promise<any> {
   const { url, key } = cfg();
   if (init.auth !== false) { const s0 = getState(); if (s0.session?.mode === 'cloud' && s0.session.refresh && s0.session.exp && s0.session.exp < Date.now() + 60e3) { refreshing = refreshing || cloudRefresh().finally(() => { refreshing = null; }); await refreshing; } }
+  if (init.auth !== false) fixSessionUser();
   const s = getState();
+  if (init.auth !== false && s.session?.mode === 'cloud' && !s.session.token) throw new Error('Please sign in again (Community → Continue with email).');
   const headers: Record<string, string> = { apikey: key, 'Content-Type': 'application/json', ...(init.headers as any) };
   if (init.auth !== false && s.session?.token) headers.Authorization = `Bearer ${s.session.token}`;
   const res = await fetch(url + path, { ...init, headers });
@@ -264,6 +266,23 @@ export async function cloudDeleteAccount() {
   void url;
 }
 export const isCloud = (s: State) => s.session?.mode === 'cloud';
+/** The account id inside the sign-in token (the server trusts only this). */
+function jwtSub(token?: string): string | null {
+  try { const p = token!.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'); return JSON.parse(decodeURIComponent(escape(atob(p + '==='.slice((p.length + 3) % 4))))).sub || null; } catch { return null; }
+}
+/** If the saved account id doesn't match the sign-in token (e.g. after signing in with another email), fix it everywhere. */
+function fixSessionUser() {
+  const s = getState(); if (s.session?.mode !== 'cloud' || !s.session.token) return;
+  const sub = jwtSub(s.session.token); if (!sub || (sub === s.session.userId && (!s.profile || s.profile.userId === sub))) return;
+  const old = s.session.userId;
+  update((d) => {
+    d.session!.userId = sub;
+    if (d.profile) {
+      let j = JSON.stringify(d.social); for (const id of [old, d.profile.userId]) if (id && id !== sub) j = j.split(id).join(sub);
+      d.social = JSON.parse(j); d.profile.userId = sub;
+    }
+  });
+}
 /** Fire-and-forget wrapper so cloud failures never block the on-device action. */
 export function bg(p: Promise<any> | null | undefined, onErr?: (e: Error) => void) { p?.catch((e) => { console.warn('[cloud]', e); onErr?.(e); }); }
 
