@@ -5,6 +5,7 @@ declare global { interface Window { THREE?: any } }
 
 const ASSET = 'body3d.bin';
 const ASSET_URLS = [
+  './body3d.b64.txt', // bundled copy (web preview), base64 of the .gz
   './' + ASSET + '.gz',
   'https://raw.githubusercontent.com/salilibrahimckl-ops/family-budget/fitverse-assets/' + ASSET + '.gz',
   'https://cdn.jsdelivr.net/gh/salilibrahimckl-ops/family-budget@fitverse-assets/' + ASSET + '.gz',
@@ -61,7 +62,7 @@ async function gunzip(buf: ArrayBuffer): Promise<ArrayBuffer> {
 async function fetchWithProgress(url: string, onProgress: (f: number) => void): Promise<ArrayBuffer> {
   const r = await fetch(url);
   if (!r.ok) throw new Error('HTTP ' + r.status);
-  const total = +(r.headers.get('content-length') || 0) || 4.1e6;
+  const total = +(r.headers.get('content-length') || 0) || (url.endsWith('.txt') ? 5.0e6 : 3.75e6);
   if (!r.body || !(r.body as any).getReader) return r.arrayBuffer();
   const rd = r.body.getReader(); const chunks: Uint8Array[] = []; let got = 0;
   for (;;) { const { done, value } = await rd.read(); if (done) break; chunks.push(value); got += value.length; onProgress(Math.min(0.99, got / total)); }
@@ -93,7 +94,8 @@ export function loadModel(onProgress: (f: number) => void = () => undefined): Pr
     let lastErr: any;
     for (const u of ASSET_URLS) {
       try {
-        const raw = await fetchWithProgress(u, onProgress);
+        let raw = await fetchWithProgress(u, onProgress);
+        if (u.endsWith('.txt')) { const bin = atob(new TextDecoder().decode(raw).trim()); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); raw = a.buffer; }
         const buf = await gunzip(raw);
         const parts = parse(buf);
         cacheSet(ASSET, buf);
