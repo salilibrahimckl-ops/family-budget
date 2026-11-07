@@ -363,3 +363,8 @@ button.link { background: none; border: 0; color: var(--accent, #C6FF3D); font-w
 .chat-box button:disabled { opacity: .4; }
 .quick-replies { display: flex; gap: 6px; overflow-x: auto; padding: 0 0 6px; } .quick-replies button { flex: none; }
 .join-link { display: flex; align-items: center; justify-content: center; height: 50px; border-radius: 16px; font-weight: 700; width: 100%; text-decoration: none; }
+.invite-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; }
+.invite-hero b { font-size: 18px; } .invite-hero p { margin: 0 0 4px; }
+.invite-link { display: flex; align-items: center; gap: 8px; background: var(--bg, #0A0C0F); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+.invite-link code { flex: 1; font-size: 11.5px; word-break: break-all; color: var(--text-2); }
+.invite-link button { background: none; border: 0; color: var(--text-1); padding: 6px; }

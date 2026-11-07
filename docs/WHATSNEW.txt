@@ -3,3 +3,4 @@ Worked muscles glow red (main) and orange (helpers); "Only worked muscles" and s
 One sign-in for everything: Continue with Google or just your email (6-digit code, no password)
 New: private chat with friends, plus real people search
 Community card explains sign-in in one tap — no separate community login
+New: Invite friends — share one link for Android and iPhone (Profile → Invite friends, or Community → Invite)

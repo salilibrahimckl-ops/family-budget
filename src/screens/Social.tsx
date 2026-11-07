@@ -42,6 +42,7 @@ export function Feed() {
       <div className="hscroll stories">
         <button className="story me" onClick={() => go('/new-post')}><span><Icon n="plus" /></span><small>New post</small></button>
         <button className="story" onClick={() => go('/challenges')}><span>🏆</span><small>Challenges</small></button>
+        <button className="story" onClick={() => go('/invite')}><span>🤝</span><small>Invite</small></button>
         {s.social.users.filter((u) => u.creator).map((u) => <button key={u.id} className="story" onClick={() => go('/user/' + u.id)}><Avatar name={u.name} color={u.avatarColor} src={u.photo} size={54} /><small>{u.username}</small></button>)}
       </div>
       {isCloud(s) && <Btn small kind="ghost" onClick={async () => { setRefreshing(true); try { await pullFeed(); } catch (e: any) { toast(e.message); } setRefreshing(false); }}>{refreshing ? 'Refreshing…' : '↻ Refresh feed'}</Btn>}

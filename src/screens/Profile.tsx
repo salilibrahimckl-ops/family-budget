@@ -21,7 +21,7 @@ export function Me() {
   const items: [string, string, string, string?][] = [
     ['user', 'My public profile', '/user/' + p.userId], ['edit', 'Edit fitness profile', '/edit-profile'], ['scale', 'Body, BMI & measurements', '/body'],
     ['food', 'Nutrition targets', '/targets'], ['trophy', 'Challenges & badges', '/challenges'], ['bookmark', 'Saved posts', '/bookmarks'],
-    ['spark', 'AI Coach', '/coach'], ['star', s.settings.plan === 'premium' ? 'Premium (active)' : 'Go Premium', '/premium'], ['gear', 'Settings & privacy', '/settings'],
+    ['share', 'Invite friends (Android & iPhone)', '/invite'], ['spark', 'AI Coach', '/coach'], ['star', s.settings.plan === 'premium' ? 'Premium (active)' : 'Go Premium', '/premium'], ['gear', 'Settings & privacy', '/settings'],
   ];
   if (s.settings.admin) items.push(['shield', 'Admin dashboard', '/admin']);
   return (
