@@ -14,6 +14,7 @@ export interface Profile {
 }
 export interface MealEntry { id: string; date: string; slot: MealSlot; foodId: string; name: string; grams: number; unit: string; kcal: number; p: number; c: number; f: number; fib: number; estimated: boolean }
 export interface SetLog { w: number; r: number; done: boolean }
+export interface Activity { id: string; date: string; ts: number; sport: string; minutes: number; intensity: 1 | 2 | 3; kcal: number; km?: number; source?: 'manual' | 'watch' }
 export interface WorkoutLog { id: string; date: string; start: number; end: number; name: string; programId?: string; entries: { exId: string; sets: SetLog[] }[]; volume: number; prs: string[] }
 export interface SocialUser { id: string; name: string; username: string; bio: string; avatarColor: string; private: boolean; sample: boolean; creator?: boolean; suspended?: boolean; photo?: string }
 export interface Post {
@@ -57,6 +58,7 @@ export interface State {
   foodOverrides: Record<string, Partial<Food>>;
   coach: { role: 'user' | 'coach'; text: string; ts: number }[];
   steps: Record<string, number>;
+  activities?: Activity[];
 }
 
 const KEY = 'fitverse.v1';

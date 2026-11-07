@@ -9,6 +9,7 @@ import { Train, ExerciseDetail, ProgramDetail, RoutineEditor, ActiveWorkout, Wor
 import { Nutrition, AddFood, Water, Body, Targets } from './screens/Nutrition';
 import { Messages, ChatThread } from './screens/Chat';
 import { Invite } from './screens/Invite';
+import { LogActivity } from './screens/Activity';
 import { Feed, PostDetail, NewPost, UserProfile, Notifications, Challenges, Bookmarks, SearchUsers } from './screens/Social';
 import { Me, EditProfile, Settings, Premium, Coach } from './screens/Profile';
 import { Admin } from './screens/Admin';
@@ -53,6 +54,7 @@ function Routes() {
     case 'bookmarks': return <Bookmarks />;
     case 'search-users': return <SearchUsers />;
     case 'invite': return <Invite />;
+    case 'activity': return <LogActivity />;
     case 'messages': return <Messages />;
     case 'chat': return <ChatThread key={b} other={b} />;
     case 'me': return <Me />;

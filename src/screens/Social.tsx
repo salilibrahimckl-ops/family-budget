@@ -6,6 +6,7 @@ import { ask, askText } from '../lib/dialog';
 import { isCloud, bg, cloudCreatePost, cloudLike, cloudComment, cloudFollow, cloudReport, pullFeed, searchPeople } from '../lib/cloud';
 import { JoinCard, useCloud } from './Join';
 import { useUnreadMessages } from './Chat';
+import { StatusRow } from './Friends';
 import { useUnits } from './common';
 
 export function meUser(s: State): SocialUser { const p = s.profile!; return { id: p.userId, name: p.name, username: p.username, bio: p.bio, avatarColor: '#C6FF3D', private: p.private, sample: false }; }
@@ -38,12 +39,12 @@ export function Feed() {
         <button className="icon-btn" onClick={() => go('/notifications')} aria-label="Notifications"><Icon n="bell" />{unread > 0 && <i className="badge">{unread}</i>}</button></div>} />
       {!cloud.signedIn && <JoinCard />}
       {cloud.signedIn && <p className="muted small" style={{ margin: '0 0 8px' }}>Signed in as {cloud.email} · posts and chats sync across your phones</p>}
+      <StatusRow />
       <Seg value={tab} onChange={setTab} options={[{ v: 'for', l: 'For you' }, { v: 'following', l: 'Following' }]} />
       <div className="hscroll stories">
         <button className="story me" onClick={() => go('/new-post')}><span><Icon n="plus" /></span><small>New post</small></button>
         <button className="story" onClick={() => go('/challenges')}><span>🏆</span><small>Challenges</small></button>
         <button className="story" onClick={() => go('/invite')}><span>🤝</span><small>Invite</small></button>
-        {s.social.users.filter((u) => u.creator).map((u) => <button key={u.id} className="story" onClick={() => go('/user/' + u.id)}><Avatar name={u.name} color={u.avatarColor} src={u.photo} size={54} /><small>{u.username}</small></button>)}
       </div>
       {isCloud(s) && <Btn small kind="ghost" onClick={async () => { setRefreshing(true); try { await pullFeed(); } catch (e: any) { toast(e.message); } setRefreshing(false); }}>{refreshing ? 'Refreshing…' : '↻ Refresh feed'}</Btn>}
       {visible.slice(0, limit).map((p) => <PostCard key={p.id} p={p} />)}

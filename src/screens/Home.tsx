@@ -8,6 +8,10 @@ import { haptic, checkAchievements, t, toast } from '../lib/extras';
 import { checkForUpdate, applyUpdate, needsNewApk, APK_URL, isNativeApp, UpdateInfo } from '../lib/updater';
 import { Btn } from '../ui';
 
+import { StatusRow, FriendsBoard } from './Friends';
+import { BurnCard } from './Activity';
+import { burnFor } from '../lib/activity';
+
 export function Home() {
   const s = useStore((x) => x);
   const p = s.profile!; const tg = userTargets(s); const tot = dayTotals(s); const u = useUnits();
@@ -35,10 +39,12 @@ export function Home() {
         <button onClick={() => go(s.active ? '/workout' : tp?.day ? '/workout/start/today' : '/train')}><span><Icon n="play" s={20} fill /></span>{s.active ? 'Resume' : 'Workout'}</button>
         <button onClick={() => go('/food/add?mode=text')}><span><Icon n="food" s={20} /></span>Log food</button>
         <button onClick={() => addWater(250)}><span><Icon n="drop" s={20} /></span>+ Water</button>
-        <button onClick={() => go('/coach')}><span><Icon n="spark" s={20} /></span>Ask coach</button>
+        <button onClick={() => go('/activity')}><span>🏸</span>Log sport</button>
       </div>
 
+      <StatusRow showAdd={false} />
       <UpdateBanner />
+      <FriendsBoard />
       <Checklist />
 
       <Card className="hero-card" onClick={() => go('/nutrition')}>
@@ -52,8 +58,10 @@ export function Home() {
             ))}
           </div>
         </div>
-        <div className="hero-foot"><span><Icon n="flame" s={14} /> {fmt.n(tot.kcal)} eaten of {fmt.n(tg.kcal)} kcal</span><span className="link">Log food →</span></div>
+        <div className="hero-foot"><span><Icon n="flame" s={14} /> {fmt.n(tot.kcal)} eaten · {fmt.n(burnFor(s).kcal)} burnt</span><span className="link">Log food →</span></div>
       </Card>
+
+      <BurnCard />
 
       <div className="grid2">
         <Card className="water-card">

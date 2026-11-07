@@ -251,3 +251,17 @@ export async function cloudDeleteAccount() {
 export const isCloud = (s: State) => s.session?.mode === 'cloud';
 /** Fire-and-forget wrapper so cloud failures never block the on-device action. */
 export function bg(p: Promise<any> | null | undefined, onErr?: (e: Error) => void) { p?.catch((e) => { console.warn('[cloud]', e); onErr?.(e); }); }
+
+// ─── Friends leaderboard (public weekly totals only — no weight, meals or body data) ───
+export interface Board { userId: string; kcal: number; minutes: number; workouts: number; streak: number; updated: number }
+export async function pushStats(st: { week: string; kcal: number; minutes: number; workouts: number; streak: number }) {
+  const s = getState(); if (!isCloud(s) || !s.profile) return;
+  if (s.profile.leaderboard === false) { await call(`/rest/v1/weekly_stats?user_id=eq.${s.session!.userId}`, { method: 'DELETE' }).catch(() => undefined); return; }
+  await call('/rest/v1/weekly_stats?on_conflict=user_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ user_id: s.session!.userId, week: st.week, kcal: st.kcal, active_min: st.minutes, workouts: st.workouts, streak: st.streak, updated_at: new Date().toISOString() }) });
+}
+export async function leaderboard(week: string): Promise<Board[]> {
+  const s = getState(); if (!isCloud(s)) return [];
+  const rows: any[] = await call(`/rest/v1/weekly_stats?select=user_id,kcal,active_min,workouts,streak,updated_at&week=eq.${week}&order=kcal.desc&limit=50`);
+  await loadProfiles(rows.map((r) => r.user_id));
+  return rows.map((r) => ({ userId: localId(getState(), r.user_id), kcal: r.kcal, minutes: r.active_min, workouts: r.workouts, streak: r.streak, updated: Date.parse(r.updated_at) }));
+}
