@@ -54,4 +54,10 @@ if os.path.exists(vg):
 g = 'android/app/build.gradle'; t = open(g).read()
 t = re.sub(r'versionCode \d+', f'versionCode {100 + run}', t); t = re.sub(r'versionName "[^"]*"', f'versionName "1.0.{run}"', t)
 open(g, 'w').write(t)
+# Health Connect client needs Android Gradle Plugin 8.9.1+
+for bg in ['android/build.gradle'] + glob.glob('node_modules/*/android/build.gradle') + glob.glob('node_modules/@*/*/android/build.gradle'):
+    try:
+        b = open(bg).read(); nb = re.sub(r"com\.android\.tools\.build:gradle:8\.[0-8]\.\d+", 'com.android.tools.build:gradle:8.9.1', b)
+        if nb != b: open(bg, 'w').write(nb); print('AGP 8.9.1 ->', bg)
+    except Exception: pass
 print('patched android, versionCode', 100 + run)
