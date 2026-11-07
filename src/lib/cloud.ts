@@ -307,3 +307,24 @@ export async function leaderboard(week: string): Promise<Board[]> {
   for (const m of members) if (!rows.find((r) => r.user_id === m.id)) rows.push({ user_id: m.id, kcal: 0, active_min: 0, workouts: 0, streak: 0, updated_at: new Date(0).toISOString() });
   return rows.map((r) => ({ userId: localId(getState(), r.user_id), kcal: r.kcal, minutes: r.active_min, workouts: r.workouts, streak: r.streak, updated: Date.parse(r.updated_at) }));
 }
+
+// ─── Account changes ───
+export async function changePassword(pw: string) {
+  if (pw.length < 6) throw new Error('Use at least 6 characters.');
+  await call('/auth/v1/user', { method: 'PUT', body: JSON.stringify({ password: pw }) });
+}
+/** Change the public @username (must be unique across the community). */
+export async function changeUsername(name: string) {
+  const u = name.trim().toLowerCase().replace(/^@/, '');
+  if (!/^[a-z0-9_.]{3,20}$/.test(u)) throw new Error('3–20 letters, numbers, _ or . only.');
+  const s = getState();
+  if (isCloud(s)) {
+    const me = s.session!.userId;
+    const taken: any[] = await call(`/rest/v1/profiles?select=id&username=eq.${encodeURIComponent(u)}`);
+    if (taken.some((r) => r.id !== me)) throw new Error('@' + u + ' is already taken.');
+    try { await call(`/rest/v1/profiles?id=eq.${me}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ username: u }) }); }
+    catch (e: any) { if (/duplicate|unique|23505/i.test(e.message)) throw new Error('@' + u + ' is already taken.'); throw e; }
+  }
+  update((d) => { if (d.profile) d.profile.username = u; });
+  return u;
+}

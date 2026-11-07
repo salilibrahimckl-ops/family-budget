@@ -1,3 +1,4 @@
+Change your username and password in Settings → Account
 One-tap updates: press Update and the app installs everything itself
 Friends leaderboard on Home — see who burnt the most calories this week
 Status row: friends’ posts from the last 24 h, WhatsApp-style

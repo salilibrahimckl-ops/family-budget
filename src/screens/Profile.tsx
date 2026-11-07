@@ -6,7 +6,7 @@ import { EQUIP, Equip } from '../data/exercises';
 import { toast, ACHIEVEMENTS, share, t } from '../lib/extras';
 import { ask, askText } from '../lib/dialog';
 import { localCoach, cloudCoach, userTargets, dayTotals, weeklyPlanText, recommendProgram, buildSchedule } from '../lib/coach';
-import { cloudReady, isCloud, syncUp, pullFeed, cloudDeleteAccount, signOutCloud, BAKED } from '../lib/cloud';
+import { cloudReady, isCloud, syncUp, pullFeed, cloudDeleteAccount, signOutCloud, BAKED, changePassword, changeUsername } from '../lib/cloud';
 import { SignInButtons, inPreview, WEB_APP_URL } from './Join';
 import { WatchCard } from './Watch';
 import { useUnits } from './common';
@@ -76,6 +76,7 @@ export function EditProfile() {
     if (p.name.trim().length < 2) return toast('Name is too short');
     const taken = s.social.users.some((u) => u.username === p.username && u.id !== p.userId);
     if (taken) return toast('That username is taken');
+    if (p.username !== s.profile!.username) { try { await changeUsername(p.username); } catch (e: any) { return toast(e.message); } }
     const replan = p.days !== s.profile!.days || p.equipment !== s.profile!.equipment || p.goal !== s.profile!.goal || p.experience !== s.profile!.experience;
     const doReplan = replan && await ask('Your training settings changed. Update your weekly plan to match?');
     update((d) => { d.profile = p; if (doReplan) { const prog = recommendProgram({ ...d, profile: p }); d.plan = { programId: prog.id, schedule: buildSchedule(p.days, prog.days.length) }; } });
@@ -103,10 +104,33 @@ export function EditProfile() {
 
 function AccountCard() {
   const s = useStore((x) => x); const signed = isCloud(s);
+  const [sheet, setSheet] = useState<'' | 'pw' | 'user'>('');
+  const [a, setA] = useState(''); const [b, setB] = useState(''); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+  const open = (k: 'pw' | 'user') => { setSheet(k); setErr(''); setA(k === 'user' ? s.profile?.username || '' : ''); setB(''); };
+  async function savePw() { if (a.length < 6) return setErr('Use at least 6 characters.'); if (a !== b) return setErr('The two passwords don’t match.'); setBusy(true); setErr(''); try { await changePassword(a); toast('Password changed ✓'); setSheet(''); } catch (e: any) { setErr(e.message); } setBusy(false); }
+  async function saveUser() { setBusy(true); setErr(''); try { const u = await changeUsername(a); toast('You’re now @' + u); setSheet(''); } catch (e: any) { setErr(e.message); } setBusy(false); }
   return <Card><span className="lbl">Account</span>
     {signed ? <>
       <div className="row-b"><span>Signed in as <b>{s.session!.email}</b></span></div>
+      <div className="row-b"><span>Username <b>@{s.profile?.username}</b></span></div>
       <p className="muted small">The same account works on all your phones — community, chat and backups.</p>
+      <div className="row" style={{ flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+        <Btn small kind="soft" onClick={() => open('user')}>Change username</Btn>
+        <Btn small kind="soft" onClick={() => open('pw')}>Change password</Btn>
+      </div>
+      <Sheet open={sheet === 'user'} onClose={() => setSheet('')} title="Change username">
+        <p className="muted small">Friends find you by this in Community search. 3–20 letters, numbers, _ or .</p>
+        <Field label="New username"><input autoCapitalize="none" autoCorrect="off" value={a} onChange={(e) => setA(e.target.value.toLowerCase().replace(/[^a-z0-9_.]/g, ''))} placeholder="e.g. saleel_fit" /></Field>
+        {err && <div className="err">{err}</div>}
+        <Btn full disabled={busy} onClick={saveUser}>{busy ? 'Saving…' : 'Save username'}</Btn>
+      </Sheet>
+      <Sheet open={sheet === 'pw'} onClose={() => setSheet('')} title="Change password">
+        <p className="muted small">Use this new password next time you sign in on any phone.</p>
+        <Field label="New password"><input type="password" autoComplete="new-password" value={a} onChange={(e) => setA(e.target.value)} placeholder="6+ characters" /></Field>
+        <Field label="Repeat new password"><input type="password" autoComplete="new-password" value={b} onChange={(e) => setB(e.target.value)} /></Field>
+        {err && <div className="err">{err}</div>}
+        <Btn full disabled={busy} onClick={savePw}>{busy ? 'Saving…' : 'Change password'}</Btn>
+      </Sheet>
       <Btn small kind="soft" onClick={async () => { if (await ask('Sign out of the community on this phone? Your workouts and meals stay here.')) { signOutCloud(); toast('Signed out'); } }}>Sign out</Btn>
     </> : inPreview() ? <p className="muted small">Open the full app at {WEB_APP_URL} to sign in.</p> : <>
       <p className="muted small">Sign in once with Google or your email to back up your profile and join the community. No new password.</p>
