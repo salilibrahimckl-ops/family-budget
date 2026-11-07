@@ -341,7 +341,7 @@ small { color: var(--text-2); }
 .join-card b { font-size: 17px; } .join-card p { color: var(--text-2); font-size: 14px; margin: 0 0 4px; line-height: 1.45; }
 .join-ico { font-size: 30px; }
 .join-btns { display: flex; flex-direction: column; gap: 10px; width: 100%; }
-.join-btns button { display: flex; align-items: center; justify-content: center; gap: 10px; height: 52px; border-radius: 16px; font-weight: 700; font-size: 15px; width: 100%; }
+.join-btns > button { display: flex; align-items: center; justify-content: center; gap: 10px; height: 52px; border-radius: 16px; font-weight: 700; font-size: 15px; width: 100%; }
 .g-btn { background: #fff; color: #1f1f1f; border: 1px solid #dadce0; }
 .e-btn { background: var(--card); color: var(--text-1); border: 1px solid var(--line); }
 input.otp { letter-spacing: .5em; font-size: 24px; text-align: center; font-weight: 700; }
