@@ -28,7 +28,13 @@ export const sportOf = (k: string) => SPORTS.find((x) => x.key === k) || SPORTS[
 export const weightOf = (s: State) => (s.weights.length ? s.weights[s.weights.length - 1].kg : s.profile?.weight || 70);
 export const estKcal = (s: State, sport: string, minutes: number, level: 1 | 2 | 3) => Math.round(sportOf(sport).met[level - 1] * weightOf(s) * (minutes / 60));
 /** Gym sessions: ~5 METs for typical resistance training (rest periods included). */
-export const workoutKcal = (s: State, w: { start: number; end: number }) => Math.round(5.0 * weightOf(s) * Math.max(0, (w.end - w.start) / 3.6e6));
+export const workoutKcal = (s: State, w: { start: number; end: number; entries?: { sets: { done?: boolean }[] }[] }) => {
+  const byTime = 5.0 * weightOf(s) * Math.min(4, Math.max(0, (w.end - w.start) / 3.6e6));
+  // If the timer was short (sets ticked off quickly), count ~2.5 min of work+rest per completed set instead.
+  const sets = (w.entries || []).reduce((a, e) => a + e.sets.filter((x) => x.done !== false).length, 0);
+  const bySets = 5.0 * weightOf(s) * (sets * 2.5 / 60);
+  return Math.round(Math.max(byTime, bySets));
+};
 
 export function burnFor(s: State, date = today()) {
   const acts = (s.activities || []).filter((a) => a.date === date);

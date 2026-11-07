@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { useStore, getState, update, notify } from './lib/store';
+import { useStore, getState, update, notify, subscribe } from './lib/store';
 import { useRoute, Icon, Toasts, go } from './ui';
 import { Welcome, AuthScreen } from './screens/Auth';
 import { Onboarding } from './screens/Onboarding';
@@ -19,7 +19,8 @@ import { initReminders, requestPermission, scheduleAll } from './lib/reminders';
 import { markBootOk } from './lib/updater';
 import { syncWatch } from './lib/watch';
 import { UpdatePrompt } from './screens/UpdatePrompt';
-import { consumeOAuthHash, isCloud, syncUp, pullFeed, bg, ensureProfile } from './lib/cloud';
+import { consumeOAuthHash, isCloud, syncUp, pullFeed, bg, ensureProfile, pushStats } from './lib/cloud';
+import { weekStats } from './lib/activity';
 
 function TabBar({ cur }: { cur: string }) {
   const tabs: [string, string, string][] = [['home', 'home', t('home')], ['train', 'train', t('train')], ['nutrition', 'food', t('nutrition')], ['community', 'users', t('community')], ['me', 'user', t('profile')]];
@@ -95,8 +96,17 @@ function App() {
   useEffect(() => {
     if (!session || !profile || !isCloud(getState())) return;
     bg(ensureProfile().then(() => syncUp())); bg(pullFeed());
-    const i = setInterval(() => { bg(syncUp()); bg(pullFeed()); }, 5 * 60e3);
-    return () => clearInterval(i);
+    // Weekly totals for the friends leaderboard: send on open and whenever a workout/sport changes them.
+    let lastKey = '', timer: any = 0;
+    const pushIfChanged = (force = false) => {
+      const st = weekStats(getState()); const key = [st.week, st.kcal, st.minutes, st.workouts, st.streak].join('|');
+      if (!force && key === lastKey) return; lastKey = key;
+      clearTimeout(timer); timer = setTimeout(() => { pushStats(st).catch((e) => { lastKey = ''; console.warn('stats', e); }); }, force ? 0 : 2500);
+    };
+    setTimeout(() => pushIfChanged(true), 3000);
+    const unsub = subscribe(() => pushIfChanged());
+    const i = setInterval(() => { bg(syncUp()); bg(pullFeed()); pushIfChanged(true); }, 5 * 60e3);
+    return () => { clearInterval(i); clearTimeout(timer); unsub(); };
   }, [session?.userId, !!profile]);
   useEffect(() => {
     if (profile && isNative() && !getState().settings.notify?.asked) { update((d) => { d.settings.notify = { ...(d.settings.notify || {} as any), asked: true } as any; }); setTimeout(() => requestPermission().then(() => scheduleAll()), 1500); }

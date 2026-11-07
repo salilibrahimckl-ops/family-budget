@@ -19,12 +19,13 @@ export function FriendsBoard() {
   useEffect(() => {
     if (!signed) return;
     let dead = false;
-    (async () => {
-      try { await pushStats(mine); } catch { /* ignore */ }
+    const load = async () => {
+      try { await pushStats(weekStats(getState())); } catch { /* ignore */ }
       try { const r = await leaderboard(mine.week); cache = { at: Date.now(), rows: r }; if (!dead) { setRows(r); setErr(''); } }
       catch (e: any) { const m = /weekly_stats|schema cache|does not exist/i.test(e.message) ? 'setup' : e.message; cache = { at: Date.now(), rows: [], err: m }; if (!dead) setErr(m); }
-    })();
-    return () => { dead = true; };
+    };
+    load(); const t = setInterval(() => { if (document.visibilityState === 'visible') load(); }, 45e3);
+    return () => { dead = true; clearInterval(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signed, mine.kcal, mine.workouts]);
   const list = (rows || []).map((r) => (r.userId === me ? { ...r, kcal: mine.kcal, minutes: mine.minutes, workouts: mine.workouts, streak: mine.streak } : r));
