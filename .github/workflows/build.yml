@@ -113,6 +113,12 @@ jobs:
             })());
           });
           JS
+      - name: Add Bro’s Fitness web app at /fitness (iPhone home-screen app)
+        shell: bash
+        run: |
+          mkdir -p app/build/web/fitness
+          curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/fitverse-builds/fitverse-pages.html" -o app/build/web/fitness/index.html \
+            || echo "Bro’s Fitness page not published yet - skipping"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: { path: app/build/web }
