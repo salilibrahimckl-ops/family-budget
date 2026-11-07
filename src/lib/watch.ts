@@ -3,7 +3,7 @@
 import { getState, update, today, dayOffset, uid } from './store';
 import { estKcal } from './activity';
 
-const H = () => (window as any).Capacitor?.Plugins?.Health;
+const H = () => { const P = (window as any).Capacitor?.Plugins; return P?.HealthPlugin || P?.Health; };
 export const isAndroidApp = () => (window as any).Capacitor?.getPlatform?.() === 'android';
 /** The installed APK contains the Health Connect bridge (builds from v1.0.20 onward). */
 export const hasBridge = () => !!H() && isAndroidApp();
