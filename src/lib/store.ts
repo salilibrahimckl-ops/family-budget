@@ -59,6 +59,7 @@ export interface State {
   coach: { role: 'user' | 'coach'; text: string; ts: number }[];
   steps: Record<string, number>;
   activities?: Activity[];
+  watch?: { connected: boolean; lastSync?: number; daily: Record<string, { steps: number; kcal: number }> };
 }
 
 const KEY = 'fitverse.v1';

@@ -48,7 +48,9 @@ export function BurnCard() {
   return (
     <Card className="burn-card">
       <div className="row-b"><span className="lbl"><Icon n="flame" s={16} /> Burnt today</span><button className="link" onClick={() => go('/activity')}>+ Log sport</button></div>
-      <div className="burn-top"><b className="big-num">{fmt.n(b.kcal)}<em> kcal</em></b><small>{b.minutes} active min</small></div>
+      <div className="burn-top"><b className="big-num">{fmt.n(b.kcal)}<em> kcal</em></b><small>{b.steps ? fmt.n(b.steps) + ' steps · ' : ''}{b.minutes} active min</small></div>
+      {b.fromWatch && <p className="muted small" style={{ margin: '-4px 0 6px' }}>⌚ From your watch’s all-day active calories</p>}
+      {!s.watch?.connected && <button className="link small" style={{ padding: 0, marginBottom: 6 }} onClick={() => go('/settings')}>⌚ Connect a smartwatch</button>}
       {(b.acts.length > 0 || b.wos.length > 0) ? <div className="burn-list">
         {b.wos.map((w) => <div key={w.id}><span>🏋️ {w.name}</span><small>{Math.round((w.end - w.start) / 60000)} min · {workoutKcal(s, w)} kcal</small></div>)}
         {b.acts.map((a) => { const sp = sportOf(a.sport); return <div key={a.id} onClick={() => del(a.id)}><span>{sp.emoji} {sp.name}{a.source === 'watch' ? ' ⌚' : ''}</span><small>{a.minutes} min{a.km ? ` · ${a.km} km` : ''} · {a.kcal} kcal</small></div>; })}

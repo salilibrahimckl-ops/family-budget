@@ -92,3 +92,12 @@ const pages = `<!DOCTYPE html>
 </body>
 </html>`;
 fs.writeFileSync(path.join(ota, 'fitverse-pages.html'), pages);
+// Privacy page (shown by Android's Health Connect when the user taps "privacy policy")
+fs.writeFileSync(path.join(out, 'privacy.html'), `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bro’s Fitness — Privacy</title>
+<style>body{font-family:system-ui,sans-serif;max-width:640px;margin:0 auto;padding:20px;line-height:1.55;color:#222}h1{font-size:22px}</style></head><body>
+<h1>Bro’s Fitness — health data & privacy</h1>
+<p>If you connect Health Connect, Bro’s Fitness <b>reads</b> your steps, active and total calories burnt, distance and exercise sessions (for example from Samsung Health or your smartwatch) so it can show your daily burn and log your sports automatically.</p>
+<ul><li>This data is stored <b>on your phone</b> only.</li><li>It is never sold or shared with advertisers. Nothing is written back to Health Connect.</li>
+<li>If you join the community leaderboard, only weekly totals (calories, active minutes, sessions, streak) are shared with signed-in members. You can turn this off in Settings → Privacy.</li>
+<li>You can disconnect at any time in Settings → Smartwatch, or in the Health Connect app.</li></ul>
+<p>Questions: contact the app owner.</p></body></html>`);

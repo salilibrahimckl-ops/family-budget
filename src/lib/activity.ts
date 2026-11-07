@@ -21,6 +21,7 @@ export const SPORTS: Sport[] = [
   { key: 'dance', name: 'Dance / Zumba', emoji: '💃', met: [4.5, 6.0, 7.3], levels: ['Light', 'Aerobic', 'High energy'] },
   { key: 'martial', name: 'Martial arts / Kalari', emoji: '🥋', met: [5.3, 7.5, 10.3], levels: ['Drills', 'Training', 'Sparring'] },
   { key: 'stairs', name: 'Stair climbing', emoji: '🪜', met: [4.0, 8.8, 9.5], levels: ['Slow', 'Moderate', 'Fast'] },
+  { key: 'other', name: 'Watch workout', emoji: '⌚', met: [4.0, 6.0, 8.0], levels: ['Light', 'Moderate', 'Hard'] },
   { key: 'house', name: 'Housework / gardening', emoji: '🧹', met: [2.5, 3.5, 4.5], levels: ['Light', 'Moderate', 'Heavy'] },
 ];
 export const sportOf = (k: string) => SPORTS.find((x) => x.key === k) || SPORTS[0];
@@ -34,7 +35,10 @@ export function burnFor(s: State, date = today()) {
   const wos = s.workouts.filter((w) => w.date === date);
   const sport = acts.reduce((a, x) => a + x.kcal, 0), gym = wos.reduce((a, w) => a + workoutKcal(s, w), 0);
   const minutes = acts.reduce((a, x) => a + x.minutes, 0) + wos.reduce((a, w) => a + Math.round((w.end - w.start) / 60000), 0);
-  return { kcal: sport + gym, sport, gym, minutes, acts, wos };
+  // A connected watch measures the whole day's active calories (it already includes workouts), so use whichever is higher.
+  const w = s.watch?.connected ? s.watch.daily[date] : undefined;
+  const watchKcal = Math.round(w?.kcal || 0);
+  return { kcal: Math.max(sport + gym, watchKcal), sport, gym, minutes, acts, wos, watchKcal, steps: w?.steps || s.steps[date] || 0, fromWatch: watchKcal > sport + gym };
 }
 /** This calendar week (Mon–Sun) totals used for the friends leaderboard. */
 export function weekStats(s: State) {

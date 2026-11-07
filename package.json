@@ -2,7 +2,7 @@
   "name": "fitverse",
   "version": "1.0.0",
   "private": true,
-  "description": "FITVERSE — AI-powered fitness, nutrition and social community app",
+  "description": "FITVERSE \u2014 AI-powered fitness, nutrition and social community app",
   "scripts": {
     "build": "node scripts/build.mjs",
     "icons": "node scripts/icons.mjs",
@@ -16,7 +16,8 @@
     "@capacitor/local-notifications": "^7.0.0",
     "@capacitor/share": "^7.0.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "capacitor-health": "7.1.0"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.0.0",

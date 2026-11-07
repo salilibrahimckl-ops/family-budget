@@ -8,6 +8,7 @@ import { ask, askText } from '../lib/dialog';
 import { localCoach, cloudCoach, userTargets, dayTotals, weeklyPlanText, recommendProgram, buildSchedule } from '../lib/coach';
 import { cloudReady, isCloud, syncUp, pullFeed, cloudDeleteAccount, signOutCloud, BAKED } from '../lib/cloud';
 import { SignInButtons, inPreview, WEB_APP_URL } from './Join';
+import { WatchCard } from './Watch';
 import { useUnits } from './common';
 import { notifyCfg, scheduleAll, requestPermission, remindersSupported, testNotification, DEFAULT_NOTIFY } from '../lib/reminders';
 import { checkForUpdate, applyUpdate, currentBuild, needsNewApk, APK_URL, isNativeApp, UpdateInfo } from '../lib/updater';
@@ -126,6 +127,7 @@ export function Settings() {
       <Field label="Language" hint="Malayalam is partially translated — more coming."><Seg value={st.lang} onChange={(v) => setS((d) => { d.settings.lang = v; })} options={[{ v: 'en', l: 'English' }, { v: 'ml', l: 'മലയാളം (beta)' }]} /></Field>
     </Card>
     <UpdatesCard />
+    <WatchCard />
     <RemindersCard />
     <Card><span className="lbl">Privacy</span>
       <Toggle on={p.private} onChange={(v) => setS((d) => { d.profile!.private = v; })} label="Private account" desc="Only followers you approve can see your posts" />

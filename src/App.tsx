@@ -17,6 +17,7 @@ import { Dialogs } from './lib/dialog';
 import { CHALLENGES, startWebReminderLoop, t, isNative, toast } from './lib/extras';
 import { initReminders, requestPermission, scheduleAll } from './lib/reminders';
 import { markBootOk } from './lib/updater';
+import { syncWatch } from './lib/watch';
 import { consumeOAuthHash, isCloud, syncUp, pullFeed, bg, ensureProfile } from './lib/cloud';
 
 function TabBar({ cur }: { cur: string }) {
@@ -85,6 +86,8 @@ function App() {
     capApp?.addListener?.('appUrlOpen', (e: any) => { const h = e.url.split('#')[1]; if (h) consumeOAuthHash('#' + h).then((ok) => { if (ok) toast('Signed in — welcome to the community!'); }).catch((x) => toast('Sign-in failed: ' + x.message)); });
     capApp?.addListener?.('backButton', () => { if (location.hash && !['#/home', '#/', ''].includes(location.hash)) history.back(); else capApp.exitApp?.(); });
     startWebReminderLoop();
+    setTimeout(() => syncWatch().catch(() => undefined), 2500);
+    capApp?.addListener?.('appStateChange', (st: any) => { if (st?.isActive) syncWatch().catch(() => undefined); });
     markBootOk();
     initReminders((r) => go(r));
   }, []);

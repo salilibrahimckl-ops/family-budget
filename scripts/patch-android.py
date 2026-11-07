@@ -23,7 +23,34 @@ link = '''            <intent-filter>
             </intent-filter>
 '''
 if 'auth-callback' not in s: s = s.replace('        </activity>', link + '        </activity>', 1)
+# Health Connect (Samsung Health, Galaxy Watch, Fitbit, Garmin & other watches that sync to it)
+hc_perms = ['READ_STEPS', 'READ_ACTIVE_CALORIES_BURNED', 'READ_TOTAL_CALORIES_BURNED', 'READ_DISTANCE', 'READ_EXERCISE']
+for hp in hc_perms:
+    full = 'android.permission.health.' + hp
+    if full not in s: s = s.replace('</manifest>', f'    <uses-permission android:name="{full}" />\n</manifest>')
+if 'com.google.android.apps.healthdata' not in s:
+    s = s.replace('</manifest>', '    <queries>\n        <package android:name="com.google.android.apps.healthdata" />\n    </queries>\n</manifest>')
+rationale = '''        <activity android:name="com.fit_up.health.capacitor.PermissionsRationaleActivity" android:exported="true">
+            <intent-filter><action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" /></intent-filter>
+        </activity>
+        <activity-alias android:name="ViewPermissionUsageActivity" android:exported="true"
+            android:targetActivity="com.fit_up.health.capacitor.PermissionsRationaleActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+'''
+if 'PermissionsRationaleActivity' not in s: s = s.replace('    </application>', rationale + '    </application>', 1)
 open(m, 'w').write(s)
+sx = res + '/values/strings.xml'
+if os.path.exists(sx):
+    x = open(sx).read()
+    if 'privacy_policy_url' not in x: x = x.replace('</resources>', '    <string name="privacy_policy_url">file:///android_asset/public/privacy.html</string>\n</resources>'); open(sx, 'w').write(x)
+vg = 'android/variables.gradle'
+if os.path.exists(vg):
+    v = open(vg).read(); v = re.sub(r'minSdkVersion = \d+', 'minSdkVersion = 26', v); v = re.sub(r'compileSdkVersion = \d+', 'compileSdkVersion = 36', v); open(vg, 'w').write(v)
 g = 'android/app/build.gradle'; t = open(g).read()
 t = re.sub(r'versionCode \d+', f'versionCode {100 + run}', t); t = re.sub(r'versionName "[^"]*"', f'versionName "1.0.{run}"', t)
 open(g, 'w').write(t)
