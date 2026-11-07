@@ -222,3 +222,33 @@ create or replace view public.admin_platform_stats with (security_invoker = true
   where public.is_admin();
 
 -- Make yourself admin after signing up:  update public.profiles set is_admin = true where username = 'yourname';
+
+-- ───────── Direct messages (1-to-1 chat) ─────────
+create table if not exists public.messages (
+  id uuid primary key default gen_random_uuid(),
+  sender_id uuid not null references auth.users(id) on delete cascade,
+  recipient_id uuid not null references auth.users(id) on delete cascade,
+  body text not null check (char_length(body) between 1 and 2000),
+  created_at timestamptz not null default now(),
+  read_at timestamptz,
+  check (sender_id <> recipient_id)
+);
+create index if not exists idx_msg_pair on public.messages (sender_id, recipient_id, created_at desc);
+create index if not exists idx_msg_inbox on public.messages (recipient_id, read_at, created_at desc);
+alter table public.messages enable row level security;
+drop policy if exists msg_read on public.messages; create policy msg_read on public.messages for select using (auth.uid() in (sender_id, recipient_id));
+drop policy if exists msg_send on public.messages; create policy msg_send on public.messages for insert with check (
+  sender_id = auth.uid()
+  and not exists (select 1 from public.blocks b where b.blocker_id = recipient_id and b.blocked_id = auth.uid())
+  and not coalesce((select suspended from public.profiles where id = auth.uid()), false));
+-- recipients may only mark messages as read
+drop policy if exists msg_read_mark on public.messages; create policy msg_read_mark on public.messages for update using (recipient_id = auth.uid()) with check (recipient_id = auth.uid());
+create or replace function public.guard_message() returns trigger language plpgsql as $$
+begin
+  if new.body <> old.body or new.sender_id <> old.sender_id or new.recipient_id <> old.recipient_id or new.created_at <> old.created_at then
+    raise exception 'messages cannot be edited';
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_guard_message on public.messages; create trigger trg_guard_message before update on public.messages for each row execute function public.guard_message();
+drop policy if exists msg_del on public.messages; create policy msg_del on public.messages for delete using (sender_id = auth.uid());

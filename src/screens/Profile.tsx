@@ -6,7 +6,8 @@ import { EQUIP, Equip } from '../data/exercises';
 import { toast, ACHIEVEMENTS, share, t } from '../lib/extras';
 import { ask, askText } from '../lib/dialog';
 import { localCoach, cloudCoach, userTargets, dayTotals, weeklyPlanText, recommendProgram, buildSchedule } from '../lib/coach';
-import { cloudReady, isCloud, syncUp, pullFeed, cloudDeleteAccount } from '../lib/cloud';
+import { cloudReady, isCloud, syncUp, pullFeed, cloudDeleteAccount, signOutCloud, BAKED } from '../lib/cloud';
+import { SignInButtons, inPreview, WEB_APP_URL } from './Join';
 import { useUnits } from './common';
 import { notifyCfg, scheduleAll, requestPermission, remindersSupported, testNotification, DEFAULT_NOTIFY } from '../lib/reminders';
 import { checkForUpdate, applyUpdate, currentBuild, needsNewApk, APK_URL, isNativeApp, UpdateInfo } from '../lib/updater';
@@ -99,12 +100,26 @@ export function EditProfile() {
   </div>;
 }
 
+function AccountCard() {
+  const s = useStore((x) => x); const signed = isCloud(s);
+  return <Card><span className="lbl">Account</span>
+    {signed ? <>
+      <div className="row-b"><span>Signed in as <b>{s.session!.email}</b></span></div>
+      <p className="muted small">The same account works on all your phones — community, chat and backups.</p>
+      <Btn small kind="soft" onClick={async () => { if (await ask('Sign out of the community on this phone? Your workouts and meals stay here.')) { signOutCloud(); toast('Signed out'); } }}>Sign out</Btn>
+    </> : inPreview() ? <p className="muted small">Open the full app at {WEB_APP_URL} to sign in.</p> : <>
+      <p className="muted small">Sign in once with Google or your email to back up your profile and join the community. No new password.</p>
+      <SignInButtons />
+    </>}
+  </Card>;
+}
+
 export function Settings() {
   const s = useStore((x) => x); const st = s.settings; const p = s.profile!;
   const [url, setUrl] = useState(st.supabaseUrl); const [key, setKey] = useState(st.supabaseAnon); const [syncing, setSyncing] = useState(false);
   const setS = (fn: (d: State) => void) => update(fn);
   return <div className="page"><Header left={<BackBtn />} title="Settings" />
-    {s.session?.email === 'guest' && <SaveAccount />}
+    {cloudReady() ? <AccountCard /> : s.session?.email === 'guest' && <SaveAccount />}
     <Card><span className="lbl">Appearance & units</span>
       <Field label="Theme"><Seg value={st.theme} onChange={(v) => setS((d) => { d.settings.theme = v; })} options={[{ v: 'dark', l: '🌙 Dark' }, { v: 'light', l: '☀️ Light' }]} /></Field>
       <Field label="Units"><Seg value={st.units} onChange={(v) => setS((d) => { d.settings.units = v; })} options={[{ v: 'metric', l: 'Metric (kg, cm, ml)' }, { v: 'imperial', l: 'Imperial (lb, in, oz)' }]} /></Field>
@@ -118,8 +133,8 @@ export function Settings() {
       <Toggle on={p.leaderboard} onChange={(v) => setS((d) => { d.profile!.leaderboard = v; })} label="Appear on challenge leaderboards" />
       {s.social.blocks.length > 0 && <Field label="Blocked accounts">{s.social.blocks.map((b) => { const u = s.social.users.find((x) => x.id === b); return <div key={b} className="row-b"><span>@{u?.username || b}</span><button className="link" onClick={() => setS((d) => { d.social.blocks = d.social.blocks.filter((x) => x !== b); })}>Unblock</button></div>; })}</Field>}
     </Card>
-    <Card><span className="lbl">Cloud sync (Supabase)</span>
-      <p className="muted small">Optional. Paste your Supabase project URL and <b>anon public</b> key (never the service-role key). Then sign out and create/sign in to a cloud account to sync across Android and iPhone.</p>
+    <Card><span className="lbl">Advanced: community server</span>
+      <p className="muted small">{BAKED.url ? 'Built in — nothing to set up. Only change this if you run your own Supabase server.' : 'Paste your Supabase project URL and anon public key (never the service-role key) to turn on the shared community and chat.'}</p>
       <Field label="Project URL"><input value={url} onChange={(e) => setUrl(e.target.value.trim())} placeholder="https://xxxx.supabase.co" /></Field>
       <Field label="Anon public key"><input value={key} onChange={(e) => setKey(e.target.value.trim())} placeholder="eyJhbGciOi…" /></Field>
       <div className="row"><Btn kind="soft" onClick={() => { if (url && !/^https:\/\/.+/.test(url)) return toast('URL must start with https://'); setS((d) => { d.settings.supabaseUrl = url; d.settings.supabaseAnon = key; }); toast(url ? 'Saved. Sign out and sign in with a cloud account.' : 'Cloud disabled'); }}>Save</Btn>

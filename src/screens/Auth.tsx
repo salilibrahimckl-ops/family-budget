@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { update, useStore, uid, hashPw, getState } from '../lib/store';
-import { cloudReady, cloudSignIn, cloudSignUp, cloudRecover, oauthUrl } from '../lib/cloud';
-import { Btn, Field, Logo, Wordmark, Icon, Sheet } from '../ui';
+import { cloudReady, cloudSignIn, cloudSignUp, cloudRecover } from '../lib/cloud';
+import { Btn, Field, Logo, Wordmark, Icon } from '../ui';
 import { toast } from '../lib/extras';
+import { SignInButtons, inPreview } from './Join';
 
 const SLIDES = [
   { t: 'Train anywhere', d: '100 exercises with video demos, step-by-step form and safety cues — plus an instant home version of every gym move.', e: '🏋️', c: ['#D4FF3A', '#22E3B5'] },
@@ -27,9 +28,15 @@ export function Welcome({ onDone }: { onDone: (mode: 'login' | 'register') => vo
       <div className="welcome-txt" key={'t' + i}><h2>{s.t}</h2><p>{s.d}</p></div>
       <div className="dots">{SLIDES.map((_, k) => <i key={k} className={k === i ? 'on' : ''} onClick={() => setI(k)} />)}</div>
       <div className="welcome-cta">
-        <Btn full onClick={quickStart}>Get started — it’s free</Btn>
-        <p className="muted small center" style={{ margin: '2px 0 4px' }}>No sign-up needed. Takes about 30 seconds.</p>
-        <Btn full kind="ghost" onClick={() => onDone('login')}>I already have an account</Btn>
+        {cloudReady() && !inPreview() ? <>
+          <SignInButtons />
+          <p className="muted small center" style={{ margin: '2px 0 0' }}>One sign-in for workouts, community and chat. No new password.</p>
+          <Btn full kind="ghost" onClick={quickStart}>Try it first without an account</Btn>
+        </> : <>
+          <Btn full onClick={quickStart}>Get started — it’s free</Btn>
+          <p className="muted small center" style={{ margin: '2px 0 4px' }}>No sign-up needed. Takes about 30 seconds.</p>
+          <Btn full kind="ghost" onClick={() => onDone('login')}>I already have an account</Btn>
+        </>}
       </div>
     </div>
   );
@@ -39,7 +46,6 @@ export function AuthScreen({ initial }: { initial: 'login' | 'register' }) {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>(initial);
   const [email, setEmail] = useState(''); const [pw, setPw] = useState(''); const [pw2, setPw2] = useState('');
   const [show, setShow] = useState(false); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
-  const [oauthInfo, setOauthInfo] = useState<string | null>(null);
   const cloud = useStore(() => cloudReady());
 
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
@@ -84,10 +90,6 @@ export function AuthScreen({ initial }: { initial: 'login' | 'register' }) {
     } catch (x: any) { setErr(x.message || 'Something went wrong'); } finally { setBusy(false); }
   }
 
-  function oauth(p: 'google' | 'apple') {
-    if (!cloud) { setOauthInfo(p); return; }
-    location.href = oauthUrl(p);
-  }
 
   function resetLocal() {
     const em = email.trim().toLowerCase(); const acc = getState().accounts.find((a) => a.email === em);
@@ -113,30 +115,16 @@ export function AuthScreen({ initial }: { initial: 'login' | 'register' }) {
         <Btn type="submit" full disabled={busy}>{busy ? 'Please wait…' : mode === 'register' ? 'Create account' : mode === 'login' ? 'Sign in' : 'Send reset link'}</Btn>
         {mode === 'forgot' && !cloud && <Btn full kind="soft" onClick={resetLocal}>Reset on this device</Btn>}
       </form>
-      {mode !== 'forgot' && <>
-        <div className="or"><span>or continue with</span></div>
-        <div className="oauth">
-          <button onClick={() => oauth('google')}><svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" /><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" /><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" /><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" /></svg>Google</button>
-          <button onClick={() => oauth('apple')}><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4.1zM13.9 5c.7-.9 1.2-2 1.1-3.2-1 0-2.3.7-3 1.6-.7.8-1.2 2-1.1 3.1 1.1.1 2.3-.6 3-1.5z" /></svg>Apple</button>
-        </div>
+      {mode !== 'forgot' && cloud && !inPreview() && <>
+        <div className="or"><span>or</span></div>
+        <SignInButtons />
       </>}
       <div className="auth-switch">
         {mode === 'login' && <><button onClick={() => setMode('forgot')}>Forgot password?</button><span>·</span><button onClick={() => setMode('register')}>Create account</button></>}
         {mode === 'register' && <button onClick={() => setMode('login')}>Already have an account? Sign in</button>}
         {mode === 'forgot' && <button onClick={() => setMode('login')}>Back to sign in</button>}
       </div>
-      <p className="auth-note"><Icon n="shield" s={14} /> {cloud ? 'Cloud sync is on — your account is stored in your Supabase project.' : 'On-device mode: your account and data stay on this phone. Connect Supabase in Settings for cloud sync across devices.'}</p>
-      <Sheet open={!!oauthInfo} onClose={() => setOauthInfo(null)} title={`${oauthInfo === 'google' ? 'Google' : 'Apple'} sign-in needs setup`}>
-        <p className="muted">Social sign-in runs through Supabase Auth so no secret keys live in the app. To turn it on:</p>
-        <ol className="steps-list">
-          <li>Create a free project at supabase.com and run <code>supabase/schema.sql</code>.</li>
-          <li>In Supabase → Authentication → Providers, enable {oauthInfo === 'google' ? 'Google (needs a Google Cloud OAuth client ID)' : 'Apple (needs an Apple Developer account)'}.</li>
-          <li>Add <code>com.fitverse.app://auth-callback</code> to the allowed redirect URLs.</li>
-          <li>In Bro’s Fitness → Profile → Settings → Cloud, paste your project URL and anon key.</li>
-        </ol>
-        <p className="muted">Until then, create an account with email — it takes 10 seconds.</p>
-        <Btn full onClick={() => { setOauthInfo(null); setMode('register'); }}>Use email instead</Btn>
-      </Sheet>
+      <p className="auth-note"><Icon n="shield" s={14} /> {cloud ? 'Your account works on every phone — Android and iPhone.' : 'On-device mode: your account and data stay on this phone.'}</p>
     </div>
   );
 }

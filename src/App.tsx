@@ -7,14 +7,15 @@ import { Onboarding } from './screens/Onboarding';
 import { Home } from './screens/Home';
 import { Train, ExerciseDetail, ProgramDetail, RoutineEditor, ActiveWorkout, WorkoutStart, WorkoutSummary } from './screens/Train';
 import { Nutrition, AddFood, Water, Body, Targets } from './screens/Nutrition';
+import { Messages, ChatThread } from './screens/Chat';
 import { Feed, PostDetail, NewPost, UserProfile, Notifications, Challenges, Bookmarks, SearchUsers } from './screens/Social';
 import { Me, EditProfile, Settings, Premium, Coach } from './screens/Profile';
 import { Admin } from './screens/Admin';
 import { Dialogs } from './lib/dialog';
-import { CHALLENGES, startWebReminderLoop, t, isNative } from './lib/extras';
+import { CHALLENGES, startWebReminderLoop, t, isNative, toast } from './lib/extras';
 import { initReminders, requestPermission, scheduleAll } from './lib/reminders';
 import { markBootOk } from './lib/updater';
-import { consumeOAuthHash, isCloud, syncUp, pullFeed, bg } from './lib/cloud';
+import { consumeOAuthHash, isCloud, syncUp, pullFeed, bg, ensureProfile } from './lib/cloud';
 
 function TabBar({ cur }: { cur: string }) {
   const tabs: [string, string, string][] = [['home', 'home', t('home')], ['train', 'train', t('train')], ['nutrition', 'food', t('nutrition')], ['community', 'users', t('community')], ['me', 'user', t('profile')]];
@@ -50,6 +51,8 @@ function Routes() {
     case 'challenges': return <Challenges />;
     case 'bookmarks': return <Bookmarks />;
     case 'search-users': return <SearchUsers />;
+    case 'messages': return <Messages />;
+    case 'chat': return <ChatThread key={b} other={b} />;
     case 'me': return <Me />;
     case 'edit-profile': return <EditProfile />;
     case 'settings': return <Settings />;
@@ -72,9 +75,10 @@ function App() {
   useEffect(() => {
     // restore admin-created challenges
     for (const c of getState().customChallenges) if (!CHALLENGES.find((x) => x.id === c.id)) CHALLENGES.push({ ...c, targetFor: () => c.target });
-    if (location.hash.includes('access_token=')) consumeOAuthHash(location.hash).then(() => { location.hash = '#/home'; }).catch(() => {});
+    if (location.hash.includes('access_token=')) consumeOAuthHash(location.hash).then(() => { location.hash = '#/community'; }).catch(() => {});
+    if (location.hash.includes('error_description=')) { const m = new URLSearchParams(location.hash.slice(1)).get('error_description'); if (m) setTimeout(() => toast('Sign-in: ' + m), 600); location.hash = '#/home'; }
     const capApp = (window as any).Capacitor?.Plugins?.App;
-    capApp?.addListener?.('appUrlOpen', (e: any) => { const h = e.url.split('#')[1]; if (h) consumeOAuthHash('#' + h); });
+    capApp?.addListener?.('appUrlOpen', (e: any) => { const h = e.url.split('#')[1]; if (h) consumeOAuthHash('#' + h).then((ok) => { if (ok) toast('Signed in — welcome to the community!'); }).catch((x) => toast('Sign-in failed: ' + x.message)); });
     capApp?.addListener?.('backButton', () => { if (location.hash && !['#/home', '#/', ''].includes(location.hash)) history.back(); else capApp.exitApp?.(); });
     startWebReminderLoop();
     markBootOk();
@@ -82,8 +86,8 @@ function App() {
   }, []);
   useEffect(() => {
     if (!session || !profile || !isCloud(getState())) return;
-    bg(syncUp()); bg(pullFeed());
-    const i = setInterval(() => bg(syncUp()), 5 * 60e3);
+    bg(ensureProfile().then(() => syncUp())); bg(pullFeed());
+    const i = setInterval(() => { bg(syncUp()); bg(pullFeed()); }, 5 * 60e3);
     return () => clearInterval(i);
   }, [session?.userId, !!profile]);
   useEffect(() => {

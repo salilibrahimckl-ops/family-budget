@@ -3,7 +3,9 @@ import { useStore, update, uid, today, putMedia, processImage, validateVideo, no
 import { Header, BackBtn, Card, Btn, Chip, Seg, Icon, Pill, Sheet, Empty, go, back, Avatar, Media, fmt, Field, NumIn } from '../ui';
 import { toast, share, checkAchievements, CHALLENGES, challengeProgress, ACHIEVEMENTS } from '../lib/extras';
 import { ask, askText } from '../lib/dialog';
-import { isCloud, bg, cloudCreatePost, cloudLike, cloudComment, cloudFollow, cloudReport, pullFeed } from '../lib/cloud';
+import { isCloud, bg, cloudCreatePost, cloudLike, cloudComment, cloudFollow, cloudReport, pullFeed, searchPeople } from '../lib/cloud';
+import { JoinCard, useCloud } from './Join';
+import { useUnreadMessages } from './Chat';
 import { useUnits } from './common';
 
 export function meUser(s: State): SocialUser { const p = s.profile!; return { id: p.userId, name: p.name, username: p.username, bio: p.bio, avatarColor: '#C6FF3D', private: p.private, sample: false }; }
@@ -26,16 +28,21 @@ export function Feed() {
     return true;
   });
   const unread = s.notifications.filter((n) => !n.read).length;
+  const dms = useUnreadMessages(); const cloud = useCloud();
+  React.useEffect(() => { if (cloud.signedIn) bg(pullFeed()); }, [cloud.signedIn]);
   return (
     <div className="page">
       <Header big title="Community" right={<div className="row">
         <button className="icon-btn" onClick={() => go('/search-users')} aria-label="Find people"><Icon n="search" /></button>
+        <button className="icon-btn" onClick={() => go('/messages')} aria-label="Messages"><Icon n="send" />{dms > 0 && <i className="badge">{dms}</i>}</button>
         <button className="icon-btn" onClick={() => go('/notifications')} aria-label="Notifications"><Icon n="bell" />{unread > 0 && <i className="badge">{unread}</i>}</button></div>} />
+      {!cloud.signedIn && <JoinCard />}
+      {cloud.signedIn && <p className="muted small" style={{ margin: '0 0 8px' }}>Signed in as {cloud.email} · posts and chats sync across your phones</p>}
       <Seg value={tab} onChange={setTab} options={[{ v: 'for', l: 'For you' }, { v: 'following', l: 'Following' }]} />
       <div className="hscroll stories">
         <button className="story me" onClick={() => go('/new-post')}><span><Icon n="plus" /></span><small>New post</small></button>
         <button className="story" onClick={() => go('/challenges')}><span>🏆</span><small>Challenges</small></button>
-        {s.social.users.filter((u) => u.creator).map((u) => <button key={u.id} className="story" onClick={() => go('/user/' + u.id)}><Avatar name={u.name} color={u.avatarColor} size={54} /><small>{u.username}</small></button>)}
+        {s.social.users.filter((u) => u.creator).map((u) => <button key={u.id} className="story" onClick={() => go('/user/' + u.id)}><Avatar name={u.name} color={u.avatarColor} src={u.photo} size={54} /><small>{u.username}</small></button>)}
       </div>
       {isCloud(s) && <Btn small kind="ghost" onClick={async () => { setRefreshing(true); try { await pullFeed(); } catch (e: any) { toast(e.message); } setRefreshing(false); }}>{refreshing ? 'Refreshing…' : '↻ Refresh feed'}</Btn>}
       {visible.slice(0, limit).map((p) => <PostCard key={p.id} p={p} />)}
@@ -65,7 +72,7 @@ export function PostCard({ p, full }: { p: Post; full?: boolean }) {
   return (
     <Card className={'post' + (full ? ' full' : '')}>
       <div className="post-h">
-        <div className="row" onClick={() => go('/user/' + u.id)}><Avatar name={u.name} color={u.avatarColor} media={u.id === me ? s.profile!.avatar : undefined} size={38} />
+        <div className="row" onClick={() => go('/user/' + u.id)}><Avatar name={u.name} color={u.avatarColor} src={u.photo} media={u.id === me ? s.profile!.avatar : undefined} size={38} />
           <div><b>{u.name}{u.creator && <span className="verified">✓</span>}</b><small>@{u.username} · {fmt.ago(p.ts)}{u.sample && ' · Sample'}</small></div></div>
         <div className="row">{p.kind !== 'text' && p.kind !== 'photo' && <Pill tone={p.kind === 'transformation' ? 'pro' : p.kind === 'tip' ? 'info' : 'lime'}>{({ workout: 'Workout', transformation: 'Transformation', achievement: 'Achievement', tip: 'Fitness tip', challenge: 'Challenge', video: 'Video' } as any)[p.kind]}</Pill>}
           <button className="icon-btn" onClick={() => setMenu(true)} aria-label="More"><Icon n="more" /></button></div>
@@ -202,12 +209,13 @@ export function UserProfile({ id }: { id: string }) {
     <div className="page">
       <Header left={<BackBtn />} title={'@' + u.username} right={isMe && <button className="icon-btn" onClick={() => go('/settings')} aria-label="Settings"><Icon n="gear" /></button>} />
       <div className="prof-h">
-        <Avatar name={u.name} color={u.avatarColor} media={isMe ? s.profile!.avatar : undefined} size={84} />
+        <Avatar name={u.name} color={u.avatarColor} src={u.photo} media={isMe ? s.profile!.avatar : undefined} size={84} />
         <div className="prof-n"><b>{u.name}{u.creator && <span className="verified">✓</span>}</b>{u.private && <Pill><Icon n="lock" s={12} /> Private</Pill>}{u.sample && <Pill>Sample account</Pill>}<p>{u.bio}</p></div>
       </div>
       <div className="prof-stats"><div><b>{posts.length}</b><small>Posts</small></div><button onClick={() => canSee && setList('followers')}><b>{followers}</b><small>Followers</small></button><button onClick={() => canSee && setList('following')}><b>{following}</b><small>Following</small></button></div>
       {!isMe && <div className="row">{blocked ? <Btn full kind="soft" onClick={() => update((d) => { d.social.blocks = d.social.blocks.filter((b) => b !== id); })}>Unblock</Btn>
-        : <Btn full kind={fs ? 'soft' : 'primary'} onClick={follow}>{fs === 'accepted' ? 'Following' : fs === 'pending' ? 'Requested' : 'Follow'}</Btn>}</div>}
+        : <><Btn full kind={fs ? 'soft' : 'primary'} onClick={follow}>{fs === 'accepted' ? 'Following' : fs === 'pending' ? 'Requested' : 'Follow'}</Btn>
+          <Btn full kind="soft" icon="send" onClick={() => (u.sample ? toast('This is a sample account — it can’t chat. Find real members in search.') : go('/chat/' + id))}>Message</Btn></>}</div>}
       {isMe && <div className="row"><Btn full kind="soft" onClick={() => go('/edit-profile')}>Edit profile</Btn><Btn full kind="soft" onClick={() => go('/bookmarks')}>Saved</Btn></div>}
       {canSee ? (posts.length ? posts.map((p) => <PostCard key={p.id} p={p} />) : <Empty icon="camera" title="No posts yet" />)
         : <Empty icon="lock" title="This account is private" text="Follow to see their posts once they approve." />}
@@ -228,10 +236,19 @@ export function Bookmarks() {
 
 export function SearchUsers() {
   const s = useStore((x) => x); const [q, setQ] = useState('');
-  const res = s.social.users.filter((u) => !u.suspended && (u.name + u.username).toLowerCase().includes(q.toLowerCase()));
+  const cloud = useCloud(); const [busy, setBusy] = useState(false);
+  React.useEffect(() => {
+    if (!cloud.signedIn) return;
+    setBusy(true); const t = setTimeout(() => { searchPeople(q).catch(() => undefined).finally(() => setBusy(false)); }, 300);
+    return () => clearTimeout(t);
+  }, [q, cloud.signedIn]);
+  const res = s.social.users.filter((u) => !u.suspended && (!cloud.signedIn || !u.sample) && (u.name + u.username).toLowerCase().includes(q.toLowerCase().replace(/^@/, '')));
   return <div className="page"><Header left={<BackBtn />} title="Find people" />
     <div className="search"><Icon n="search" s={18} /><input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or @username" /></div>
-    {res.map((u) => <Card key={u.id} className="list-row" onClick={() => go('/user/' + u.id)}><Avatar name={u.name} color={u.avatarColor} size={40} /><div style={{ flex: 1 }}><b>{u.name}{u.creator && <span className="verified">✓</span>}</b><small>@{u.username}{u.private ? ' · private' : ''}</small></div><Icon n="chev" s={18} /></Card>)}
+    {!cloud.signedIn && <JoinCard title="Find your friends" text="Sign in with Google or your email to search real members and chat." />}
+    {cloud.signedIn && busy && !res.length && <p className="muted center">Searching…</p>}
+    {cloud.signedIn && !busy && !res.length && <Empty icon="users" title="Nobody found" text="Ask your friend for their @username, or invite them to Bro’s Fitness." />}
+    {res.map((u) => <Card key={u.id} className="list-row" onClick={() => go('/user/' + u.id)}><Avatar name={u.name} color={u.avatarColor} src={u.photo} size={40} /><div style={{ flex: 1 }}><b>{u.name}{u.creator && <span className="verified">✓</span>}</b><small>@{u.username}{u.private ? ' · private' : ''}</small></div><Icon n="chev" s={18} /></Card>)}
   </div>;
 }
 

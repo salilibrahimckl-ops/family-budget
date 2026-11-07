@@ -1,3 +1,5 @@
-Realistic muscle charts showing main and supporting muscles
-Smart reminders for meals, water, protein and workouts
-In-app Update button — no more reinstalling APKs
+Realistic 3D muscle model on every exercise — rotate, zoom and tap any muscle to see its name
+Worked muscles glow red (main) and orange (helpers); "Only worked muscles" and skeleton toggles
+One sign-in for everything: Continue with Google or just your email (6-digit code, no password)
+New: private chat with friends, plus real people search
+Community card explains sign-in in one tap — no separate community login

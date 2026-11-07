@@ -321,3 +321,45 @@ small { color: var(--text-2); }
 [data-theme='light'] { --mm-off-a: #e7b9b4; --mm-off-b: #d39d97; --mm-skin-a: #efe2d6; --mm-skin-b: #e2d2c3; --mm-line: #fff; --mm-hair: #6b5b4b; }
 .mm-legend { gap: 18px; font-size: 13px; }
 .times-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 8px; } .times-grid label { display: flex; flex-direction: column; gap: 4px; } .times-grid input { width: 100% !important; padding: 10px 6px; font-size: 14px; }
+/* 3D muscle model */
+.m3d { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.m3d-stage { position: relative; width: 100%; height: 440px; border-radius: 18px; overflow: hidden; background: radial-gradient(120% 80% at 50% 30%, #2a2f38 0%, #14171c 55%, #0b0d10 100%); border: 1px solid var(--line, #232830); }
+[data-theme="light"] .m3d-stage { background: radial-gradient(120% 80% at 50% 30%, #ffffff 0%, #e9ecf1 60%, #d9dde4 100%); }
+.m3d-canvas, .m3d-canvas canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
+.m3d-over { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 24px; color: var(--text-1, #fff); background: rgba(10,12,15,.35); }
+.m3d-over small { color: var(--text-2); max-width: 260px; }
+.m3d-ring { width: 54px; height: 54px; border-radius: 50%; background: conic-gradient(#D8261B calc(var(--p) * 1%), rgba(255,255,255,.12) 0); -webkit-mask: radial-gradient(circle 20px, transparent 98%, #000 100%); mask: radial-gradient(circle 20px, transparent 98%, #000 100%); animation: m3dspin 1.6s linear infinite; }
+@keyframes m3dspin { to { transform: rotate(360deg); } }
+.m3d-pick { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: rgba(0,0,0,.72); color: #fff; padding: 7px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; backdrop-filter: blur(6px); }
+.m3d-hint { position: absolute; bottom: 8px; left: 0; right: 0; text-align: center; font-size: 11px; color: rgba(255,255,255,.55); pointer-events: none; }
+[data-theme="light"] .m3d-hint { color: rgba(0,0,0,.45); }
+.m3d-bar { display: flex; gap: 6px; flex-wrap: wrap; } .m3d-bar.center { justify-content: center; margin-top: 8px; }
+.m3d-credit { color: var(--text-3); font-size: 10.5px; text-align: center; }
+.m3d .mm-legend { justify-content: center; flex-wrap: wrap; }
+/* one-tap sign in */
+.join-card { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 20px 18px; border-radius: 20px; background: linear-gradient(160deg, rgba(198,255,61,.10), rgba(34,227,181,.06)); border: 1px solid var(--line); margin: 6px 0 12px; }
+.join-card b { font-size: 17px; } .join-card p { color: var(--text-2); font-size: 14px; margin: 0 0 4px; line-height: 1.45; }
+.join-ico { font-size: 30px; }
+.join-btns { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.join-btns button { display: flex; align-items: center; justify-content: center; gap: 10px; height: 52px; border-radius: 16px; font-weight: 700; font-size: 15px; width: 100%; }
+.g-btn { background: #fff; color: #1f1f1f; border: 1px solid #dadce0; }
+.e-btn { background: var(--card); color: var(--text-1); border: 1px solid var(--line); }
+input.otp { letter-spacing: .5em; font-size: 24px; text-align: center; font-weight: 700; }
+button.link { background: none; border: 0; color: var(--accent, #C6FF3D); font-weight: 600; padding: 4px 6px; }
+/* chat */
+.inbox-row { display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.inbox-row > div:not(.avatar) { flex: 1; min-width: 0; } .inbox-row b { display: block; } .inbox-row small { color: var(--text-2); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.inbox-row .when { color: var(--text-3); font-size: 12px; flex: none; text-align: right; } .inbox-row .dot { display: inline-block; min-width: 20px; height: 20px; border-radius: 10px; background: #C6FF3D; color: #000; font-size: 11px; font-weight: 800; line-height: 20px; text-align: center; margin-top: 4px; padding: 0 5px; }
+.chat { display: flex; flex-direction: column; height: 100%; min-height: calc(100vh - 70px); min-height: calc(100dvh - 70px); }
+.chat-msgs { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px 2px 90px; }
+.bubble { max-width: 78%; padding: 9px 13px; border-radius: 18px; font-size: 15px; line-height: 1.35; white-space: pre-wrap; word-wrap: break-word; }
+.bubble.me { align-self: flex-end; background: #C6FF3D; color: #0b0d10; border-bottom-right-radius: 6px; }
+.bubble.them { align-self: flex-start; background: var(--card); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
+.bubble.pending { opacity: .55; } .bubble small { display: block; font-size: 10.5px; opacity: .6; margin-top: 3px; text-align: right; }
+.chat-day { align-self: center; font-size: 11.5px; color: var(--text-3); margin: 8px 0 2px; }
+.chat-box { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: var(--bg, #0A0C0F); border-top: 1px solid var(--line); max-width: 640px; margin: 0 auto; }
+.chat-box textarea { flex: 1; resize: none; min-height: 44px; max-height: 120px; border-radius: 22px; padding: 11px 16px; background: var(--card); border: 1px solid var(--line); color: var(--text-1); font: inherit; }
+.chat-box button { width: 46px; height: 46px; border-radius: 50%; background: #C6FF3D; color: #000; border: 0; display: flex; align-items: center; justify-content: center; flex: none; }
+.chat-box button:disabled { opacity: .4; }
+.quick-replies { display: flex; gap: 6px; overflow-x: auto; padding: 0 0 6px; } .quick-replies button { flex: none; }
+.join-link { display: flex; align-items: center; justify-content: center; height: 50px; border-radius: 16px; font-weight: 700; width: 100%; text-decoration: none; }

@@ -3,11 +3,16 @@
 // Secret keys (service role, AI provider keys) NEVER ship in the app — they live in Supabase Edge Function secrets.
 import { getState, update, State, Post, SocialUser } from './store';
 
-const cfg = () => { const s = getState().settings; return { url: s.supabaseUrl.replace(/\/$/, ''), key: s.supabaseAnon }; };
+declare const __FV_CLOUD_URL__: string; declare const __FV_CLOUD_KEY__: string;
+/** Project details baked into the build (config/cloud.json); Settings can override them. */
+export const BAKED = { url: typeof __FV_CLOUD_URL__ === 'string' ? __FV_CLOUD_URL__ : '', key: typeof __FV_CLOUD_KEY__ === 'string' ? __FV_CLOUD_KEY__ : '' };
+const cfg = () => { const s = getState().settings; const url = (s.supabaseUrl || BAKED.url).replace(/\/$/, ''); return { url, key: s.supabaseUrl ? s.supabaseAnon : BAKED.key }; };
 export const cloudReady = () => { const c = cfg(); return !!(c.url && c.key); };
 
+let refreshing: Promise<void> | null = null;
 async function call(path: string, init: RequestInit & { auth?: boolean } = {}) {
   const { url, key } = cfg();
+  if (init.auth !== false) { const s0 = getState(); if (s0.session?.mode === 'cloud' && s0.session.refresh && s0.session.exp && s0.session.exp < Date.now() + 60e3) { refreshing = refreshing || cloudRefresh().finally(() => { refreshing = null; }); await refreshing; } }
   const s = getState();
   const headers: Record<string, string> = { apikey: key, 'Content-Type': 'application/json', ...(init.headers as any) };
   if (init.auth !== false && s.session?.token) headers.Authorization = `Bearer ${s.session.token}`;
@@ -50,9 +55,119 @@ export async function consumeOAuthHash(hash: string) {
   const refresh = q.get('refresh_token') || ''; const exp = Date.now() + Number(q.get('expires_in') || 3600) * 1000;
   const { url, key } = cfg();
   const u = await (await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${token}` } })).json();
-  update((d) => { d.session = { userId: u.id, email: u.email, mode: 'cloud', token, refresh, exp }; });
+  applySession({ token, refresh, exp, userId: u.id, email: u.email }, u.user_metadata);
   return true;
 }
+
+// ─── One sign-in for everything: Google, or just your email (6-digit code / magic link) ───
+export function redirectTarget() {
+  const native = !!(window as any).Capacitor?.isNativePlatform?.();
+  return native ? OAUTH_REDIRECT_APP : location.origin + location.pathname;
+}
+export async function sendEmailCode(email: string) {
+  await call('/auth/v1/otp?redirect_to=' + encodeURIComponent(redirectTarget()), { method: 'POST', auth: false, body: JSON.stringify({ email, create_user: true }) });
+}
+export async function verifyEmailCode(email: string, code: string) {
+  const b = await call('/auth/v1/verify', { method: 'POST', auth: false, body: JSON.stringify({ type: 'email', email, token: code.trim() }) });
+  const t = tok(b); applySession(t, b.user?.user_metadata);
+}
+/** Switch the app to the signed-in cloud account. Local data (workouts, meals, profile) is kept. */
+export function applySession(t: { token: string; refresh: string; exp: number; userId: string; email: string }, meta?: any) {
+  update((d) => {
+    const guest = !d.session || d.session.email === 'guest' || d.session.mode === 'local';
+    // Linking this phone's existing profile to the account: move "me" to the account id everywhere.
+    const old = d.profile?.userId;
+    if (d.profile && old && old !== t.userId && (guest || d.session?.userId === old)) {
+      d.social = JSON.parse(JSON.stringify(d.social).split(old).join(t.userId));
+      d.profile.userId = t.userId;
+    }
+    d.session = { userId: t.userId, email: t.email, mode: 'cloud', token: t.token, refresh: t.refresh, exp: t.exp };
+    if (!d.accounts.find((a) => a.userId === t.userId)) d.accounts.push({ email: t.email, salt: '', hash: '', userId: t.userId });
+    const nm = meta?.full_name || meta?.name;
+    if (d.profile && nm && guest && (!d.profile.name || /^(friend|guest|you)$/i.test(d.profile.name))) d.profile.name = nm;
+    if (meta?.avatar_url) (d.settings as any).photo = meta.avatar_url;
+  });
+  setTimeout(() => { bg(ensureProfile().then(() => pullFeed())); }, 50);
+}
+export function signOutCloud() { update((d) => { if (d.session) d.session = { userId: d.session.userId, email: 'guest', mode: 'local' }; }); }
+const slug = (x: string) => x.toLowerCase().replace(/[^a-z0-9_.]/g, '').slice(0, 16) || 'athlete';
+/** Make sure this account has a public community profile (unique username). */
+export async function ensureProfile() {
+  const s = getState(); if (!isCloud(s) || !s.profile) return;
+  const uid = s.session!.userId;
+  const have = await call(`/rest/v1/profiles?id=eq.${uid}&select=id,username`);
+  if (have?.length) { if (have[0].username !== s.profile.username) update((d) => { if (d.profile) d.profile.username = have[0].username; }); return; }
+  let base = slug(s.profile.username || s.profile.name || s.session!.email.split('@')[0]);
+  if (base.length < 2) base = 'athlete';
+  for (let i = 0; i < 5; i++) {
+    const username = i === 0 ? base : (base.slice(0, 14) + Math.floor(Math.random() * 900 + 100));
+    try {
+      await call('/rest/v1/profiles', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ id: uid, username, display_name: s.profile.name, bio: s.profile.bio || '', is_private: !!s.profile.private, avatar_path: (s.settings as any).photo || null }) });
+      update((d) => { if (d.profile) d.profile.username = username; });
+      return;
+    } catch (e: any) { if (!/duplicate|unique|23505/i.test(e.message)) throw e; }
+  }
+}
+
+// ─── People ───
+const toUser = (pr: any): SocialUser => ({ id: pr.id, name: pr.display_name || pr.username, username: pr.username, bio: pr.bio || '', avatarColor: '#8BC34A', private: !!pr.is_private, sample: false, photo: pr.avatar_path || undefined } as SocialUser);
+function remember(rows: any[]) {
+  if (!rows?.length) return;
+  update((d) => { for (const pr of rows) { const u = toUser(pr); const i = d.social.users.findIndex((x) => x.id === u.id); if (i >= 0) d.social.users[i] = { ...d.social.users[i], ...u }; else d.social.users.push(u); } });
+}
+export async function searchPeople(q: string) {
+  const s = getState(); if (!isCloud(s)) return [];
+  const t = q.replace(/[^a-zA-Z0-9_. ]/g, '').trim();
+  const filter = t ? `&or=(username.ilike.*${encodeURIComponent(t)}*,display_name.ilike.*${encodeURIComponent(t)}*)` : '&order=created_at.desc';
+  const rows = await call(`/rest/v1/profiles?select=id,username,display_name,bio,is_private,avatar_path${filter}&limit=30`);
+  const mine = s.session!.userId; const list = (rows || []).filter((r: any) => r.id !== mine);
+  remember(list); return list.map(toUser);
+}
+async function loadProfiles(ids: string[]) {
+  const s = getState(); const need = [...new Set(ids)].filter((id) => id !== s.session?.userId && !s.social.users.find((u) => u.id === id && !u.sample));
+  if (!need.length) return;
+  remember(await call(`/rest/v1/profiles?select=id,username,display_name,bio,is_private,avatar_path&id=in.(${need.join(',')})`));
+}
+
+// ─── Direct messages (polling; no extra servers needed) ───
+export interface Msg { id: string; from: string; to: string; text: string; ts: number; read: boolean }
+const toMsg = (r: any): Msg => ({ id: r.id, from: r.sender_id, to: r.recipient_id, text: r.body, ts: Date.parse(r.created_at), read: !!r.read_at });
+export async function inbox(): Promise<{ other: string; last: Msg; unread: number }[]> {
+  const s = getState(); if (!isCloud(s)) return [];
+  const me = s.session!.userId;
+  const rows: any[] = await call(`/rest/v1/messages?select=id,sender_id,recipient_id,body,created_at,read_at&or=(sender_id.eq.${me},recipient_id.eq.${me})&order=created_at.desc&limit=300`);
+  const map = new Map<string, { other: string; last: Msg; unread: number }>();
+  for (const r of rows) {
+    const m = toMsg(r); const other = m.from === me ? m.to : m.from;
+    const c = map.get(other) || { other, last: m, unread: 0 };
+    if (m.to === me && !m.read) c.unread++;
+    map.set(other, c);
+  }
+  await loadProfiles([...map.keys()]);
+  return [...map.values()];
+}
+export async function thread(other: string): Promise<Msg[]> {
+  const me = getState().session!.userId;
+  const rows: any[] = await call(`/rest/v1/messages?select=id,sender_id,recipient_id,body,created_at,read_at&or=(and(sender_id.eq.${me},recipient_id.eq.${other}),and(sender_id.eq.${other},recipient_id.eq.${me}))&order=created_at.desc&limit=200`);
+  await loadProfiles([other]);
+  return rows.map(toMsg).reverse();
+}
+export async function sendMessage(other: string, text: string) {
+  const me = getState().session!.userId;
+  const r = await call('/rest/v1/messages', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ sender_id: me, recipient_id: other, body: text.slice(0, 2000) }) });
+  return toMsg(Array.isArray(r) ? r[0] : r);
+}
+export async function markRead(other: string) {
+  const me = getState().session!.userId;
+  await call(`/rest/v1/messages?recipient_id=eq.${me}&sender_id=eq.${other}&read_at=is.null`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ read_at: new Date().toISOString() }) });
+}
+export async function unreadMessages(): Promise<number> {
+  const s = getState(); if (!isCloud(s)) return 0;
+  const rows: any[] = await call(`/rest/v1/messages?select=id&recipient_id=eq.${s.session!.userId}&read_at=is.null&limit=99`);
+  return rows.length;
+}
+/** Map a cloud user id to the id used for "me" in local state. */
+export const localId = (s: State, id: string) => (id === s.session?.userId ? s.profile!.userId : id);
 
 // ─── Sync (local-first: device data is pushed up; cloud feed is pulled down) ───
 export async function syncUp() {
@@ -72,11 +187,12 @@ export async function syncUp() {
 
 export async function pullFeed() {
   const s = getState(); if (s.session?.mode !== 'cloud') return;
-  const rows: any[] = await call('/rest/v1/social_posts?select=id,user_id,kind,body,created_at,like_count,post_media(storage_path,media_type),profiles(id,username,display_name,bio,is_private)&order=created_at.desc&limit=30');
+  const rows: any[] = await call('/rest/v1/social_posts?select=id,user_id,kind,body,created_at,like_count,post_media(storage_path,media_type),profiles(id,username,display_name,bio,is_private,avatar_path),comments(id,user_id,body,created_at,parent_id)&order=created_at.desc&limit=40');
   const { url } = cfg();
   update((d) => {
     for (const r of rows) {
-      const pr = r.profiles; if (pr && !d.social.users.find((u) => u.id === pr.id)) d.social.users.push({ id: pr.id, name: pr.display_name || pr.username, username: pr.username, bio: pr.bio || '', avatarColor: '#8BC34A', private: pr.is_private, sample: false } as SocialUser);
+      const pr = r.profiles; if (pr && pr.id !== s.session!.userId) { const u = toUser(pr); const k = d.social.users.findIndex((x) => x.id === u.id); if (k >= 0) d.social.users[k] = { ...d.social.users[k], ...u }; else d.social.users.push(u); }
+      for (const c of r.comments || []) { if (!d.social.comments.find((x) => x.id === c.id)) d.social.comments.push({ id: c.id, postId: r.id, userId: localId(s, c.user_id), text: c.body, ts: Date.parse(c.created_at), parentId: c.parent_id || undefined }); }
       const post: Post = { id: r.id, userId: r.user_id === s.session!.userId ? s.profile!.userId : r.user_id, ts: Date.parse(r.created_at), kind: r.kind, text: r.body || '', likes: r.like_count || 0, media: (r.post_media || []).map((m: any) => ({ art: `${url}/storage/v1/object/public/post-media/${m.storage_path}`, type: m.media_type })) };
       const i = d.social.posts.findIndex((x) => x.id === r.id);
       if (i >= 0) d.social.posts[i] = post; else d.social.posts.push(post);

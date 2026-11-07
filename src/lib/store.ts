@@ -15,7 +15,7 @@ export interface Profile {
 export interface MealEntry { id: string; date: string; slot: MealSlot; foodId: string; name: string; grams: number; unit: string; kcal: number; p: number; c: number; f: number; fib: number; estimated: boolean }
 export interface SetLog { w: number; r: number; done: boolean }
 export interface WorkoutLog { id: string; date: string; start: number; end: number; name: string; programId?: string; entries: { exId: string; sets: SetLog[] }[]; volume: number; prs: string[] }
-export interface SocialUser { id: string; name: string; username: string; bio: string; avatarColor: string; private: boolean; sample: boolean; creator?: boolean; suspended?: boolean }
+export interface SocialUser { id: string; name: string; username: string; bio: string; avatarColor: string; private: boolean; sample: boolean; creator?: boolean; suspended?: boolean; photo?: string }
 export interface Post {
   id: string; userId: string; ts: number; kind: 'photo' | 'video' | 'workout' | 'transformation' | 'achievement' | 'tip' | 'text' | 'challenge';
   text: string; media: { id?: string; art?: string; type: 'image' | 'video' }[]; workout?: { name: string; volume: number; minutes: number; exercises: number };
@@ -32,7 +32,7 @@ export interface State {
   settings: {
     theme: 'dark' | 'light'; units: 'metric' | 'imperial'; asianBmi: boolean; hotClimate: boolean; lang: 'en' | 'ml';
     reminders: { water: boolean; every: number; from: number; to: number; workout: boolean };
-    supabaseUrl: string; supabaseAnon: string; admin: boolean; plan: 'free' | 'premium'; seenIntro: boolean; hideChecklist?: boolean; watchedDemo?: boolean;
+    supabaseUrl: string; supabaseAnon: string; admin: boolean; plan: 'free' | 'premium'; seenIntro: boolean; photo?: string; hideChecklist?: boolean; watchedDemo?: boolean;
     notify?: { meals: boolean; times: [string, string, string]; workout: boolean; workoutTime: string; nudges: boolean; asked?: boolean };
   };
   custom: { kcal?: number; protein?: number; water?: number };

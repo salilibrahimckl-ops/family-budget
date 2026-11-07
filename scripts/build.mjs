@@ -6,9 +6,10 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const out = path.join(root, 'www');
 fs.mkdirSync(out, { recursive: true });
 const nodePaths = [path.join(root, 'node_modules'), '/opt/npm-tools/node_modules'].filter((p) => fs.existsSync(p));
+const cloudCfg = (() => { try { const c = JSON.parse(fs.readFileSync(path.join(root, 'config/cloud.json'), 'utf8')); return { url: c.supabaseUrl || '', key: c.supabaseAnon || '' }; } catch { return { url: '', key: '' }; } })();
 const r = await build({
   entryPoints: [path.join(root, 'src/App.tsx')], bundle: true, minify: true, format: 'iife', target: ['chrome90', 'safari15'],
-  jsx: 'automatic', define: { 'process.env.NODE_ENV': '"production"' }, write: false, nodePaths, legalComments: 'none',
+  jsx: 'automatic', define: { 'process.env.NODE_ENV': '"production"', __FV_CLOUD_URL__: JSON.stringify(cloudCfg.url), __FV_CLOUD_KEY__: JSON.stringify(cloudCfg.key) }, write: false, nodePaths, legalComments: 'none',
 });
 const js = r.outputFiles[0].text;
 const BUILD = Number(process.env.FV_BUILD || 0);
@@ -48,3 +49,46 @@ const notesFile = path.join(root, 'docs/WHATSNEW.txt');
 const notes = fs.existsSync(notesFile) ? fs.readFileSync(notesFile, 'utf8').split('\n').map((l) => l.trim()).filter(Boolean).slice(0, 6) : [];
 fs.writeFileSync(path.join(ota, 'version.json'), JSON.stringify({ build: BUILD, notes, date: new Date().toISOString(), minBuiltIn: MIN_BUILT_IN }));
 fs.writeFileSync(path.join(ota, 'bundle.json'), JSON.stringify({ build: BUILD, js, css }));
+// iPhone / browser web app (served from GitHub Pages at /family-budget/fitness/). A tiny loader that always runs the
+// newest published bundle, keeps a copy for offline use, and can be added to the iPhone home screen.
+const touch = fs.readFileSync(path.join(root, 'assets/apple-touch-icon.png')).toString('base64');
+const manifest = { name: 'Bro’s Fitness', short_name: 'Bro’s Fitness', start_url: '.', display: 'standalone', background_color: '#0A0C0F', theme_color: '#0A0C0F', icons: [{ src: 'data:image/png;base64,' + touch, sizes: '180x180', type: 'image/png' }] };
+const pages = `<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<meta name="theme-color" content="#0A0C0F" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Bro’s Fitness" />
+<link rel="apple-touch-icon" href="data:image/png;base64,${touch}" />
+<link rel="icon" href="data:image/png;base64,${touch}" />
+<link rel="manifest" href="data:application/manifest+json,${encodeURIComponent(JSON.stringify(manifest))}" />
+<title>Bro’s Fitness</title>
+<style>html,body{margin:0;background:#0A0C0F;color:#fff;font-family:-apple-system,system-ui,sans-serif}#fv-load{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}#fv-load i{width:42px;height:42px;border-radius:50%;border:4px solid #222;border-top-color:#C6FF3D;animation:s 1s linear infinite}@keyframes s{to{transform:rotate(360deg)}}#fv-load small{color:#8a9099}</style>
+</head>
+<body>
+<div id="fv-load"><i></i><small>Loading Bro’s Fitness…</small></div>
+<div id="root"></div>
+<script>
+(function(){
+  var R='https://raw.githubusercontent.com/salilibrahimckl-ops/family-budget/fitverse-builds/';
+  var K='fvw.bundle', ran=false;
+  function run(txt){ if(ran) return; var b; try{ b=JSON.parse(txt) }catch(e){ return false }
+    ran=true; window.__FV_BUILD=b.build; window.__FV_BUILT_IN=b.build; window.__FV_WEB=1;
+    var st=document.createElement('style'); st.id='fv-style'; st.textContent=b.css; document.head.appendChild(st);
+    var l=document.getElementById('fv-load'); if(l) l.remove();
+    var s=document.createElement('script'); s.textContent=b.js; document.body.appendChild(s); return true }
+  function save(t){ try{ localStorage.setItem(K,t) }catch(e){ try{ localStorage.removeItem(K) }catch(_){} } }
+  var cached=null; try{ cached=localStorage.getItem(K) }catch(e){}
+  if(cached) run(cached);
+  fetch(R+'bundle.json?t='+Date.now(),{cache:'no-store'}).then(function(r){ if(!r.ok) throw 0; return r.text() }).then(function(t){
+    save(t); if(!ran) run(t);
+  }).catch(function(){ if(!ran){ var l=document.getElementById('fv-load'); if(l) l.innerHTML='<small>No internet — open once online to install the app.</small>' } });
+})();
+</script>
+</body>
+</html>`;
+fs.writeFileSync(path.join(ota, 'fitverse-pages.html'), pages);

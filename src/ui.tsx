@@ -183,8 +183,8 @@ export function Media({ m, className }: { m: { id?: string; art?: string; type: 
   if (!src) return <div className={'media-ph ' + (className || '')} />;
   return m.type === 'video' ? <video className={className} src={src} controls playsInline preload="metadata" /> : <img className={className} src={src} alt="" loading="lazy" />;
 }
-export function Avatar({ name, color = '#C6FF3D', media, size = 40 }: { name: string; color?: string; media?: string; size?: number }) {
-  const u = useMediaUrl(media);
+export function Avatar({ name, color = '#C6FF3D', media, src, size = 40 }: { name: string; color?: string; media?: string; src?: string; size?: number }) {
+  const u = useMediaUrl(media) || src;
   const initials = name.replace(/\(.*?\)/g, '').trim().split(/\s+/).map((x) => x[0] || '').join('').slice(0, 2).toUpperCase();
   return <div className="avatar" style={{ width: size, height: size, background: u ? `center/cover url(${u})` : color, fontSize: size * 0.38 }}>{!u && initials}</div>;
 }

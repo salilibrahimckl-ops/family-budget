@@ -4,7 +4,7 @@ import { MUSCLES, EQUIP, EQUIP_RANK, Equip, Exercise, alternativeFor, Muscle } f
 import { PROGRAMS, Program } from '../data/programs';
 import { Header, BackBtn, Card, Btn, Chip, Seg, Icon, Pill, Sheet, Empty, go, back, useRoute, useTicker, fmt, NumIn, Field } from '../ui';
 import { allExercises, exById, LEVEL, useUnits } from './common';
-import { MuscleMap } from './MuscleMap';
+import { Muscle3D } from './Muscle3D';
 import { DemoVideo } from './DemoVideo';
 import { YT } from '../data/videos';
 import { todaysPlan, buildSchedule, recommendProgram } from '../lib/coach';
@@ -140,11 +140,11 @@ export function ExerciseDetail({ id }: { id: string }) {
         <div><small>Sets</small><b>{e.sets}</b></div><div><small>Reps</small><b>{e.reps}</b></div><div><small>Rest</small><b>{e.rest}</b></div><div><small>Level</small><b>{LEVEL[e.level]}</b></div>
       </div>
       {e.tempo && <p className="muted small pad">Tempo {e.tempo} (lower – pause – lift, seconds). A slower lowering phase is the "slow-motion" cue: control every rep.</p>}
+      <Section title="Muscles worked (3D)" icon="spark"><Muscle3D primary={e.muscle} secondary={e.secondary} /><p><b>Primary:</b> {MUSCLES.find((m) => m.key === e.muscle)?.name}</p><p><b>Secondary:</b> {e.secondary.join(', ') || '—'}</p></Section>
       <Section title="Starting position" icon="user"><p>{e.start}</p></Section>
       <Section title="Execution" icon="play"><ol className="cue">{e.steps.map((x, i) => <li key={i}>{x}</li>)}</ol></Section>
       <Section title="Breathing" icon="drop"><p>{e.breath}</p></Section>
       <Section title="Posture & alignment" icon="check"><p>{e.posture}</p></Section>
-      <Section title="Muscles" icon="spark"><MuscleMap primary={e.muscle} secondary={e.secondary} /><p><b>Primary:</b> {MUSCLES.find((m) => m.key === e.muscle)?.name}</p><p><b>Secondary:</b> {e.secondary.join(', ') || '—'}</p></Section>
       <Section title="Common mistakes" icon="x"><ul className="bad">{e.mistakes.map((x, i) => <li key={i}>{x}</li>)}</ul></Section>
       <Section title="Safety" icon="shield"><ul className="warn">{e.safety.map((x, i) => <li key={i}>{x}</li>)}<li>Stop if you feel sharp or joint pain. Get medical advice for injuries, recent surgery or heart conditions before training.</li></ul></Section>
       <Section title="Equipment" icon="train"><p>{e.gear}</p></Section>

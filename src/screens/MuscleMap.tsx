@@ -2,17 +2,17 @@
 // Left half is drawn once and mirrored, so both sides match.
 import React from 'react';
 
-type R = 'chest' | 'delts' | 'biceps' | 'forearms' | 'abs' | 'obliques' | 'serratus' | 'quads' | 'adductors' | 'calves' | 'tibialis' | 'traps' | 'lats' | 'rhomboids' | 'triceps' | 'glutes' | 'hamstrings' | 'lowback' | 'neck';
+export type R = 'chest' | 'delts' | 'biceps' | 'forearms' | 'abs' | 'obliques' | 'serratus' | 'quads' | 'adductors' | 'calves' | 'tibialis' | 'traps' | 'lats' | 'rhomboids' | 'triceps' | 'glutes' | 'hamstrings' | 'lowback' | 'neck' | 'hipflex';
 
-const PRIMARY: Record<string, R[]> = {
+export const PRIMARY: Record<string, R[]> = {
   chest: ['chest'], back: ['lats', 'traps', 'rhomboids'], shoulders: ['delts'], biceps: ['biceps'], triceps: ['triceps'], forearms: ['forearms'],
   abs: ['abs'], obliques: ['obliques'], quads: ['quads'], hamstrings: ['hamstrings'], glutes: ['glutes'], calves: ['calves'],
   fullbody: ['quads', 'glutes', 'chest', 'lats', 'delts', 'abs', 'hamstrings'],
 };
-const KW: [RegExp, R][] = [[/chest|pec/i, 'chest'], [/delt|shoulder|rotator/i, 'delts'], [/bicep|brachi/i, 'biceps'], [/forearm|grip|wrist/i, 'forearms'],
+export const KW: [RegExp, R][] = [[/chest|pec/i, 'chest'], [/delt|shoulder|rotator/i, 'delts'], [/bicep|brachi/i, 'biceps'], [/forearm|grip|wrist/i, 'forearms'],
   [/core|abs|transvers/i, 'abs'], [/oblique/i, 'obliques'], [/serratus/i, 'serratus'], [/quad|legs/i, 'quads'], [/adductor/i, 'adductors'], [/calf|calves|soleus/i, 'calves'],
   [/trap/i, 'traps'], [/\blats?\b|latissimus|upper back/i, 'lats'], [/rhomboid|mid trap|lower trap/i, 'rhomboids'], [/tricep/i, 'triceps'], [/glute/i, 'glutes'], [/hamstring/i, 'hamstrings'],
-  [/erector|lower back|spinal/i, 'lowback'], [/hip flexor/i, 'quads']];
+  [/erector|lower back|spinal/i, 'lowback'], [/hip flexor/i, 'quads'], [/hip flexor|psoas|iliacus/i, 'hipflex']];
 
 // [region, path] — left half of the body (viewer's left), 200×460 canvas, centre x = 100
 const FRONT: [R | 'skin', string][] = [
@@ -50,9 +50,13 @@ const BACK: [R | 'skin', string][] = [
 ];
 const SILHOUETTE = 'M100 62 L90 64 Q66 70 50 80 Q36 92 36 120 Q34 150 34 192 Q26 222 28 262 L33 292 L47 292 L54 262 Q57 226 60 198 L62 150 Q62 196 63 230 Q53 262 54 310 Q57 346 63 372 Q57 404 60 440 L58 456 L88 456 L85 440 Q90 404 88 372 Q93 344 95 300 L99 262 L100 262 Z';
 
-export function MuscleMap({ primary, secondary }: { primary: string; secondary: string[] }) {
-  const pri = new Set(PRIMARY[primary] || []);
+export function targets(primary: string, secondary: string[]) {
+  const pri = new Set<R>(PRIMARY[primary] || []);
   const sec = new Set<R>(); secondary.forEach((s) => KW.forEach(([re, r]) => { if (re.test(s) && !pri.has(r)) sec.add(r); }));
+  return { pri, sec };
+}
+export function MuscleMap({ primary, secondary }: { primary: string; secondary: string[] }) {
+  const { pri, sec } = targets(primary, secondary);
   const fill = (r: R | 'skin') => (r === 'skin' ? 'url(#mm-skin)' : pri.has(r as R) ? 'url(#mm-pri)' : sec.has(r as R) ? 'url(#mm-sec)' : 'url(#mm-off)');
   const Half = ({ parts }: { parts: [R | 'skin', string][] }) => <>{parts.map(([r, d], i) => <path key={i} d={d} fill={fill(r)} stroke="var(--mm-line)" strokeWidth="1.1" strokeLinejoin="round" />)}</>;
   const Figure = ({ parts, x, back, label }: { parts: [R | 'skin', string][]; x: number; back?: boolean; label: string }) => (
