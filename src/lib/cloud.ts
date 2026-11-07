@@ -90,6 +90,12 @@ export function applySession(t: { token: string; refresh: string; exp: number; u
   setTimeout(() => { bg(ensureProfile().then(() => pullFeed())); }, 50);
 }
 export function signOutCloud() { update((d) => { if (d.session) d.session = { userId: d.session.userId, email: 'guest', mode: 'local' }; }); }
+/** Which sign-in providers are switched on in the server (public endpoint). Cached per session. */
+let provP: Promise<{ google: boolean }> | null = null;
+export function providers() {
+  if (!provP) provP = (async () => { try { const { url, key } = cfg(); const r = await fetch(url + '/auth/v1/settings', { headers: { apikey: key } }); const j = await r.json(); return { google: !!j?.external?.google }; } catch { provP = null; return { google: false }; } })();
+  return provP;
+}
 export const OWNER_EMAILS = ['salilibrahimckl@gmail.com'];
 const slug = (x: string) => x.toLowerCase().replace(/[^a-z0-9_.]/g, '').slice(0, 16) || 'athlete';
 /** Make sure this account has a public community profile (unique username). */
