@@ -16,7 +16,7 @@ import { Admin } from './screens/Admin';
 import { Dialogs } from './lib/dialog';
 import { CHALLENGES, startWebReminderLoop, t, isNative, toast } from './lib/extras';
 import { initReminders, requestPermission, scheduleAll } from './lib/reminders';
-import { markBootOk } from './lib/updater';
+import { markBootOk, startWebAutoUpdate } from './lib/updater';
 import { syncWatch } from './lib/watch';
 import { UpdatePrompt } from './screens/UpdatePrompt';
 import { consumeOAuthHash, isCloud, syncUp, pullFeed, bg, ensureProfile, pushStats } from './lib/cloud';
@@ -90,7 +90,7 @@ function App() {
     startWebReminderLoop();
     setTimeout(() => syncWatch().catch(() => undefined), 2500);
     capApp?.addListener?.('appStateChange', (st: any) => { if (st?.isActive) syncWatch().catch(() => undefined); });
-    markBootOk();
+    markBootOk(); startWebAutoUpdate();
     initReminders((r) => go(r));
   }, []);
   useEffect(() => {

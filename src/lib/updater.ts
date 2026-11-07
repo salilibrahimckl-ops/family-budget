@@ -66,3 +66,24 @@ export async function applyUpdate(onProgress?: (t: string) => void) {
   setTimeout(() => location.reload(), 400);
 }
 export function markBootOk() { try { localStorage.removeItem('fv.ota.booting'); } catch { /* */ } }
+
+/** iPhone / browser version: pick up new versions by itself (on open and when brought back), then reload once. */
+export function startWebAutoUpdate() {
+  if (isNativeApp() || !(window as any).__FV_WEB) return;
+  let busy = false;
+  const run = async () => {
+    if (busy || document.visibilityState !== 'visible') return; busy = true;
+    try {
+      const v = await (await fetch(REPO_RAW + 'version.json?t=' + Date.now(), { cache: 'no-store' })).json();
+      if (!(v.build > currentBuild())) return;
+      const t = await (await fetch(REPO_RAW + 'bundle.json?t=' + Date.now(), { cache: 'no-store' })).text();
+      const b = JSON.parse(t);
+      if (!(b.build > currentBuild()) || !b.js || b.js.length < 50000) return;
+      localStorage.setItem('fvw.bundle', t);
+      location.reload();
+    } catch { /* offline — try later */ } finally { busy = false; }
+  };
+  setTimeout(run, 2000);
+  document.addEventListener('visibilitychange', run);
+  setInterval(run, 10 * 60e3);
+}
