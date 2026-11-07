@@ -1,5 +1,5 @@
 {
   "_readme": "Public Supabase project details baked into every build so nobody has to paste them. The anon key is public by design (Row Level Security protects data). Never put the service_role key here.",
-  "supabaseUrl": "",
-  "supabaseAnon": ""
+  "supabaseUrl": "https://yowbmupvcmggqemlepll.supabase.co",
+  "supabaseAnon": "sb_publishable_8U3VZm1kI1FwSHXofpW87Q_pYc_nBgR"
 }
