@@ -177,10 +177,29 @@ Future<void> showAddSheet(BuildContext context, Repo repo) async {
     isScrollControlled: true,
     showDragHandle: true,
     builder: (ctx) => StatefulBuilder(builder: (ctx, setS) {
+      Future<void> save() async {
+        final a = double.tryParse(amount.text.replaceAll(',', ''));
+        if (a == null || a <= 0) return;
+        await repo.addManual(
+          amount: a,
+          payee: payee.text.trim().isEmpty ? 'Cash' : payee.text.trim(),
+          category: cat,
+          date: date,
+          note: note.text.trim().isEmpty ? null : note.text.trim(),
+          paidFrom: paidFrom,
+        );
+        if (ctx.mounted) Navigator.pop(ctx);
+      }
+
       return Padding(
         padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.of(ctx).viewInsets.bottom),
+        child: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Add payment', style: Theme.of(ctx).textTheme.titleLarge),
+          Row(children: [
+            Expanded(child: Text('Add payment', style: Theme.of(ctx).textTheme.titleLarge)),
+            // Save at the top too, so it is reachable even with many categories.
+            FilledButton(onPressed: save, child: const Text('Save')),
+          ]),
           const SizedBox(height: 16),
           TextField(
             controller: amount,
@@ -245,23 +264,12 @@ Future<void> showAddSheet(BuildContext context, Repo repo) async {
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: () async {
-                final a = double.tryParse(amount.text.replaceAll(',', ''));
-                if (a == null || a <= 0) return;
-                await repo.addManual(
-                  amount: a,
-                  payee: payee.text.trim().isEmpty ? 'Cash' : payee.text.trim(),
-                  category: cat,
-                  date: date,
-                  note: note.text.trim().isEmpty ? null : note.text.trim(),
-                  paidFrom: paidFrom,
-                );
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: const Text('Add'),
+              onPressed: save,
+              child: const Text('Save'),
             ),
           ),
         ]),
+        ),
       );
     }),
   );
