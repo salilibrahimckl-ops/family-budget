@@ -154,7 +154,7 @@ export function Settings() {
     <Card><span className="lbl">Health & safety</span><p className="muted small">Bro’s Fitness provides general fitness and nutrition information, not medical advice. Consult a doctor before starting a new programme if you are pregnant, have a heart, kidney, metabolic or musculoskeletal condition, or are recovering from injury or surgery. Stop exercising and seek care if you feel chest pain, faintness or severe breathlessness.</p></Card>
     <Card><span className="lbl">About</span><div className="row"><Logo s={40} /><div><Wordmark size={16} /><small className="muted"> v1.0.0</small></div></div>
       <p className="muted small">Food data: IFCT 2017 (NIN, Hyderabad) and USDA FoodData Central averages; barcode data from Open Food Facts (ODbL). Formulas: Mifflin-St Jeor (1990), Epley 1RM, WHO & Asian-Indian BMI cut-offs.</p>
-      <Toggle on={st.admin} onChange={(v) => setS((d) => { d.settings.admin = v; })} label="Admin tools on this device" desc="In cloud mode admin rights come from the server (profiles.is_admin)." /></Card>
+      {st.admin && <Toggle on={st.admin} onChange={(v) => setS((d) => { d.settings.admin = v; })} label="Developer / admin tools on this device" desc="Only the app owner has this. Friends who install the app never see it." />}</Card>
   </div>;
 }
 

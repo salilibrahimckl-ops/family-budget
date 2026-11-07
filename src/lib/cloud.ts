@@ -90,12 +90,16 @@ export function applySession(t: { token: string; refresh: string; exp: number; u
   setTimeout(() => { bg(ensureProfile().then(() => pullFeed())); }, 50);
 }
 export function signOutCloud() { update((d) => { if (d.session) d.session = { userId: d.session.userId, email: 'guest', mode: 'local' }; }); }
+export const OWNER_EMAILS = ['salilibrahimckl@gmail.com'];
 const slug = (x: string) => x.toLowerCase().replace(/[^a-z0-9_.]/g, '').slice(0, 16) || 'athlete';
 /** Make sure this account has a public community profile (unique username). */
 export async function ensureProfile() {
   const s = getState(); if (!isCloud(s) || !s.profile) return;
   const uid = s.session!.userId;
-  const have = await call(`/rest/v1/profiles?id=eq.${uid}&select=id,username`);
+  const have = await call(`/rest/v1/profiles?id=eq.${uid}&select=id,username,is_admin`);
+  // Developer tools: only the app owner (or accounts marked is_admin on the server).
+  const owner = OWNER_EMAILS.includes((s.session!.email || '').toLowerCase()) || !!have?.[0]?.is_admin;
+  if (owner !== !!s.settings.admin && (owner || s.settings.admin)) update((d) => { d.settings.admin = owner || d.settings.admin; });
   if (have?.length) { if (have[0].username !== s.profile.username) update((d) => { if (d.profile) d.profile.username = have[0].username; }); return; }
   let base = slug(s.profile.username || s.profile.name || s.session!.email.split('@')[0]);
   if (base.length < 2) base = 'athlete';

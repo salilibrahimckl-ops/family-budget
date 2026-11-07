@@ -16,7 +16,7 @@ export function Welcome({ onDone }: { onDone: (mode: 'login' | 'register') => vo
   React.useEffect(() => { const t = setInterval(() => setI((x) => (x + 1) % SLIDES.length), 4000); return () => clearInterval(t); }, []);
   function quickStart() {
     const id = 'u-' + uid();
-    update((d) => { d.accounts.push({ email: 'guest:' + id, salt: '', hash: '', userId: id }); d.session = { userId: id, email: 'guest', mode: 'local' }; d.settings.seenIntro = true; d.settings.admin = d.accounts.length === 1; });
+    update((d) => { d.accounts.push({ email: 'guest:' + id, salt: '', hash: '', userId: id }); d.session = { userId: id, email: 'guest', mode: 'local' }; d.settings.seenIntro = true; d.settings.admin = false; });
   }
   return (
     <div className="welcome">
@@ -80,7 +80,7 @@ export function AuthScreen({ initial }: { initial: 'login' | 'register' }) {
         if (mode === 'register') {
           if (acc) throw new Error('An account with this email already exists on this device. Sign in instead.');
           const salt = uid() + uid(); const hash = await hashPw(pw, salt); const id = 'u-' + uid();
-          update((d) => { d.accounts.push({ email: em, salt, hash, userId: id }); d.session = { userId: id, email: em, mode: 'local' }; d.settings.admin = d.accounts.length === 1; });
+          update((d) => { d.accounts.push({ email: em, salt, hash, userId: id }); d.session = { userId: id, email: em, mode: 'local' }; d.settings.admin = false; });
         } else {
           if (!acc) throw new Error('No account found with this email on this device.');
           if ((await hashPw(pw, acc.salt)) !== acc.hash) throw new Error('Incorrect password.');
