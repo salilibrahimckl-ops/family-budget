@@ -10,7 +10,7 @@ const cfg = () => { const s = getState().settings; const url = (s.supabaseUrl ||
 export const cloudReady = () => { const c = cfg(); return !!(c.url && c.key); };
 
 let refreshing: Promise<void> | null = null;
-async function call(path: string, init: RequestInit & { auth?: boolean } = {}) {
+async function call(path: string, init: RequestInit & { auth?: boolean } = {}, retried = false): Promise<any> {
   const { url, key } = cfg();
   if (init.auth !== false) { const s0 = getState(); if (s0.session?.mode === 'cloud' && s0.session.refresh && s0.session.exp && s0.session.exp < Date.now() + 60e3) { refreshing = refreshing || cloudRefresh().finally(() => { refreshing = null; }); await refreshing; } }
   const s = getState();
@@ -19,7 +19,16 @@ async function call(path: string, init: RequestInit & { auth?: boolean } = {}) {
   const res = await fetch(url + path, { ...init, headers });
   const text = await res.text();
   let body: any = null; try { body = text ? JSON.parse(text) : null; } catch { body = text; }
-  if (!res.ok) throw new Error(body?.msg || body?.message || body?.error_description || body?.error || `Request failed (${res.status})`);
+  if (!res.ok) {
+    const msg = body?.msg || body?.message || body?.error_description || body?.error || `Request failed (${res.status})`;
+    // Expired sign-in: renew it quietly and try once more.
+    if (!retried && init.auth !== false && s.session?.refresh && (res.status === 401 || /jwt expired|invalid jwt|token is expired/i.test(String(msg)))) {
+      refreshing = refreshing || cloudRefresh().finally(() => { refreshing = null; });
+      await refreshing;
+      return call(path, init, true);
+    }
+    throw new Error(msg);
+  }
   return body;
 }
 
@@ -36,7 +45,13 @@ export async function cloudRecover(email: string) {
 }
 export async function cloudRefresh() {
   const s = getState(); if (!s.session?.refresh) return;
-  const b = tok(await call('/auth/v1/token?grant_type=refresh_token', { method: 'POST', auth: false, body: JSON.stringify({ refresh_token: s.session.refresh }) }));
+  let raw: any;
+  try { raw = await call('/auth/v1/token?grant_type=refresh_token', { method: 'POST', auth: false, body: JSON.stringify({ refresh_token: s.session.refresh }) }); }
+  catch (e: any) {
+    if (/invalid refresh|refresh token|not found|revoked/i.test(e.message)) { signOutCloud(); throw new Error('Your sign-in ended — please sign in again in Community.'); }
+    throw e;
+  }
+  const b = tok(raw);
   update((d) => { if (d.session) Object.assign(d.session, { token: b.token, refresh: b.refresh, exp: b.exp }); });
 }
 function tok(b: any) { return { token: b.access_token as string, refresh: b.refresh_token as string, exp: Date.now() + (b.expires_in || 3600) * 1000, userId: b.user?.id as string, email: b.user?.email as string }; }
