@@ -40,7 +40,7 @@ export function FriendsBoard() {
         : <>
           <Seg value={by} onChange={setBy} options={[{ v: 'kcal', l: 'Calories' }, { v: 'minutes', l: 'Active min' }, { v: 'workouts', l: 'Sessions' }]} />
           {rows === null && <p className="muted small">Loading…</p>}
-          {list.slice(0, 8).map((r, i) => {
+          {list.slice(0, 12).map((r, i) => {
             const u = r.userId === me ? { name: 'You', avatarColor: '#C6FF3D', photo: undefined } : userOf(s, r.userId);
             return (
               <div key={r.userId} className={'board-row' + (r.userId === me ? ' me' : '')} onClick={() => r.userId !== me && go('/user/' + r.userId)}>
@@ -73,7 +73,9 @@ function statusGroups(posts: Post[], me: string, blocks: string[]) {
 
 export function StatusRow({ showAdd = true }: { showAdd?: boolean }) {
   const s = useStore((x) => x); const me = s.profile!.userId;
-  const groups = statusGroups(s.social.posts, me, s.social.blocks);
+  // Once signed in, show real people only (hide the built-in sample accounts).
+  const sample = new Set(isCloud(s) ? s.social.users.filter((u) => u.sample).map((u) => u.id) : []);
+  const groups = statusGroups(s.social.posts.filter((p) => !sample.has(p.userId)), me, s.social.blocks);
   const [open, setOpen] = useState<number | null>(null);
   const [, force] = useState(0);
   const seen = seenSet();

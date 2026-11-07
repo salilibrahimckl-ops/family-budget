@@ -263,5 +263,9 @@ export async function leaderboard(week: string): Promise<Board[]> {
   const s = getState(); if (!isCloud(s)) return [];
   const rows: any[] = await call(`/rest/v1/weekly_stats?select=user_id,kcal,active_min,workouts,streak,updated_at&week=eq.${week}&order=kcal.desc&limit=50`);
   await loadProfiles(rows.map((r) => r.user_id));
+  // Members who haven't logged anything this week still appear (with 0), so friends show up straight away.
+  let members: any[] = [];
+  try { members = await call('/rest/v1/profiles?select=id,username,display_name,bio,is_private,avatar_path&order=created_at.desc&limit=50'); remember(members.filter((m) => m.id !== s.session!.userId)); } catch { /* */ }
+  for (const m of members) if (!rows.find((r) => r.user_id === m.id)) rows.push({ user_id: m.id, kcal: 0, active_min: 0, workouts: 0, streak: 0, updated_at: new Date(0).toISOString() });
   return rows.map((r) => ({ userId: localId(getState(), r.user_id), kcal: r.kcal, minutes: r.active_min, workouts: r.workouts, streak: r.streak, updated: Date.parse(r.updated_at) }));
 }
