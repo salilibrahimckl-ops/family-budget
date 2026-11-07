@@ -36,7 +36,7 @@ export async function refreshFriendChallenges() {
 }
 function useFC() {
   const [, force] = useState(0); const [err, setErr] = useState('');
-  useEffect(() => { const f = () => force((x) => x + 1); subs.add(f); refreshFriendChallenges().catch((e) => setErr(/friend_challenges|challenge_members|schema cache/i.test(e.message) ? 'setup' : e.message)); const t = setInterval(() => refreshFriendChallenges().catch(() => undefined), 60e3); return () => { subs.delete(f); clearInterval(t); }; }, []);
+  useEffect(() => { const f = () => force((x) => x + 1); subs.add(f); refreshFriendChallenges().catch((e) => setErr(/schema cache|does not exist/i.test(e.message) ? 'setup' : e.message)); const t = setInterval(() => refreshFriendChallenges().catch(() => undefined), 60e3); return () => { subs.delete(f); clearInterval(t); }; }, []);
   return { list: cache, err };
 }
 
@@ -140,7 +140,7 @@ export function CreateChallenge({ open, onClose, preselect }: { open: boolean; o
       for (const f of picked) sendMessage(f, `🏆 I challenged you: ${title}! Open Bro’s Fitness → Challenges to accept. Let’s go 💪`).catch(() => undefined);
       toast('Challenge sent 🚀'); onClose(); setPicked([]);
       await refreshFriendChallenges(); go('/fchallenge/' + id);
-    } catch (e: any) { toast(/friend_challenges|schema cache/i.test(e.message) ? 'Server setup needed — ask the app owner to run challenges.sql' : e.message); }
+    } catch (e: any) { toast(/schema cache|does not exist/i.test(e.message) ? 'Server setup needed — ask the app owner to run challenges.sql' : 'Could not start: ' + e.message); }
     setBusy(false);
   }
   return <Sheet open={open} onClose={onClose} title="Challenge friends">

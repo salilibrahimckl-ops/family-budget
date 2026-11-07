@@ -334,8 +334,10 @@ export type Metric = 'kcal' | 'minutes' | 'sessions';
 export interface FChallenge { id: string; creator: string; title: string; metric: Metric; start: string; end: string; members: { userId: string; status: 'invited' | 'accepted' | 'declined'; progress: number; updated: number }[] }
 export async function createFriendChallenge(o: { title: string; metric: Metric; start: string; end: string; friends: string[] }) {
   const s = getState(); const me = s.session!.userId;
-  const r = await call('/rest/v1/friend_challenges', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ creator_id: me, title: o.title, metric: o.metric, starts_on: o.start, ends_on: o.end }) });
-  const ch = Array.isArray(r) ? r[0] : r;
+  // Make the id here and don't ask for the row back (the server only lets members read a challenge once members exist).
+  const id = (crypto as any).randomUUID ? (crypto as any).randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = (Math.random() * 16) | 0; return (c === 'x' ? r : (r & 3) | 8).toString(16); });
+  await call('/rest/v1/friend_challenges', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ id, creator_id: me, title: o.title, metric: o.metric, starts_on: o.start, ends_on: o.end }) });
+  const ch = { id };
   await call('/rest/v1/challenge_members', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify([{ challenge_id: ch.id, user_id: me, status: 'accepted' }, ...o.friends.map((f) => ({ challenge_id: ch.id, user_id: f, status: 'invited' }))]) });
   return ch.id as string;
 }
