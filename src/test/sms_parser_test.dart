@@ -108,4 +108,13 @@ void main() {
     expect(SmsParser.parse('079003 is OTP for online purchase of Rs. 456.00 at SWIGGY FOOD'), isNull);
     expect(SmsParser.parseCardOtp('123456 is your OTP to log in to YONO'), isNull);
   });
+
+  test('bank interest is flagged', () {
+    final b = SmsParser.parseBalance(
+        'INR 1,250.00 credited to A/c XX1234 on 31-10-26. Info: SB INT PD 01-07-26 TO 30-09-26. Avl bal INR 52,310')!;
+    expect(b.isInterest, isTrue);
+    expect(b.delta, 1250.0);
+    final salary = SmsParser.parseBalance('INR 45,000.00 credited to your A/c XX1234 towards SALARY NOV. Avl Bal INR 99,000')!;
+    expect(salary.isInterest, isFalse);
+  });
 }

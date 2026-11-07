@@ -219,6 +219,11 @@ class SmsParser {
     RegExp(r'\b(salary|stipend|neft|imps|rtgs)\b', caseSensitive: false),
   ];
 
+  static final _interest = RegExp(
+      r'\binterest\b|\bint\.?\s*(?:pd|paid|cr|credit(?:ed)?|amt)\b|\bsb\s*int\b|\bint\s*on\s*(?:sb|fd|rd)\b|'
+      r'\btd\s*int\b|\bfd\s*int\b|\bint\.?\s*:|\binttr?\b|\bcredit\s*interest\b',
+      caseSensitive: false);
+
   static final _creditWord = RegExp(r'\b(credited|received|deposited|refunded)\b', caseSensitive: false);
 
   /// Reads balance information from any bank SMS (debit or credit).
@@ -266,7 +271,10 @@ class SmsParser {
         }
       }
     }
-    return BalanceInfo(account: acct ?? 'main', balance: bal, delta: delta, payer: payer);
+    // Bank interest (SB / FD interest) — kept apart so it can be given away.
+    final interest = delta > 0 && _interest.hasMatch(text);
+    if (interest) payer = 'BANK INTEREST';
+    return BalanceInfo(account: acct ?? 'main', balance: bal, delta: delta, payer: payer, isInterest: interest);
   }
 
   // ---------- card purchase OTP ----------
@@ -310,7 +318,8 @@ class BalanceInfo {
   final double? balance; // exact balance printed by the bank, if any
   final double delta; // money out (negative) or in (positive)
   final String? payer; // who sent the money (credits only), if the SMS says
-  const BalanceInfo({required this.account, this.balance, this.delta = 0, this.payer});
+  final bool isInterest; // bank interest credited (riba) — to be given away
+  const BalanceInfo({required this.account, this.balance, this.delta = 0, this.payer, this.isInterest = false});
   @override
   String toString() => 'BalanceInfo($account, bal=$balance, delta=$delta)';
 }

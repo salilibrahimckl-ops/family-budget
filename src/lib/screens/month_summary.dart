@@ -170,7 +170,7 @@ class _MonthSummaryState extends State<MonthSummary> {
             subtitle: Text([
               e.member,
               DateFormat('d MMM').format(e.date),
-              if (!e.counted) 'not counted as income',
+              if (e.isInterest) 'bank interest — see Zakat & interest' else if (!e.counted) 'not counted as income',
               if (e.note != null) e.note!,
             ].join(' · ')),
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [

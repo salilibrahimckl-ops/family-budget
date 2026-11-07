@@ -8,6 +8,7 @@ import '../repo.dart';
 import 'charts.dart';
 import 'common.dart';
 import 'month_summary.dart';
+import 'zakat_screen.dart';
 
 /// Today's Kerala gold rate, published by the "Gold rate" GitHub job.
 class GoldRate {
@@ -15,7 +16,8 @@ class GoldRate {
   final DateTime? at;
   final String source;
   final bool approx;
-  const GoldRate(this.rate22, this.rate24, this.at, this.source, this.approx);
+  final double? silver; // per gram
+  const GoldRate(this.rate22, this.rate24, this.at, this.source, this.approx, [this.silver]);
 
   static Future<GoldRate?> fetch() async {
     try {
@@ -26,7 +28,8 @@ class GoldRate {
       if (r.statusCode != 200) return null;
       final j = jsonDecode(r.body) as Map<String, dynamic>;
       return GoldRate((j['rate22'] as num).toDouble(), (j['rate24'] as num).toDouble(),
-          DateTime.tryParse(j['at'] as String? ?? ''), j['source'] as String? ?? '', j['approx'] == true);
+          DateTime.tryParse(j['at'] as String? ?? ''), j['source'] as String? ?? '', j['approx'] == true,
+          (j['silver'] as num?)?.toDouble());
     } catch (_) {
       return null;
     }
@@ -254,6 +257,19 @@ class _MoneyScreenState extends State<MoneyScreen> {
           ]),
           const SizedBox(height: 20),
 
+          // ---- Zakat & interest ----
+          Card(
+            child: ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.volunteer_activism)),
+              title: const Text('Zakat & interest'),
+              subtitle: const Text('Zakat due for each of you · bank interest to give away'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => ZakatScreen(repo: widget.repo))),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // ---- Income & saving this month ----
           MonthSummary(repo: widget.repo, members: members),
           const SizedBox(height: 16),
@@ -261,7 +277,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
           // ---- Money to receive ----
           _header(context, Icons.call_received, 'Money to receive', pendingTotal > 0 ? money(pendingTotal) : null),
           if (pending.isEmpty)
-            _hint(context, 'Add money you are waiting for: a loan being paid back, Hiba\'s pending stipend, etc.'),
+            _hint(context, 'Add money you are waiting for: a loan being paid back, pending salary or stipend, etc.'),
           for (final m in pending) _receivableTile(context, m, members),
           if (received.isNotEmpty)
             TextButton(

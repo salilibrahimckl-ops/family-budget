@@ -107,6 +107,35 @@ def from_international():
     return round(r24 * 0.916), round(r24)
 
 
+def silver_rate():
+    """Kerala silver rate per gram (needed for the zakat nisab)."""
+    for name, url in [("goodreturns.in (Kerala silver)", "https://www.goodreturns.in/silver-rates/kerala.html"),
+                      ("goodreturns.in (India silver)", "https://www.goodreturns.in/silver-rates/")]:
+        try:
+            t = text_of(get(url))
+            m = re.search(r"\b1\s*(?:g|gm|gram)s?\b[^₹\d]{0,30}₹\s*([\d,]+(?:\.\d+)?)", t, flags=re.I)
+            v = num(m.group(1)) if m else None
+            if v is None:
+                k = re.search(r"\b1\s*(?:kg|kilo|kilogram)s?\b[^₹\d]{0,30}₹\s*([\d,]+(?:\.\d+)?)", t, flags=re.I)
+                v = num(k.group(1)) / 1000 if k else None
+            print(name, "->", v)
+            if v and 40 <= v <= 1500:
+                return round(v, 2), name, False
+        except Exception as e:
+            print(name, "failed:", e)
+    # Fallback: international spot silver x USD/INR (+ ~10% duty/premium)
+    try:
+        usd_oz = float(json.loads(get("https://api.gold-api.com/price/XAG"))["price"])
+        inr = float(json.loads(get("https://open.er-api.com/v6/latest/USD"))["rates"]["INR"])
+        v = round(usd_oz / 31.1035 * inr * 1.10, 2)
+        print("international silver estimate ->", v)
+        if 40 <= v <= 1500:
+            return v, "international spot price (estimate)", True
+    except Exception as e:
+        print("silver fallback failed:", e)
+    return None, None, None
+
+
 def main(out):
     result = None
     for name, url in [
@@ -135,6 +164,9 @@ def main(out):
     if result is None:
         print("No gold rate source worked; keeping the previous file.")
         sys.exit(1)
+    sv, ssrc, sapprox = silver_rate()
+    if sv:
+        result.update(silver=sv, silverSource=ssrc, silverApprox=sapprox)
     result["at"] = datetime.now(IST).isoformat(timespec="minutes")
     json.dump(result, open(out, "w"), indent=2)
     print(json.dumps(result))

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../config.dart';
 import '../repo.dart';
 
-/// First launch: create a new family (needs the Firebase config) or join one.
+/// First launch: start a new family (fresh, private) or join one with an invite code.
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key, required this.onDone});
   final ValueChanged<Repo> onDone;
@@ -12,7 +12,8 @@ class SetupScreen extends StatefulWidget {
 }
 
 class _SetupScreenState extends State<SetupScreen> {
-  bool _join = true;
+  bool _join = false;
+  bool _ownFirebase = false; // advanced: use your own Firebase project
   final _name = TextEditingController();
   final _family = TextEditingController(text: 'Our family');
   final _config = TextEditingController();
@@ -36,7 +37,7 @@ class _SetupScreenState extends State<SetupScreen> {
         await Repo.joinFamily(inv.familyId, name);
         s = Session(inv.cfg, inv.familyId, name);
       } else {
-        final cfg = FbConfig.fromSnippet(_config.text);
+        final cfg = _ownFirebase ? FbConfig.fromSnippet(_config.text) : kDefaultConfig;
         if (cfg == null) throw Exception('Could not read apiKey / appId / projectId / messagingSenderId');
         await ensureFirebase(cfg);
         final fid = await Repo.createFamily(_family.text.trim(), name);
@@ -70,7 +71,7 @@ class _SetupScreenState extends State<SetupScreen> {
             SegmentedButton<bool>(
               segments: const [
                 ButtonSegment(value: true, label: Text('Join family'), icon: Icon(Icons.login)),
-                ButtonSegment(value: false, label: Text('Create family'), icon: Icon(Icons.add_home)),
+                ButtonSegment(value: false, label: Text('Start new family'), icon: Icon(Icons.add_home)),
               ],
               selected: {_join},
               onSelectionChanged: (v) => setState(() => _join = v.first),
@@ -97,18 +98,28 @@ class _SetupScreenState extends State<SetupScreen> {
                 controller: _family,
                 decoration: const InputDecoration(labelText: 'Family name', border: OutlineInputBorder()),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _config,
-                maxLines: 8,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                decoration: const InputDecoration(
-                  labelText: 'Firebase config',
-                  hintText: 'Paste the  const firebaseConfig = { apiKey: … }  block from the Firebase console',
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true,
-                ),
+              const SizedBox(height: 8),
+              Text('Your family starts empty and is private: only people you invite can see it.',
+                  style: Theme.of(context).textTheme.bodySmall),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                value: _ownFirebase,
+                onChanged: (v) => setState(() => _ownFirebase = v ?? false),
+                title: const Text('Advanced: use my own Firebase project'),
               ),
+              if (_ownFirebase)
+                TextField(
+                  controller: _config,
+                  maxLines: 8,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  decoration: const InputDecoration(
+                    labelText: 'Firebase config',
+                    hintText: 'Paste the  const firebaseConfig = { apiKey: … }  block from the Firebase console',
+                    border: OutlineInputBorder(),
+                    alignLabelWithHint: true,
+                  ),
+                ),
             ],
             if (_error != null) ...[
               const SizedBox(height: 12),
@@ -121,7 +132,7 @@ class _SetupScreenState extends State<SetupScreen> {
                 padding: const EdgeInsets.all(12),
                 child: _busy
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : Text(_join ? 'Join' : 'Create'),
+                    : Text(_join ? 'Join' : 'Start'),
               ),
             ),
           ],

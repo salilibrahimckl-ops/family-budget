@@ -40,6 +40,20 @@ class FbConfig {
   }
 }
 
+/// Built-in cloud project, so anyone who installs the app can start their own
+/// family without any setup. Each family's data is private to its members
+/// (enforced by the database rules); families never see each other.
+const kDefaultConfig = FbConfig(
+  'AIzaSyDWChy-rvv4-2LSzWk-yc5UCux5lYc_sFo',
+  '1:744181321583:web:7995a9fb5d232f8d41a29a',
+  'family-budget-6700e',
+  '744181321583',
+);
+
+/// Links sent when sharing the app (no personal data in them).
+const kApkUrl = 'https://github.com/salilibrahimckl-ops/family-budget/raw/builds-android/FamilyBudget.apk';
+const kWebUrl = 'https://salilibrahimckl-ops.github.io/family-budget/';
+
 /// Everything another phone needs to join: Firebase config + family id.
 class Invite {
   final FbConfig cfg;

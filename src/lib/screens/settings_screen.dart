@@ -91,9 +91,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Text('Signed in as ${s.myName}', style: tt.titleLarge),
         const SizedBox(height: 20),
         _Section(
+          icon: Icons.share,
+          title: 'Share the app with others',
+          body: 'Sends only the download links — none of your family\'s data. '
+              'They choose "Start new family" and begin with an empty app.',
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.tonalIcon(
+              icon: const Icon(Icons.copy),
+              label: const Text('Copy message for WhatsApp'),
+              onPressed: () => _copy(
+                  'Family Budget — tracks UPI payments from bank SMS, budgets, savings, gold & zakat.\n\n'
+                  'Android: download and install\n$kApkUrl\n\n'
+                  'iPhone: open this in Safari, then Share → Add to Home Screen\n$kWebUrl\n\n'
+                  'After opening, choose "Start new family". Your data stays private to your family.',
+                  'Message'),
+            ),
+          ),
+        ),
+        _Section(
           icon: Icons.group_add,
           title: 'Invite your family',
-          body: 'On the other phone, install the app, choose "Join family" and paste this code.',
+          body: 'Only for your own family members (husband/wife). This code gives access to your family\'s data — '
+              'do not share it with others. On their phone choose "Join family" and paste it.',
           child: Row(children: [
             Expanded(
               child: Text(invite, maxLines: 2, overflow: TextOverflow.ellipsis, style: tt.bodySmall),

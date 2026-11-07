@@ -95,6 +95,8 @@ class MoneyItem {
   final String? note;
   final double grams; // gold only
   final int purity; // gold only: 22 or 24 (carat)
+  final bool zakatExclude; // left out of the zakat calculation
+  final bool worn; // gold jewellery for regular personal use
 
   MoneyItem.fromDoc(DocumentSnapshot<Map<String, dynamic>> d)
       : id = d.id,
@@ -107,7 +109,9 @@ class MoneyItem {
         receivedAt = (d.data()!['receivedAt'] as Timestamp?)?.toDate(),
         note = d.data()!['note'] as String?,
         grams = (d.data()!['grams'] as num?)?.toDouble() ?? 0,
-        purity = (d.data()!['purity'] as num?)?.toInt() ?? 22;
+        purity = (d.data()!['purity'] as num?)?.toInt() ?? 22,
+        zakatExclude = d.data()!['zakatExclude'] as bool? ?? false,
+        worn = d.data()!['worn'] as bool? ?? false;
 
   bool get isGold => kind == 'gold';
   double get pavan => grams / 8;
@@ -144,6 +148,8 @@ class IncomeEntry {
   final String source; // sms | iphone | manual
   final bool counted;
   final String? note;
+  final bool isInterest; // bank interest (riba)
+  final bool givenAway; // interest already given away
   IncomeEntry.fromDoc(DocumentSnapshot<Map<String, dynamic>> d)
       : id = d.id,
         amount = (d.data()!['amount'] as num?)?.toDouble() ?? 0,
@@ -152,7 +158,9 @@ class IncomeEntry {
         date = (d.data()!['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
         source = d.data()!['source'] as String? ?? 'manual',
         counted = d.data()!['counted'] as bool? ?? true,
-        note = d.data()!['note'] as String?;
+        note = d.data()!['note'] as String?,
+        isInterest = d.data()!['kind'] == 'interest',
+        givenAway = d.data()!['givenAway'] as bool? ?? false;
 }
 
 /// What was left at the end of a month, before the next month's income.
@@ -524,7 +532,11 @@ class Repo {
       'date': Timestamp.fromDate(when),
       'month': monthKey(when),
       'source': source,
-      'counted': !(internal || refund),
+      // Interest is not income: it is listed separately to be given away.
+      'counted': !(internal || refund || info.isInterest),
+      if (info.isInterest) 'kind': 'interest',
+      if (info.isInterest) 'givenAway': false,
+      if (info.isInterest) 'note': 'Bank interest — give away to purify savings',
       if (internal) 'note': 'Transfer between you two',
       'createdAt': FieldValue.serverTimestamp(),
     });
@@ -544,6 +556,63 @@ class Repo {
       });
 
   Future<void> setIncomeCounted(IncomeEntry e, bool counted) => income.doc(e.id).update({'counted': counted});
+
+  // ---------- interest (to give away) ----------
+
+  Stream<List<IncomeEntry>> interestStream() => income
+      .where('kind', isEqualTo: 'interest')
+      .snapshots()
+      .map((q) => q.docs.map(IncomeEntry.fromDoc).toList()..sort((a, b) => b.date.compareTo(a.date)));
+
+  Future<void> setGivenAway(IncomeEntry e, bool v) =>
+      income.doc(e.id).update({'givenAway': v, 'givenAwayAt': v ? Timestamp.now() : null});
+
+  Future<void> markInterest(IncomeEntry e, bool isInterest) => income.doc(e.id).update({
+        'kind': isInterest ? 'interest' : FieldValue.delete(),
+        'counted': !isInterest,
+        if (isInterest) 'givenAway': false,
+      });
+
+  Future<void> addInterest({required double amount, required String member, required DateTime date, String? note}) =>
+      income.add({
+        'amount': amount,
+        'from': 'BANK INTEREST',
+        'member': member,
+        'date': Timestamp.fromDate(date),
+        'month': monthKey(date),
+        'source': 'manual',
+        'counted': false,
+        'kind': 'interest',
+        'givenAway': false,
+        'note': note,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+  // ---------- zakat ----------
+
+  /// Family-wide zakat settings + per-person zakat date and debts.
+  Future<void> saveZakatSettings(Map<String, dynamic> zakat) => family.update({'zakat': zakat});
+
+  Stream<List<MoneyItem>> zakatPaidStream() => money
+      .where('kind', isEqualTo: 'zakatPaid')
+      .snapshots()
+      .map((q) => q.docs.map(MoneyItem.fromDoc).toList()..sort((a, b) => (b.due ?? DateTime(0)).compareTo(a.due ?? DateTime(0))));
+
+  Future<void> addZakatPaid({required double amount, required String member, required DateTime date, String? note}) =>
+      money.add({
+        'kind': 'zakatPaid',
+        'title': 'Zakat paid',
+        'member': member,
+        'amount': amount,
+        'due': Timestamp.fromDate(date),
+        'note': note,
+        'received': false,
+      });
+
+  Future<void> setMoneyFlags(MoneyItem m, {bool? zakatExclude, bool? worn}) => money.doc(m.id).update({
+        if (zakatExclude != null) 'zakatExclude': zakatExclude,
+        if (worn != null) 'worn': worn,
+      });
   Future<void> deleteIncome(IncomeEntry e) => income.doc(e.id).delete();
 
   // ---------- month-end leftovers ----------
