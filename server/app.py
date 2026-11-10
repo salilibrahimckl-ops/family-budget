@@ -216,7 +216,8 @@ def _align(segs_ph: list[str], ph: _Phon, ayah_start: int, starts: list[int]) ->
             cand_s = sorted(set(starts))
         else:
             # resume where they stopped, repeat a few words, or start the Ayah again
-            cand_s = sorted(set(range(max(0, pointer - 3), min(n, pointer + 2))) | {ayah_start})
+            # resume where they stopped, repeat a few words, skip ahead, or restart the Ayah
+            cand_s = sorted(set(range(max(0, pointer - 3), min(n, pointer + 12))) | {ayah_start})
         best = None
         for s0 in cand_s:
             acc = 0
@@ -228,6 +229,8 @@ def _align(segs_ph: list[str], ph: _Phon, ayah_start: int, starts: list[int]) ->
                     break
                 ref = ph.get(s0, e).phonemes
                 d = lv.distance(seg, ref) / max(len(seg), len(ref))
+                if pointer is not None and s0 > pointer:
+                    d += 0.01 * (s0 - pointer)  # prefer not skipping, all else equal
                 if best is None or d < best[0] - 1e-9 or (abs(d - best[0]) < 1e-9 and e > best[2]):
                     best = (d, s0, e)
         if best is None:  # very short or unusual: give it the next word
