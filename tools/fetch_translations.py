@@ -9,6 +9,7 @@ translator's or publisher's permission (see docs/ROADMAP.md before a paid launch
 Usage: python3 -I tools/fetch_translations.py app/assets/translations
 """
 import json
+import re
 import sys
 import urllib.request
 from pathlib import Path
@@ -39,11 +40,18 @@ def fetch(tid: str) -> str:
 def parse(text: str, counts: list[int]) -> list[str]:
     rows = []
     expect = [(s + 1, a + 1) for s, n in enumerate(counts) for a in range(n)]
+    head = re.compile(r"^(\d+)\|(\d+)\|(.*)$")
     for line in text.splitlines():
         if not line.strip() or line.startswith("#"):
             continue
-        s, a, t = line.split("|", 2)
-        rows.append(((int(s), int(a)), t.strip()))
+        m = head.match(line)
+        if m:
+            rows.append(((int(m.group(1)), int(m.group(2))), m.group(3).strip()))
+        elif rows:  # a verse whose text continues on the next line (e.g. footnotes)
+            (k, t) = rows[-1]
+            rows[-1] = (k, (t + " " + line.strip()).strip())
+        else:
+            raise ValueError("text before the first verse")
     if [k for k, _ in rows] != expect:
         raise ValueError(f"rows do not match Surah/Ayah order ({len(rows)} rows)")
     return [t for _, t in rows]
