@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.9.0",
+    "notes": [
+      "Share button (Today and Me): send Hifz Academy to family and friends on WhatsApp or anywhere — with the Android download and the iPhone link.",
+      "Fair use for the AI teacher: each phone gets a daily allowance, and the owner’s family (with the family code, in Me) always comes first.",
+      "If the AI teacher’s allowance is used up, you’re told clearly and can still mark your own mistakes."
+    ]
+  },
+  {
     "version": "0.8.1",
     "notes": [
       "After you recite, every mistake now says exactly what was wrong: the word you missed, or what you said instead.",

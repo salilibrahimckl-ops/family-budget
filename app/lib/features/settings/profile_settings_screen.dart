@@ -13,6 +13,7 @@ import '../../core/quran/translations.dart';
 import '../audio/audio_widgets.dart';
 import '../demo/demo_data.dart';
 import '../recite/teacher.dart';
+import '../share/share_app.dart';
 import '../onboarding/onboarding_store.dart';
 
 /// Me tab: account and sync, language, theme, assessment, data rights, sources.
@@ -24,6 +25,48 @@ class ProfileSettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
+  Future<void> _enterFamilyCode(BuildContext context) async {
+    final l = context.l10n;
+    final prefs = ref.read(sharedPrefsProvider);
+    final ctl = TextEditingController(text: prefs.getString(familyCodeKey) ?? '');
+    final code = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        icon: const Icon(Icons.family_restroom),
+        title: Text(l.familyCode),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(l.familyCodeHelp),
+          const SizedBox(height: 12),
+          TextField(
+            controller: ctl,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'HIFZ-XXXX-XXXX-XXXX'),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: Text(l.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(c, ctl.text.trim().toUpperCase()), child: Text(l.save)),
+        ],
+      ),
+    );
+    if (code == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(this.context);
+    if (code.isEmpty) {
+      await prefs.remove(familyCodeKey);
+      setState(() {});
+      return;
+    }
+    final url = await ref.read(teacherUrlProvider.future);
+    var ok = false;
+    try {
+      ok = url != null && await verifyFamilyCode(url, code);
+    } catch (_) {}
+    if (ok) await prefs.setString(familyCodeKey, code);
+    if (!mounted) return;
+    setState(() {});
+    messenger.showSnackBar(SnackBar(content: Text(ok ? l.familyCodeAccepted : l.familyCodeWrong)));
+  }
+
   bool _syncing = false;
   String? _syncMsg;
 
@@ -170,6 +213,20 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
             );
           }),
           const SizedBox(height: HSpace.l),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.share),
+            title: Text(l.shareApp),
+            subtitle: Text(l.shareAppSub),
+            onTap: () => shareApp(context),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.family_restroom),
+            title: Text(l.familyCode),
+            subtitle: Text(ref.read(sharedPrefsProvider).getString(familyCodeKey) != null ? l.familyCodeOn : l.familyCodeOff),
+            onTap: () => _enterFamilyCode(context),
+          ),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.school),

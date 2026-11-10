@@ -15,6 +15,7 @@ import '../gamification/achievements_screens.dart';
 import '../gamification/gamification.dart';
 import '../memorisation/progress_controller.dart';
 import '../onboarding/onboarding_store.dart';
+import '../share/share_app.dart';
 import '../updates/updates.dart';
 
 /// Today tab: one big "what to do now", the daily goal ring, streak week, level,
@@ -97,6 +98,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     Text(l.levelLabel(level.index), style: t.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
                   ]),
                 ),
+                const ShareAppButton(),
                 _StreakFlame(streak: streak),
               ]),
               const SizedBox(height: HSpace.l),

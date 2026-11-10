@@ -822,5 +822,27 @@
       }
     }
   },
-  "tajweedNotOnYet": "This was the phone’s quick check (words only). Tajweed, harakat and pronunciation are checked once the AI teacher is switched on."
+  "tajweedNotOnYet": "This was the phone’s quick check (words only). Tajweed, harakat and pronunciation are checked once the AI teacher is switched on.",
+  "save": "Save",
+  "shareApp": "Share Hifz Academy",
+  "shareAppSub": "Send the app to family and friends",
+  "shareText": "Memorise the Quran with Hifz Academy 📖 — daily lessons, revision that keeps it in your heart, an AI recitation teacher, explanations in Malayalam, English and Arabic, and a kids mode.\n\nAndroid app: {apk}\niPhone or any phone (open in the browser, then Add to Home Screen): {web}",
+  "@shareText": {
+    "placeholders": {
+      "apk": {
+        "type": "String"
+      },
+      "web": {
+        "type": "String"
+      }
+    }
+  },
+  "familyCode": "Family code",
+  "familyCodeOn": "Entered — this phone gets family priority for the AI teacher",
+  "familyCodeOff": "Not entered (for the app owner’s family only)",
+  "familyCodeHelp": "Enter the family code to give this phone priority and a bigger daily allowance for the AI teacher. Leave it empty to remove it.",
+  "familyCodeAccepted": "Family code accepted ✓",
+  "familyCodeWrong": "That code isn’t right (or no internet). Please check and try again.",
+  "teacherDailyLimit": "You’ve used today’s AI teacher checks — they refill tomorrow. Mark your mistakes yourself for now, or use the quick phone check.",
+  "teacherSharedLimit": "The AI teacher’s free allowance for this month has been used up. It comes back next month; mark your mistakes yourself for now."
 }

@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/l10n/l10n.dart';
 import '../../core/settings/settings_controller.dart';
@@ -119,6 +121,34 @@ class TeacherResult {
       );
 }
 
+/// Sent with every check so the teacher can share its free credit fairly (see /server).
+const _appHeader = 'hifz-academy-app-v1';
+
+String deviceId(SharedPreferences prefs) {
+  var id = prefs.getString('device_id');
+  if (id == null) {
+    id = const Uuid().v4();
+    prefs.setString('device_id', id);
+  }
+  return id;
+}
+
+const familyCodeKey = 'family_code';
+
+Map<String, String> teacherHeaders(SharedPreferences prefs) => {
+      'X-Hifz-App': _appHeader,
+      'X-Hifz-Device': deviceId(prefs),
+      if (prefs.getString(familyCodeKey) != null) 'X-Hifz-Family': prefs.getString(familyCodeKey)!,
+    };
+
+/// Asks the teacher whether a family code is right (doesn't use a check).
+Future<bool> verifyFamilyCode(String baseUrl, String code) async {
+  final r = await http
+      .get(Uri.parse('$baseUrl/family'), headers: {'X-Hifz-Family': code.trim().toUpperCase()})
+      .timeout(const Duration(seconds: 90));
+  return r.statusCode == 200 && (jsonDecode(r.body) as Map<String, dynamic>)['family'] == true;
+}
+
 class TeacherUnavailable implements Exception {
   const TeacherUnavailable(this.reason);
   final String reason;
@@ -126,6 +156,8 @@ class TeacherUnavailable implements Exception {
 
 /// Records the learner and sends the recording to the teacher.
 class TeacherClient {
+  TeacherClient(this._prefs);
+  final SharedPreferences _prefs;
   final _rec = AudioRecorder();
   String _ext = 'wav';
 
@@ -167,6 +199,7 @@ class TeacherClient {
     final deadline = DateTime.now().add(const Duration(minutes: 3));
     while (true) {
       final req = http.MultipartRequest('POST', Uri.parse('$baseUrl/check'))
+        ..headers.addAll(teacherHeaders(_prefs))
         ..fields['sura'] = '$sura'
         ..fields['aya'] = '$aya'
         ..files.add(http.MultipartFile.fromBytes('file', audio, filename: 'recitation.$_ext'));
@@ -186,6 +219,13 @@ class TeacherClient {
         onStatus?.call(true);
         await Future<void>.delayed(const Duration(seconds: 8));
         continue;
+      }
+      if (r.statusCode == 429) {
+        String reason = 'daily_limit';
+        try {
+          reason = ((jsonDecode(r.body) as Map<String, dynamic>)['detail'] as Map<String, dynamic>)['reason'] as String;
+        } catch (_) {}
+        throw TeacherUnavailable(reason);
       }
       throw TeacherUnavailable('http ${r.statusCode}');
     }

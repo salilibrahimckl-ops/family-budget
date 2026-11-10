@@ -8,6 +8,7 @@ import '../../../core/design/tokens.dart';
 import '../../../core/l10n/l10n.dart';
 import '../../../core/quran/quran_repository.dart';
 import '../../../core/quran/tafsir.dart';
+import '../../../core/settings/settings_controller.dart';
 import '../../recite/matcher.dart';
 import '../../recite/recite_service.dart';
 import '../../recite/teacher.dart';
@@ -177,7 +178,7 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
   Future<void> _startTeacher(String url) async {
     final l = context.l10n;
     if (!await ensureTeacherNotice(context, ref)) return;
-    _client ??= TeacherClient();
+    _client ??= TeacherClient(ref.read(sharedPrefsProvider));
     bool started;
     try {
       started = await _client!.start();
@@ -258,13 +259,17 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
       } else {
         ref.read(sfxProvider).oops();
       }
-    } on TeacherUnavailable {
+    } on TeacherUnavailable catch (e) {
       if (!mounted) return;
       _reveal();
       setState(() {
         _checking = false;
         _unsure = true;
-        _speechNote = l.teacherOffline;
+        _speechNote = switch (e.reason) {
+          'daily_limit' => l.teacherDailyLimit,
+          'shared_limit' => l.teacherSharedLimit,
+          _ => l.teacherOffline,
+        };
       });
     }
   }

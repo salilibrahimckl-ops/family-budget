@@ -13,7 +13,8 @@ import app as server
 def mp3(path, reciter="Husary_Muallim_128kbps"):
     return urllib.request.urlopen(f"https://everyayah.com/data/{reciter}/{path}.mp3", timeout=60).read()
 
-c = TestClient(server.app)
+c = TestClient(server.app, headers={"X-Hifz-App": server.APP_HEADER, "X-Hifz-Device": "ci-device-0001"})
+server.DAILY_LIMIT = 1000
 t = time.time()
 while not server.M.ready and server.M.error is None and time.time() - t < 900:
     time.sleep(2)
@@ -32,6 +33,10 @@ def check(audio, sura, aya, name="a.mp3"):
     return j
 
 ok = True
+# Fair use: no app header -> 401; daily limit -> 429; family code -> family.
+raw = TestClient(server.app)
+ok &= raw.post("/check", data={"sura": 1, "aya": 1}, files={"file": ("a.wav", b"x")}).status_code == 401
+ok &= c.get("/family", headers={"X-Hifz-Family": "HIFZ-0000-0000-0000"}).json()["family"] is False
 j = check(mp3("112001"), 112, 1)
 ok &= j["status"] == "ok" and sum(1 for e in j["errors"] if e["type"] == "normal") <= 1
 j = check(mp3("112002"), 112, 1)
@@ -75,5 +80,9 @@ with wave.open(buf, "wb") as w:
     w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000); w.writeframes(np.zeros(16000 * 2, dtype=np.int16).tobytes())
 j = check(buf.getvalue(), 112, 1, "s.wav")
 ok &= j["status"] in ("silent", "too_little")
+server.DAILY_LIMIT = 0
+r = c.post("/check", files={"file": ("a.mp3", mp3("112001"))}, data={"sura": 112, "aya": 1})
+print("limit ->", r.status_code, r.text[:120])
+ok &= r.status_code == 429
 print("\nALL OK" if ok else "\nSOME CHECKS FAILED")
 sys.exit(0 if ok else 1)
