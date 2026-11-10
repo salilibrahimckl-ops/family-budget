@@ -2,7 +2,7 @@
 torch>=2.7.0
 quran-muaalem>=0.3.0
 quran-transcript>=0.6.4
-transformers>=4.55.0
+transformers==4.55.2  # the version Quran Muaalem is locked to
 librosa>=0.11.0
 numba>=0.61.2
 fastapi>=0.116.1

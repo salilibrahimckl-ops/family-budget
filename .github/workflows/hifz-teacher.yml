@@ -26,7 +26,10 @@ jobs:
           key: hf-muaalem-v3_2
       - name: Check the teacher on real recitations
         working-directory: server
-        run: python test_server.py 2>&1 | tee ../teacher-test.log
+        shell: bash
+        run: |
+          set -o pipefail
+          python test_server.py 2>&1 | tee ../teacher-test.log
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: teacher-test, path: teacher-test.log }
