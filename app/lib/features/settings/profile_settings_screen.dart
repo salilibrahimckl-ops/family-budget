@@ -11,6 +11,7 @@ import '../../core/audio/audio.dart';
 import '../../core/quran/tafsir.dart';
 import '../../core/quran/translations.dart';
 import '../audio/audio_widgets.dart';
+import '../demo/demo_data.dart';
 import '../onboarding/onboarding_store.dart';
 
 /// Me tab: account and sync, language, theme, assessment, data rights, sources.
@@ -188,6 +189,21 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
             leading: const Icon(Icons.auto_awesome),
             title: Text(l.stickerBook),
             onTap: () => context.push('/stickers'),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.explore),
+            title: Text(l.guideTitle),
+            subtitle: Text(l.guideSub),
+            onTap: () => context.push('/guide'),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.science),
+            title: Text(l.demoModeLabel),
+            subtitle: Text(l.demoExplain),
+            value: ref.watch(demoModeProvider),
+            onChanged: (v) => ref.read(demoModeProvider.notifier).state = v,
           ),
           const Divider(),
           ListTile(

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../features/demo/demo_data.dart';
 import '../../features/memorisation/engine/srs.dart';
 import '../../features/memorisation/progress_controller.dart';
 import '../../features/onboarding/learning_plan.dart';
@@ -24,7 +25,7 @@ class SyncService {
   Future<SyncResult> syncNow() async {
     final c = _c;
     final user = c?.auth.currentUser;
-    if (c == null || user == null) return const SyncResult.skipped();
+    if (c == null || user == null || ref.read(demoModeProvider)) return const SyncResult.skipped();
     final ldb = await ref.read(localDbProvider.future);
     final uid = user.id;
     var pushed = 0;
@@ -152,6 +153,7 @@ class SyncService {
 
   /// Deletes the account on the server (Edge Function `delete-account`), then all local data.
   Future<void> deleteAccount() async {
+    ref.read(demoModeProvider.notifier).state = false;
     final c = _c;
     if (c != null && c.auth.currentUser != null) {
       await c.functions.invoke('delete-account');

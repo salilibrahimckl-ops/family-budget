@@ -131,13 +131,49 @@ class JourneyScreen extends ConsumerWidget {
     final q = ref.watch(quranProvider);
     final p = ref.watch(progressProvider).valueOrNull;
     if (q == null || p == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    final total = List.filled(31, 0), done = List.filled(31, 0), firstSurah = List.filled(31, 0);
+    final total = List.filled(31, 0), done = List.filled(31, 0);
+    // Per Juz: each Surah in it with (Ayahs in this Juz, memorised of those).
+    final parts = List.generate(31, (_) => <int, List<int>>{});
     for (var id = 1; id <= q.ayahCount; id++) {
       final a = q.byId(id);
-      final j = a.juz ?? 1;
+      final j = (a.juz ?? 1).clamp(1, 30);
+      final m = p.records[id]?.isMemorised ?? false;
       total[j]++;
-      if (firstSurah[j] == 0) firstSurah[j] = a.surah;
-      if (p.records[id]?.isMemorised ?? false) done[j]++;
+      if (m) done[j]++;
+      final e = parts[j].putIfAbsent(a.surah, () => [0, 0]);
+      e[0]++;
+      if (m) e[1]++;
+    }
+
+    void openJuz(int j) {
+      showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (sheet) => DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.55,
+          maxChildSize: 0.9,
+          builder: (_, scroll) => ListView(controller: scroll, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(HSpace.l, 0, HSpace.l, HSpace.s),
+              child: Text('${l.juzLabel(j)} · ${done[j]}/${total[j]}', style: Theme.of(sheet).textTheme.titleLarge),
+            ),
+            for (final MapEntry(key: s, value: v) in parts[j].entries)
+              ListTile(
+                leading: CircleAvatar(child: Text('$s')),
+                title: Text(q.surahInfo(s).nameTransliterated),
+                subtitle: LinearProgressIndicator(value: v[0] == 0 ? 0 : v[1] / v[0]),
+                trailing: Text('${v[1]}/${v[0]}'),
+                onTap: () {
+                  Navigator.pop(sheet);
+                  // The reader lives in the Quran tab, so switch tabs rather than push.
+                  context.go('/quran/$s');
+                },
+              ),
+          ]),
+        ),
+      );
     }
     final scheme = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
@@ -154,7 +190,7 @@ class JourneyScreen extends ConsumerWidget {
           final frac = total[j] == 0 ? 0.0 : done[j] / total[j];
           final left = i.isEven;
           final node = GestureDetector(
-            onTap: () => context.push('/quran/${firstSurah[j]}'),
+            onTap: () => openJuz(j),
             child: Column(children: [
               Stack(alignment: Alignment.center, children: [
                 SizedBox(

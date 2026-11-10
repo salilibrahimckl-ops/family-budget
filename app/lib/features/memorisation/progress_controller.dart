@@ -4,12 +4,19 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/data/local_db.dart';
 import '../../core/quran/quran_repository.dart';
+import '../demo/demo_data.dart';
 import '../gamification/gamification.dart';
 import '../onboarding/onboarding_store.dart';
 import 'engine/daily_queue.dart';
 import 'engine/srs.dart';
 
-final localDbProvider = FutureProvider<LocalDb>((ref) => LocalDb.open());
+/// The learner's own database, or the sample one while demo mode is on.
+final localDbProvider = FutureProvider<LocalDb>((ref) async {
+  final demo = ref.watch(demoModeProvider);
+  final ldb = demo ? await openDemoDb() : await LocalDb.open();
+  if (demo) ref.onDispose(() => ldb.db.close());
+  return ldb;
+});
 
 /// Default share of words that must be recalled correctly to pass a mastery test.
 const defaultMasteryThreshold = 0.9;

@@ -9,6 +9,8 @@ import '../../core/settings/settings_controller.dart';
 import '../../core/widgets/fun.dart';
 import '../../core/widgets/noor.dart';
 import '../../core/widgets/widgets.dart';
+import '../demo/demo_data.dart';
+import '../demo/guide_screen.dart';
 import '../gamification/achievements_screens.dart';
 import '../gamification/gamification.dart';
 import '../memorisation/progress_controller.dart';
@@ -25,6 +27,8 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  bool _tourDismissed = false;
+
   @override
   void initState() {
     super.initState();
@@ -58,6 +62,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final badges = badgesFor(p, quran);
     final streak = p.streak(now);
     final kids = ref.watch(settingsProvider).kidsMode;
+    final demo = ref.watch(demoModeProvider);
+    final showTourCard = !demo && !_tourDismissed && !(ref.read(sharedPrefsProvider).getBool(guideSeenKey) ?? false);
     final noorLine = ring >= 1
         ? l.noorDone
         : ring > 0
@@ -94,6 +100,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 _StreakFlame(streak: streak),
               ]),
               const SizedBox(height: HSpace.l),
+              if (showTourCard) ...[
+                Card(
+                  color: scheme.secondaryContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(HSpace.m),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      Row(children: [
+                        const Icon(Icons.explore),
+                        const SizedBox(width: HSpace.s),
+                        Expanded(child: Text(l.tourCardTitle, style: t.titleMedium)),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            ref.read(sharedPrefsProvider).setBool(guideSeenKey, true);
+                            setState(() => _tourDismissed = true);
+                          },
+                        ),
+                      ]),
+                      Text(l.tourCardBody, style: t.bodyMedium),
+                      const SizedBox(height: HSpace.s),
+                      Row(children: [
+                        Expanded(child: FilledButton(onPressed: () => context.push('/guide'), child: Text(l.tourCardTour))),
+                        const SizedBox(width: HSpace.s),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => ref.read(demoModeProvider.notifier).state = true,
+                            child: Text(l.tourCardDemo),
+                          ),
+                        ),
+                      ]),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: HSpace.m),
+              ],
               if (kids) ...[
                 NoorSays(noorLine),
                 const SizedBox(height: HSpace.m),
@@ -206,12 +247,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ]),
               const SizedBox(height: HSpace.s),
-              _Tile(
-                icon: Icons.auto_awesome,
-                title: l.stickerBook,
-                subtitle: l.stickersCount(p.memorisedCount),
-                onTap: () => context.push('/stickers'),
-              ),
+              Row(children: [
+                Expanded(
+                  child: _Tile(
+                    icon: Icons.auto_awesome,
+                    title: l.stickerBook,
+                    subtitle: l.stickersCount(p.memorisedCount),
+                    onTap: () => context.push('/stickers'),
+                  ),
+                ),
+                const SizedBox(width: HSpace.s),
+                Expanded(
+                  child: _Tile(
+                    icon: Icons.explore,
+                    title: l.guideTitle,
+                    subtitle: l.guideSub,
+                    onTap: () => context.push('/guide'),
+                  ),
+                ),
+              ]),
               if (p.memorisedCount == 0) ...[
                 const SizedBox(height: HSpace.m),
                 _Note(l.dashNoProgress),

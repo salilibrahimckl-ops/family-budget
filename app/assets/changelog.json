@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.7.1",
+    "notes": [
+      "Fixed: tapping a Juz in the Quran journey showed a blank page. It now opens a list of that Juz’s Surahs with your progress in each.",
+      "New: How to use Hifz Academy — a 1-minute tour of every feature, with “Try it now” buttons (Today tab and Me tab).",
+      "New: Demo mode — explore the app with sample progress (Surahs memorised, a 12-day streak, revisions due). Your own progress is kept safe and comes back when you exit."
+    ]
+  },
+  {
     "version": "0.7.0",
     "notes": [
       "Recite to me 🎤: recite an Ayah aloud and the app marks any missed or wrong words in red (words only, not Tajweed). If it can’t hear clearly, it says so instead of guessing.",
