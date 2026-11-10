@@ -112,28 +112,26 @@ def _decode(data: bytes, filename: str) -> np.ndarray:
 
 
 def _segments(wave: np.ndarray) -> list[np.ndarray]:
-    """Trims silence and splits long recitations at pauses into segments the model handles."""
+    """Splits the recitation into breaths: every pause of about a third of a second or
+    more is treated as a stop (waqf), because that's how the next word must then be
+    pronounced. Very long breaths are cut evenly to fit the model."""
     intervals = librosa.effects.split(wave, top_db=35, frame_length=1024, hop_length=256)
     if len(intervals) == 0:
         return []
-    pad = int(0.15 * SR)
-    segs, cur_s, cur_e = [], None, None
+    merged: list[list[int]] = []
     for s, e in intervals:
-        s, e = max(0, s - pad), min(len(wave), e + pad)
-        if cur_s is None:
-            cur_s, cur_e = s, e
-        elif (e - cur_s) / SR <= CHUNK_SECONDS:
-            cur_e = e
+        if merged and (s - merged[-1][1]) / SR < 0.3:
+            merged[-1][1] = e  # a tiny gap inside a word or between letters
         else:
-            segs.append((cur_s, cur_e))
-            cur_s, cur_e = s, e
-    segs.append((cur_s, cur_e))
+            merged.append([s, e])
+    pad = int(0.12 * SR)
     out = []
-    for s, e in segs:  # a single breath longer than the limit is cut evenly
+    for s, e in merged:
+        s, e = max(0, s - pad), min(len(wave), e + pad)
         n = int(np.ceil((e - s) / SR / CHUNK_SECONDS))
         step = int(np.ceil((e - s) / n))
         out += [wave[s + k * step: min(e, s + (k + 1) * step)] for k in range(n)]
-    return [w for w in out if len(w) > 0.2 * SR]
+    return [w for w in out if len(w) > 0.25 * SR]
 
 
 # Accepted lengths (in counts) where scholars of Hafs allow a choice. A Madd held for any
@@ -217,7 +215,8 @@ def _align(segs_ph: list[str], ph: _Phon, ayah_start: int, starts: list[int]) ->
         if pointer is None:
             cand_s = sorted(set(starts))
         else:
-            cand_s = list(range(max(0, pointer - 3), min(n, pointer + 2)))
+            # resume where they stopped, repeat a few words, or start the Ayah again
+            cand_s = sorted(set(range(max(0, pointer - 3), min(n, pointer + 2))) | {ayah_start})
         best = None
         for s0 in cand_s:
             acc = 0
@@ -363,7 +362,9 @@ async def check(
     match_dist = float(np.average([d for *_, d in spans], weights=seg_w)) if spans else 1.0
     heard_ratio = len(covered) / max(1, n_ayah)
     missing = n_ayah - len(covered)
-    if heard_ratio < 0.4:
+    if heard_ratio < 0.4 and match_dist > 0.5 and confidence > 0.8:
+        status = "different_ayah"  # clearly recited, but not this Ayah
+    elif heard_ratio < 0.4:
         status = "too_little"  # recited only part of it, or the microphone didn't catch it
     elif match_dist > 0.5 or (wrong + sum(ph.word_len[ayah_start + i] for i in range(n_ayah) if i not in covered)) / max(1, ref_len) > 0.6:
         status = "different_ayah"  # mostly doesn't match: probably another Ayah

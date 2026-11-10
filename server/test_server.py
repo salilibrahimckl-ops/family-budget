@@ -44,6 +44,27 @@ for rec in ["Alafasy_128kbps", "Minshawy_Teacher_128kbps"]:
 # Al-Fatiha 1:2 checked as 1:3 must not pass.
 j = check(mp3("001002"), 1, 3)
 ok &= not (j["status"] == "ok" and not j["errors"])
+# Tajweed: the same recitation sped up 2x shortens every Madd; the 6-count Madd Lazim
+# of Alif-Lam-Mim must be reported as too short.
+fast = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", "pipe:0", "-filter:a", "atempo=2.0", "-f", "wav", "pipe:1"],
+                      input=mp3("002001"), capture_output=True).stdout
+j = check(fast, 2, 1, "fast.wav")
+ok &= any(e["type"] == "tajweed" for e in j["errors"])
+# Two Ayahs recited (1:1 then 1:2) but checked as 1:2: 1:2 should be found and judged.
+# A skipped phrase: drop one breath from the middle of 1:7; its words must be reported missing.
+w = server._decode(mp3("001007"), "a.mp3")
+segs = server._segments(w)
+print("1:7 breaths:", len(segs))
+if len(segs) >= 3:
+    gap = np.zeros(int(0.7 * 16000), dtype=np.float32)
+    kept = [x for k, x in enumerate(segs) if k != len(segs) // 2]
+    audio = np.concatenate(sum([[x, gap] for x in kept], []))
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as f:
+        f.setnchannels(1); f.setsampwidth(2); f.setframerate(16000)
+        f.writeframes((np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes())
+    j = check(buf.getvalue(), 1, 7, "skip.wav")
+    ok &= j["status"] in ("ok", "unclear") and any(e["type"] == "normal" and e["speech"] == "delete" for e in j["errors"])
 # 1:1 + 1:2 checked as 1:2: the learner recited an extra Ayah before; 1:2 itself should be found.
 j = check(mp3("002001") , 2, 1)
 ok &= j["status"] == "ok"
