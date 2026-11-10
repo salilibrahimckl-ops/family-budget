@@ -799,5 +799,28 @@
   "howGhunnah": "Noon or meem with shaddah, or hidden/merged noon: hold the nasal sound for 2 counts.",
   "teacherAbout": "About the AI teacher",
   "teacherStatusOn": "Connected — checks words, harakat and Tajweed",
-  "teacherStatusOff": "Not set up yet — using the phone’s speech recognition (words only)"
+  "teacherStatusOff": "Not set up yet — using the phone’s speech recognition (words only)",
+  "correctTitle": "Correct it with the reciter",
+  "hearWord": "Hear this word recited correctly",
+  "correctHint": "Tap 🔊 to hear each word recited correctly, listen to the whole Ayah, repeat it a few times, then try again.",
+  "hearAyah": "Hear the whole Ayah from your Qari",
+  "tryAgain": "Try again",
+  "youMissed": "You missed this word",
+  "youSaid": "You said “{heard}” instead of this word",
+  "@youSaid": {
+    "placeholders": {
+      "heard": {
+        "type": "String"
+      }
+    }
+  },
+  "iHeard": "I heard: “{text}”",
+  "@iHeard": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "tajweedNotOnYet": "This was the phone’s quick check (words only). Tajweed, harakat and pronunciation are checked once the AI teacher is switched on."
 }

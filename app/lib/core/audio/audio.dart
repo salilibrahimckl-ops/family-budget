@@ -127,6 +127,20 @@ class AudioController extends Notifier<PlaybackState> {
     }
   }
 
+  /// Plays one word, recited on its own (Quran.com word-by-word audio, Mishary Alafasy),
+  /// so a learner can hear exactly how a word they got wrong should sound.
+  Future<void> playWord(int surah, int ayah, int position) async {
+    await stop();
+    String p3(int n) => n.toString().padLeft(3, '0');
+    try {
+      await _player.setUrl('https://audio.qurancdn.com/wbw/${p3(surah)}_${p3(ayah)}_${p3(position)}.mp3');
+      await _player.setSpeed(1.0);
+      unawaited(_player.play());
+    } catch (_) {
+      state = const PlaybackState(error: true);
+    }
+  }
+
   Future<void> pause() => _player.pause();
 
   Future<void> resume() async => unawaited(_player.play());

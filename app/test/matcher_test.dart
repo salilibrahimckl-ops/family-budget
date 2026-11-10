@@ -30,9 +30,10 @@ void main() {
     expect(r.accuracy, 0.75);
   });
 
-  test('a substituted word is marked wrong', () {
+  test('a substituted word is marked wrong, with what was heard', () {
     final r = checkRecitation(expected, normalizedWords('الحمد لله رب الناس'));
     expect(r.verdicts.last, WordVerdict.wrong);
+    expect(r.heardFor.last, 'الناس');
   });
 
   test('a repeated word is counted as a repeat, not a mistake in the Ayah', () {

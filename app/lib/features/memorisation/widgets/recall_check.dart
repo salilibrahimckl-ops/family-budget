@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/audio/audio.dart';
 import '../../../core/audio/sfx.dart';
 import '../../../core/design/quran_text.dart';
 import '../../../core/design/tokens.dart';
@@ -11,6 +12,7 @@ import '../../recite/matcher.dart';
 import '../../recite/recite_service.dart';
 import '../../recite/teacher.dart';
 import '../../recite/teacher_feedback.dart';
+import '../../recite/correction_panel.dart';
 
 class RecallResult {
   const RecallResult({
@@ -87,6 +89,27 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
   TeacherResult? _teacher;
   final _tajweed = <int>{};
   final _wordColor = <int, TeacherErrorType>{};
+
+  /// What exactly went wrong, word by word, for the correction panel.
+  final _corrections = <Correction>[];
+  bool _usedPhoneCheck = false;
+
+  void _retry() {
+    ref.read(audioProvider.notifier).stop();
+    setState(() {
+      _revealed = false;
+      _missed.clear();
+      _tajweed.clear();
+      _wordColor.clear();
+      _corrections.clear();
+      _teacher = null;
+      _speechNote = null;
+      _unsure = false;
+      _method = 'self_report';
+      _confidence = null;
+      _heard = '';
+    });
+  }
 
   @override
   void initState() {
@@ -221,6 +244,13 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
             if (prev == null || e.type.index < prev.index) _wordColor[p] = e.type;
           }
         }
+        _corrections.clear();
+        final sch = Theme.of(context).colorScheme;
+        for (final e in r.errors) {
+          final f = describe(l, e);
+          final p = pos(e.wordStart);
+          _corrections.add(Correction(p, '${f.title}: ${f.detail}', color: colorFor(e.type, sch), how: f.how, arabicRule: f.arabicRule));
+        }
         _speechNote = r.errors.isEmpty ? l.teacherPerfect : null;
       });
       if (r.errors.isEmpty) {
@@ -255,7 +285,8 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
     setState(() {
       if (!r.confident) {
         _unsure = true;
-        _speechNote = l.unableToAssess;
+        _usedPhoneCheck = true;
+        _speechNote = words.trim().isEmpty ? l.unableToAssess : '${l.unableToAssess}\n${l.iHeard(words.trim())}';
         return;
       }
       _method = 'asr_word';
@@ -265,6 +296,14 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
         if (r.verdicts[i] != WordVerdict.correct) {
           _missed.add(mapPosition(i + 1, expected.length, widget.ayah.wordCount));
         }
+      }
+      _usedPhoneCheck = true;
+      _corrections.clear();
+      for (var i = 0; i < r.verdicts.length; i++) {
+        if (r.verdicts[i] == WordVerdict.correct) continue;
+        final p = mapPosition(i + 1, expected.length, widget.ayah.wordCount);
+        final heard = r.heardFor[i];
+        _corrections.add(Correction(p, r.verdicts[i] == WordVerdict.missing || heard == null ? l.youMissed : l.youSaid(heard)));
       }
       _speechNote = _missed.isEmpty ? l.speechPerfect : l.speechFoundMistakes(_missed.length);
     });
@@ -368,9 +407,17 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
         ),
         if (_teacher != null && _teacher!.assessed && _teacher!.errors.isNotEmpty) ...[
           const SizedBox(height: HSpace.m),
-          TeacherReport(
-            result: _teacher!,
-            wordAt: (i) => widget.ayah.word(mapPosition(i + 1, _teacher!.words.length, widget.ayah.wordCount)),
+          TeacherReport(result: _teacher!),
+        ],
+        if (_corrections.isNotEmpty || _unsure) ...[
+          const SizedBox(height: HSpace.m),
+          CorrectionPanel(
+            ayah: widget.ayah,
+            items: _corrections,
+            onRetry: _retry,
+            footer: _usedPhoneCheck && _teacher == null
+                ? Text(l.tajweedNotOnYet, style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant), textAlign: TextAlign.center)
+                : null,
           ),
         ],
         const SizedBox(height: HSpace.m),

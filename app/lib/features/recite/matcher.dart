@@ -56,7 +56,7 @@ bool wordsMatch(String expected, String heard) {
   if (ea.isNotEmpty && ea == ha) return true;
   final longer = math.max(expected.length, heard.length);
   if (longer < 3) return false;
-  return 1 - _lev(expected, heard) / longer >= 0.75;
+  return 1 - _lev(expected, heard) / longer >= (longer >= 6 ? 0.7 : 0.75);
 }
 
 enum WordVerdict { correct, missing, wrong }
@@ -68,7 +68,11 @@ class RecitationCheck {
     required this.repeatedWords,
     required this.coverage,
     required this.confident,
+    this.heardFor = const [],
   });
+
+  /// For each expected word judged wrong: the word the recogniser heard in its place.
+  final List<String?> heardFor;
 
   /// One verdict per expected word (simple-clean spelling positions).
   final List<WordVerdict> verdicts;
@@ -107,6 +111,7 @@ RecitationCheck checkRecitation(List<String> expected, List<String> heard, {doub
     }
   }
   final verdicts = List<WordVerdict>.filled(n, WordVerdict.missing);
+  final heardFor = List<String?>.filled(n, null);
   var extra = 0, repeated = 0;
   var i = n, j = m;
   while (i > 0 || j > 0) {
@@ -114,6 +119,7 @@ RecitationCheck checkRecitation(List<String> expected, List<String> heard, {doub
       final ok = wordsMatch(expected[i - 1], heard[j - 1]);
       if (dp[i][j] == dp[i - 1][j - 1] + (ok ? 0 : 1)) {
         verdicts[i - 1] = ok ? WordVerdict.correct : WordVerdict.wrong;
+        if (!ok) heardFor[i - 1] = heard[j - 1];
         i--;
         j--;
         continue;
@@ -143,6 +149,7 @@ RecitationCheck checkRecitation(List<String> expected, List<String> heard, {doub
     repeatedWords: repeated,
     coverage: coverage,
     confident: confident,
+    heardFor: heardFor,
   );
 }
 

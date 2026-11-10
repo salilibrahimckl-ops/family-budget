@@ -74,14 +74,10 @@ Color colorFor(TeacherErrorType t, ColorScheme s) => switch (t) {
       TeacherErrorType.tajweed => const Color(0xFFEF8C00),
     };
 
-/// The teacher's report: a short summary, then one card per mistake, each pointing at
-/// the word it belongs to.
+/// The teacher's summary: how many word, harakah and Tajweed mistakes it found.
 class TeacherReport extends StatelessWidget {
-  const TeacherReport({super.key, required this.result, required this.wordAt});
+  const TeacherReport({super.key, required this.result});
   final TeacherResult result;
-
-  /// Text of the app's word at a server word index (0-based).
-  final String Function(int index) wordAt;
 
   @override
   Widget build(BuildContext context) {
@@ -107,38 +103,6 @@ class TeacherReport extends StatelessWidget {
         pill(l.countTajweed(tajweed), colorFor(TeacherErrorType.tajweed, s)),
       ]),
       const SizedBox(height: HSpace.s),
-      for (final e in result.errors)
-        Builder(builder: (context) {
-          final f = describe(l, e);
-          final c = colorFor(e.type, s);
-          final word = [for (var i = e.wordStart; i <= e.wordEnd; i++) wordAt(i)].join(' ');
-          return Card(
-            margin: const EdgeInsets.only(bottom: HSpace.s),
-            shape: RoundedRectangleBorder(
-              borderRadius: const BorderRadius.all(HRadius.m),
-              side: BorderSide(color: c.withValues(alpha: 0.5)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(HSpace.m),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Row(children: [
-                  Icon(switch (e.type) { TeacherErrorType.word => Icons.text_fields, TeacherErrorType.harakah => Icons.translate, TeacherErrorType.tajweed => Icons.graphic_eq }, color: c, size: 20),
-                  const SizedBox(width: HSpace.s),
-                  Expanded(child: Text(f.title, style: t.titleSmall?.copyWith(color: c))),
-                  if (f.arabicRule.isNotEmpty) Text(f.arabicRule, textDirection: TextDirection.rtl, style: t.bodySmall),
-                ]),
-                const SizedBox(height: 4),
-                Text(word, textDirection: TextDirection.rtl, textAlign: TextAlign.right,
-                    style: const TextStyle(fontFamily: HFonts.quran, fontSize: 22)),
-                Text(f.detail, style: t.bodyMedium),
-                if (f.how.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(f.how, style: t.bodySmall?.copyWith(color: s.onSurfaceVariant)),
-                ],
-              ]),
-            ),
-          );
-        }),
       Text(l.teacherShortNotice, style: t.bodySmall?.copyWith(color: s.onSurfaceVariant), textAlign: TextAlign.center),
     ]);
   }
