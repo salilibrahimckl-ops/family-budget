@@ -1,0 +1,65 @@
+name: Hifz Academy recitation teacher (Hugging Face Space)
+
+on:
+  push:
+    branches: [hifz]
+    paths: ['server/**', '.github/workflows/hifz-teacher.yml']
+  workflow_dispatch:
+
+concurrency: { group: hifz-teacher, cancel-in-progress: false }
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Install
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libsndfile1
+          pip install -q -r server/requirements.txt httpx
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-muaalem-v3_2
+      - name: Check the teacher on real recitations
+        working-directory: server
+        run: python test_server.py 2>&1 | tee ../teacher-test.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: teacher-test, path: teacher-test.log }
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Hugging Face and publish the address
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::warning::HF_TOKEN secret is not set, so the teacher was tested but not deployed."
+            exit 0
+          fi
+          pip install -q "huggingface_hub>=0.30"
+          python3 - <<'PY'
+          import json, os, re
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          user = api.whoami()["name"]
+          repo = f"{user}/hifz-teacher"
+          api.create_repo(repo, repo_type="space", space_sdk="docker", exist_ok=True, private=False)
+          api.upload_folder(folder_path="server", repo_id=repo, repo_type="space",
+                            commit_message="Deploy from GitHub", ignore_patterns=["test_server.py", "__pycache__/*"])
+          host = re.sub(r"[^a-z0-9-]", "-", f"{user}-hifz-teacher".lower())
+          json.dump({"teacher_url": f"https://{host}.hf.space", "space": f"https://huggingface.co/spaces/{repo}"},
+                    open("/tmp/server.json", "w"), indent=1)
+          print(open("/tmp/server.json").read())
+          PY
+          git clone -q --depth 1 --branch hifz-builds "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" /tmp/b
+          cp /tmp/server.json /tmp/b/server.json
+          cd /tmp/b && git config user.name github-actions && git config user.email github-actions@users.noreply.github.com
+          git add server.json && (git diff --cached --quiet || (git commit -qm "Teacher address" && git push -q origin hifz-builds))
