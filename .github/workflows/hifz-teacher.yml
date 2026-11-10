@@ -6,6 +6,8 @@ on:
     paths: ['server/**', '.github/workflows/hifz-teacher.yml']
   workflow_dispatch:
 
+permissions: { contents: write }
+
 concurrency: { group: hifz-teacher, cancel-in-progress: false }
 
 jobs:
