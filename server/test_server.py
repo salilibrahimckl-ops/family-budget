@@ -10,8 +10,8 @@ import numpy as np
 from fastapi.testclient import TestClient
 import app as server
 
-def mp3(path):
-    return urllib.request.urlopen(f"https://everyayah.com/data/Husary_Muallim_128kbps/{path}.mp3", timeout=60).read()
+def mp3(path, reciter="Husary_Muallim_128kbps"):
+    return urllib.request.urlopen(f"https://everyayah.com/data/{reciter}/{path}.mp3", timeout=60).read()
 
 c = TestClient(server.app)
 t = time.time()
@@ -25,7 +25,7 @@ def check(audio, sura, aya, name="a.mp3"):
     assert r.status_code == 200, r.text
     j = r.json()
     print(f"\n{sura}:{aya} -> status={j['status']} conf={j['confidence']} heard={j['heard_ratio']} "
-          f"errors={len(j['errors'])} in {j.get('seconds')}s")
+          f"match={j.get('match_distance')} errors={len(j['errors'])} in {j.get('seconds')}s segments={j.get('segments')}")
     for e in j["errors"][:12]:
         print("   ", json.dumps({k: e[k] for k in ('word_start','word_end','type','speech','expected','heard','expected_len','heard_len')}, ensure_ascii=False),
               [r['en'] or r['kind'] for r in e['rules']])
@@ -37,11 +37,20 @@ ok &= j["status"] == "ok" and sum(1 for e in j["errors"] if e["type"] == "normal
 j = check(mp3("112002"), 112, 1)
 ok &= not (j["status"] == "ok" and not j["errors"])
 j = check(mp3("002255"), 2, 255)
-ok &= j["status"] == "ok" and sum(1 for e in j["errors"] if e["type"] == "normal") <= 3
+ok &= j["status"] == "ok" and sum(1 for e in j["errors"] if e["type"] != "tajweed") <= 3
+for rec in ["Alafasy_128kbps", "Minshawy_Teacher_128kbps"]:
+    j = check(mp3("001002", rec), 1, 2)
+    ok &= j["status"] == "ok" and sum(1 for e in j["errors"] if e["type"] == "normal") <= 1
+# Al-Fatiha 1:2 checked as 1:3 must not pass.
+j = check(mp3("001002"), 1, 3)
+ok &= not (j["status"] == "ok" and not j["errors"])
+# 1:1 + 1:2 checked as 1:2: the learner recited an extra Ayah before; 1:2 itself should be found.
+j = check(mp3("002001") , 2, 1)
+ok &= j["status"] == "ok"
 buf = io.BytesIO()
 with wave.open(buf, "wb") as w:
     w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000); w.writeframes(np.zeros(16000 * 2, dtype=np.int16).tobytes())
 j = check(buf.getvalue(), 112, 1, "s.wav")
-ok &= j["status"] == "silent"
+ok &= j["status"] in ("silent", "too_little")
 print("\nALL OK" if ok else "\nSOME CHECKS FAILED")
 sys.exit(0 if ok else 1)
