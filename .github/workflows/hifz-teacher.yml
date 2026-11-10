@@ -75,7 +75,7 @@ jobs:
           done
           cat /tmp/health.json; echo
           curl -fsSL "https://everyayah.com/data/Husary_Muallim_128kbps/112001.mp3" -o /tmp/a.mp3
-          curl -fsS --max-time 240 -F "file=@/tmp/a.mp3" -F sura=112 -F aya=1 "$URL/check" | head -c 600; echo
+          curl -fsS --max-time 240 -H "X-Hifz-App: hifz-academy-app-v1" -H "X-Hifz-Device: github-deploy-check" -F "file=@/tmp/a.mp3" -F sura=112 -F aya=1 "$URL/check" | head -c 600; echo
           printf '{"teacher_url": "%s"}\n' "$URL" > /tmp/server.json
           git clone -q --depth 1 --branch hifz-builds "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" /tmp/b
           cp /tmp/server.json /tmp/b/server.json
