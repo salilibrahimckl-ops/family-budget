@@ -5,12 +5,14 @@ import '../../features/auth/auth_screen.dart';
 import '../../features/challenges/challenges.dart';
 import '../../features/common/upcoming_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
+import '../../features/gamification/achievements_screens.dart';
 import '../../features/lesson/lesson_screen.dart';
 import '../../features/onboarding/onboarding_flow.dart';
 import '../../features/reader/reader_screens.dart';
 import '../../features/revision/revision_screens.dart';
 import '../../features/settings/profile_settings_screen.dart';
 import '../../features/splash/splash_screen.dart';
+import '../../features/updates/updates.dart';
 import '../l10n/l10n.dart';
 
 /// All 17 screens are routed. Those still marked UpcomingScreen state which phase builds them.
@@ -49,7 +51,9 @@ GoRouter buildRouter() => GoRouter(
         GoRoute(path: '/feedback/:attemptId', builder: (c, __) => UpcomingScreen(title: c.l10n.screenFeedback, phase: 9)), // 10
         GoRoute(path: '/tajweed', builder: (c, __) => UpcomingScreen(title: c.l10n.screenTajweed, phase: 11)),          // 13
         GoRoute(path: '/analytics', builder: (c, __) => UpcomingScreen(title: c.l10n.screenAnalytics, phase: 13)),      // 14
-        GoRoute(path: '/journey', builder: (c, __) => UpcomingScreen(title: c.l10n.screenJourney, phase: 8)),           // 15
+        GoRoute(path: '/journey', builder: (_, __) => const JourneyScreen()),                                          // 15
+        GoRoute(path: '/achievements', builder: (_, __) => const AchievementsScreen()),
+        GoRoute(path: '/updates', builder: (_, __) => const UpdatesScreen()),
         GoRoute(path: '/premium', builder: (c, __) => UpcomingScreen(title: c.l10n.screenSubscription, phase: 13)),     // 17
       ],
     );

@@ -46,4 +46,28 @@ void main() {
     expect(levelFor(7).index, 2);
     expect(levelFor(6236).index, 10);
   });
+
+  test('badges unlock from real progress only', () {
+    BadgeStatus b(BadgeKind k, List<BadgeStatus> l) => l.firstWhere((x) => x.kind == k);
+    final none = evaluateBadges(const BadgeInputs(
+        memorised: 0, fatihaDone: false, surahsCompleted: 0, juzAmmaAyahsMemorised: 0, bestStreak: 0, revisions: 0, perfectRecalls: 0));
+    expect(none.where((x) => x.unlocked), isEmpty);
+    final some = evaluateBadges(const BadgeInputs(
+        memorised: 12, fatihaDone: true, surahsCompleted: 2, juzAmmaAyahsMemorised: 6, bestStreak: 7, revisions: 3, perfectRecalls: 0));
+    expect(b(BadgeKind.ayahs10, some).unlocked, isTrue);
+    expect(b(BadgeKind.ayahs50, some).unlocked, isFalse);
+    expect(b(BadgeKind.streak7, some).unlocked, isTrue);
+    expect(b(BadgeKind.juzAmma, some).fraction, closeTo(6 / 564, 1e-9));
+  });
+
+  test('best streak counts the longest run, freezes keep it but do not add', () {
+    expect(bestStreak({d(1), d(2), d(3), d(10), d(11)}, {}), 3);
+    expect(bestStreak({d(1), d(3)}, {d(2)}), 2);
+    expect(bestStreak({}, {}), 0);
+  });
+
+  test('daily progress ring', () {
+    expect(dailyProgress(newTarget: 2, newDone: 1, reviseTarget: 2, revisedDone: 2), 0.75);
+    expect(dailyProgress(newTarget: 0, newDone: 0, reviseTarget: 0, revisedDone: 0), 1);
+  });
 }

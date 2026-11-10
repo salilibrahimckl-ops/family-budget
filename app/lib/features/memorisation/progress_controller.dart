@@ -39,6 +39,8 @@ class ProgressState {
     required this.xpAyahsToday,
     required this.forgottenWordCounts,
     required this.focusSurahs,
+    required this.totalRevisions,
+    required this.perfectRecalls,
   });
 
   final Map<int, MemoRecord> records;
@@ -51,6 +53,10 @@ class ProgressState {
   final Set<int> xpAyahsToday; // Ayahs that already earned revision XP today
   final Map<int, int> forgottenWordCounts; // ayahId -> words missed in the last 30 days
   final List<int> focusSurahs;
+  final int totalRevisions; // all revision attempts ever
+  final int perfectRecalls; // attempts with every word correct
+
+  int get bestStreakDays => bestStreak(learnedDays, freezeDays);
 
   Iterable<MemoRecord> get memorised => records.values.where((r) => r.isMemorised);
   int get memorisedCount => memorised.length;
@@ -112,6 +118,9 @@ class ProgressController extends AsyncNotifier<ProgressState> {
     final focusRaw = await ldb.getKv('focus_surahs');
     final focus = focusRaw == null || focusRaw.isEmpty ? <int>[] : focusRaw.split(',').map(int.parse).toList();
 
+    final totalRevisions = Sqflite.firstIntValue(await db.rawQuery("select count(*) from attempts where mode = 'revision'")) ?? 0;
+    final perfect = Sqflite.firstIntValue(await db.rawQuery('select count(*) from attempts where accuracy >= 0.999')) ?? 0;
+
     return ProgressState(
       records: recs,
       xpTotal: xp,
@@ -123,6 +132,8 @@ class ProgressController extends AsyncNotifier<ProgressState> {
       xpAyahsToday: xpAyahs,
       forgottenWordCounts: forgotten,
       focusSurahs: focus,
+      totalRevisions: totalRevisions,
+      perfectRecalls: perfect,
     );
   }
 

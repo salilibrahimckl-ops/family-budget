@@ -7,6 +7,7 @@ import '../../core/design/tokens.dart';
 import '../../core/l10n/l10n.dart';
 import '../../core/quran/quran_providers.dart';
 import '../../core/widgets/widgets.dart';
+import '../audio/audio_widgets.dart';
 import '../memorisation/engine/srs.dart';
 import '../memorisation/progress_controller.dart';
 
@@ -69,7 +70,12 @@ class SurahScreen extends ConsumerWidget {
     final firstNotMemorised = ayahs.where((a) => !(progress?.records[a.id]?.isMemorised ?? false)).firstOrNull;
 
     return Scaffold(
-      appBar: AppBar(title: Text('${info.number}. ${info.nameTransliterated}')),
+      appBar: AppBar(
+        title: Text('${info.number}. ${info.nameTransliterated}'),
+        actions: [
+          Padding(padding: const EdgeInsets.only(right: HSpace.s), child: PlayAyahButton(ayahs: ayahs)),
+        ],
+      ),
       floatingActionButton: firstNotMemorised == null
           ? null
           : FloatingActionButton.extended(
@@ -105,8 +111,15 @@ class SurahScreen extends ConsumerWidget {
             child: LearningCard(
               onTap: () => context.push('/lesson/${a.id}'),
               title: '${a.surah}:${a.ayah}',
-              trailing: status == MemoStatus.newAyah ? null : StatusChip(status),
-              child: QuranText(a, showNumber: true, textAlign: TextAlign.right),
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                if (status != MemoStatus.newAyah) StatusChip(status),
+                const SizedBox(width: HSpace.s),
+                PlayAyahButton(ayahs: [a]),
+              ]),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                QuranText(a, showNumber: true, textAlign: TextAlign.right),
+                TranslationsBlock(ayah: a, compact: true),
+              ]),
             ),
           );
         },

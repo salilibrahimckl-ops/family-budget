@@ -7,6 +7,8 @@ import '../../core/backend/sync_service.dart';
 import '../../core/design/tokens.dart';
 import '../../core/l10n/l10n.dart';
 import '../../core/settings/settings_controller.dart';
+import '../../core/audio/audio.dart';
+import '../../core/quran/translations.dart';
 import '../onboarding/onboarding_store.dart';
 
 /// Me tab: account and sync, language, theme, assessment, data rights, sources.
@@ -121,7 +123,43 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
             onSelectionChanged: (v) => ctrl.setThemeMode(v.first),
           ),
           const SizedBox(height: HSpace.l),
+          Text(l.reciterLabel, style: t.titleSmall),
+          const SizedBox(height: HSpace.s),
+          DropdownButtonFormField<String>(
+            initialValue: s.reciterId,
+            isExpanded: true,
+            decoration: const InputDecoration(border: OutlineInputBorder()),
+            items: [
+              for (final r in reciters)
+                DropdownMenuItem(value: r.id, child: Text(s.locale.languageCode == 'ar' ? r.nameAr : r.nameEn, overflow: TextOverflow.ellipsis)),
+            ],
+            onChanged: (v) => v == null ? null : ctrl.setReciter(v),
+          ),
+          const SizedBox(height: HSpace.l),
+          Text(l.translationsLabel, style: t.titleSmall),
+          for (final tr in ref.watch(translationIndexProvider).valueOrNull ?? const <TranslationInfo>[])
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: s.translationIds.contains(tr.id),
+              title: Text(tr.name),
+              subtitle: Text('${tr.lang == 'ml' ? 'മലയാളം' : 'English'} · ${tr.author}'),
+              onChanged: (_) => ctrl.toggleTranslation(tr.id),
+            ),
+          const SizedBox(height: HSpace.l),
           const Divider(),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.system_update),
+            title: Text(l.appUpdates),
+            subtitle: Text(l.appUpdatesSub),
+            onTap: () => context.push('/updates'),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.military_tech),
+            title: Text(l.achievements),
+            onTap: () => context.push('/achievements'),
+          ),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.restart_alt),
@@ -135,7 +173,7 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.info_outline),
             title: Text(l.about),
-            subtitle: Text(l.quranSource),
+            subtitle: Text('${l.quranSource}\n${l.audioSource}\n${l.translationSource}'),
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,

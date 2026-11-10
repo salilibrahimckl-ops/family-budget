@@ -2,14 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/audio/audio.dart';
 import '../../core/design/tokens.dart';
+import '../../core/quran/quran_providers.dart';
+import '../../core/quran/translations.dart';
 import '../../core/l10n/l10n.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../core/widgets/widgets.dart';
+import '../audio/audio_widgets.dart';
 import 'learning_plan.dart';
 import 'onboarding_store.dart';
 
-/// Learning assessment: 7 short questions, then the generated plan.
+/// Learning assessment: 9 short steps (several answers allowed where it makes sense),
+/// then the generated plan.
 class OnboardingFlow extends ConsumerStatefulWidget {
   const OnboardingFlow({super.key});
 
@@ -18,13 +23,13 @@ class OnboardingFlow extends ConsumerStatefulWidget {
 }
 
 class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
-  static const _questions = 7;
+  static const _questions = 9;
   int _step = 0;
 
   ReadingAbility? _reading;
   TajweedKnowledge? _tajweed;
   MemorisedAmount? _memorised;
-  LearningGoal? _goal;
+  final Set<LearningGoal> _goals = {};
   int? _minutes;
   Pace? _pace;
 
@@ -33,9 +38,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         1 => _reading != null,
         2 => _tajweed != null,
         3 => _memorised != null,
-        4 => _goal != null,
+        4 => _goals.isNotEmpty,
         5 => _minutes != null,
-        6 => _pace != null,
+        6 => _pace != null || !_wantsNew,
         _ => true,
       };
 
@@ -43,14 +48,25 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         reading: _reading!,
         tajweed: _tajweed!,
         memorised: _memorised!,
-        goal: _goal!,
+        goals: Set.of(_goals),
         dailyMinutes: _minutes!,
-        pace: _pace!,
+        pace: _pace ?? Pace.gentle,
         uiLanguage: ref.read(settingsProvider).locale.languageCode,
       );
 
-  void _next() => setState(() => _step++);
-  void _back() => setState(() => _step--);
+  bool get _wantsNew =>
+      _goals.contains(LearningGoal.fromBeginning) ||
+      _goals.contains(LearningGoal.selectedSurahs) ||
+      _goals.contains(LearningGoal.completeQuran);
+
+  void _next() {
+    ref.read(audioProvider.notifier).stop();
+    setState(() => _step++);
+  }
+  void _back() {
+    ref.read(audioProvider.notifier).stop();
+    setState(() => _step--);
+  }
 
   Future<void> _finish() async {
     await ref.read(onboardingProvider.notifier).save(_answers());
@@ -136,22 +152,74 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
           opt(l.memHafiz, MemorisedAmount.hafiz, _memorised, (v) => _memorised = v),
         ]);
       case 4:
+        OptionTile goal(String label, LearningGoal g) => OptionTile(
+              label: label,
+              selected: _goals.contains(g),
+              onTap: () => setState(() => _goals.contains(g) ? _goals.remove(g) : _goals.add(g)),
+            );
         return _question(l.qGoal, [
-          opt(l.goalFromBeginning, LearningGoal.fromBeginning, _goal, (v) => _goal = v),
-          opt(l.goalSelected, LearningGoal.selectedSurahs, _goal, (v) => _goal = v),
-          opt(l.goalComplete, LearningGoal.completeQuran, _goal, (v) => _goal = v),
-          opt(l.goalStrengthen, LearningGoal.strengthenHifz, _goal, (v) => _goal = v),
-          opt(l.goalTajweed, LearningGoal.tajweed, _goal, (v) => _goal = v),
+          Text(l.chooseAnyNumber, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: HSpace.s),
+          goal(l.goalFromBeginning, LearningGoal.fromBeginning),
+          goal(l.goalSelected, LearningGoal.selectedSurahs),
+          goal(l.goalComplete, LearningGoal.completeQuran),
+          goal(l.goalStrengthen, LearningGoal.strengthenHifz),
+          goal(l.goalTajweed, LearningGoal.tajweed),
         ]);
       case 5:
         return _question(l.qTime, [
           for (final m in allowedMinutes) opt(l.minutes(m), m, _minutes, (v) => _minutes = v),
         ]);
-      default:
+      case 6:
+        if (!_wantsNew) {
+          return _question(l.qPace, [Text(l.paceNotNeeded, style: Theme.of(context).textTheme.bodyLarge)]);
+        }
         return _question(l.qPace, [
           opt(l.paceGentle, Pace.gentle, _pace, (v) => _pace = v),
           opt(l.paceSteady, Pace.steady, _pace, (v) => _pace = v),
           opt(l.paceIntensive, Pace.intensive, _pace, (v) => _pace = v),
+        ]);
+      case 7:
+        final s = ref.watch(settingsProvider);
+        final index = ref.watch(translationIndexProvider).valueOrNull ?? const <TranslationInfo>[];
+        return _question(l.qTranslations, [
+          Text(l.chooseAnyNumber, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: HSpace.s),
+          if (index.isEmpty) Text(l.translationsMissing),
+          for (final t in index)
+            OptionTile(
+              label: '${t.lang == 'ml' ? 'മലയാളം' : 'English'} · ${t.name}',
+              selected: s.translationIds.contains(t.id),
+              onTap: () => ref.read(settingsProvider.notifier).toggleTranslation(t.id),
+            ),
+        ]);
+      default:
+        final s = ref.watch(settingsProvider);
+        final fatiha = ref.watch(quranProvider)?.byKey(1, 1);
+        final isAr = Localizations.localeOf(context).languageCode == 'ar';
+        return _question(l.qReciter, [
+          Text(l.reciterHint, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: HSpace.s),
+          for (final r in reciters)
+            Padding(
+              padding: const EdgeInsets.only(bottom: HSpace.s),
+              child: Row(children: [
+                Expanded(
+                  child: OptionTile(
+                    label: '${isAr ? r.nameAr : r.nameEn}${r.style == 'muallim' ? '  ★ ${l.teachingStyle}' : ''}',
+                    selected: s.reciterId == r.id,
+                    onTap: () => ref.read(settingsProvider.notifier).setReciter(r.id),
+                  ),
+                ),
+                if (fatiha != null) ...[
+                  const SizedBox(width: HSpace.s),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: HSpace.s),
+                    child: PlayAyahButton(ayahs: [fatiha], reciterId: r.id),
+                  ),
+                ],
+              ]),
+            ),
         ]);
     }
   }

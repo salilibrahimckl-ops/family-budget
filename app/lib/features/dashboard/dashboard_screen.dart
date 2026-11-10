@@ -5,24 +5,41 @@ import 'package:go_router/go_router.dart';
 import '../../core/design/tokens.dart';
 import '../../core/l10n/l10n.dart';
 import '../../core/quran/quran_providers.dart';
+import '../../core/widgets/fun.dart';
 import '../../core/widgets/widgets.dart';
+import '../gamification/achievements_screens.dart';
 import '../gamification/gamification.dart';
 import '../memorisation/progress_controller.dart';
 import '../onboarding/onboarding_store.dart';
+import '../updates/updates.dart';
 
-/// Today tab: what to do now, and honest progress numbers from the device database.
-class DashboardScreen extends ConsumerWidget {
+/// Today tab: one big "what to do now", the daily goal ring, streak week, level,
+/// badges and the journey. Every number comes from the device database.
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) maybeShowWhatsNew(context, ref);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l = context.l10n;
     final plan = ref.watch(learningPlanProvider);
     final quran = ref.watch(quranProvider);
-    final async = ref.watch(progressProvider);
+    final p = ref.watch(progressProvider).valueOrNull;
+    final update = ref.watch(availableUpdateProvider).valueOrNull;
     final t = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
-    final p = async.valueOrNull;
 
     if (p == null || quran == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -32,21 +49,12 @@ class DashboardScreen extends ConsumerWidget {
     final q = ctrl.queue(p, now);
     final next = q.newAllowance > 0 && !(plan?.startsWithReading ?? false) ? ctrl.nextNewAyah(p, quran) : null;
     final level = levelFor(p.memorisedCount);
-    final missions = todaysMissions(
-      newAllowance: q.newAllowance,
-      newDoneToday: p.newDoneToday,
-      dueCount: q.dueCount,
-      revisedToday: p.revisedToday,
-      recallTestsToday: p.recallTestsToday,
-      hasMemorised: p.memorisedCount > 0,
-    );
-    final weak = p.weakest(now);
-
-    String missionText(Mission m) => switch (m.kind) {
-          MissionKind.memoriseNew => l.missionNew(m.target),
-          MissionKind.revise => l.missionRevise(m.target),
-          MissionKind.recallTest => l.missionRecall,
-        };
+    final nextLevel = hifzLevels.where((x) => x.minAyahs > p.memorisedCount).firstOrNull;
+    final newTarget = q.newAllowance + p.newDoneToday;
+    final reviseTarget = q.revision.length + p.revisedToday;
+    final ring = dailyProgress(newTarget: newTarget, newDone: p.newDoneToday, reviseTarget: reviseTarget, revisedDone: p.revisedToday);
+    final badges = badgesFor(p, quran);
+    final streak = p.streak(now);
 
     return Scaffold(
       body: SafeArea(
@@ -55,41 +63,90 @@ class DashboardScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.all(HSpace.l),
             children: [
-              Row(children: [
-                Expanded(child: Text(l.dashGreeting, style: t.headlineMedium)),
-                Chip(avatar: const Icon(Icons.local_fire_department, size: 18), label: Text(l.dashDays(p.streak(now)))),
-              ]),
-              Text(l.levelLabel(level.index), style: t.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
-              const SizedBox(height: HSpace.l),
-
-              // What to do now
-              if (q.revision.isNotEmpty)
+              if (update != null)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: HSpace.s),
-                  child: FilledButton.icon(
-                    icon: const Icon(Icons.replay),
-                    label: Text(l.ctaRevise(q.revision.length)),
-                    onPressed: () => context.push('/review'),
+                  padding: const EdgeInsets.only(bottom: HSpace.m),
+                  child: Material(
+                    color: HColors.gold100,
+                    borderRadius: const BorderRadius.all(HRadius.m),
+                    child: ListTile(
+                      leading: const Icon(Icons.system_update, color: HColors.gold500),
+                      title: Text(l.updateAvailable(update.version), style: const TextStyle(color: Color(0xFF3A2E17))),
+                      trailing: FilledButton(onPressed: () => context.push('/updates'), child: Text(l.update)),
+                    ),
                   ),
                 ),
-              if (next != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: HSpace.s),
-                  child: q.revision.isEmpty
-                      ? FilledButton.icon(
-                          icon: const Icon(Icons.add),
-                          label: Text(l.ctaLearn('${quran.surahInfo(next.surah).nameTransliterated} ${next.surah}:${next.ayah}')),
-                          onPressed: () => context.push('/lesson/${next.id}'),
-                        )
-                      : OutlinedButton.icon(
-                          icon: const Icon(Icons.add),
-                          label: Text(l.ctaLearn('${quran.surahInfo(next.surah).nameTransliterated} ${next.surah}:${next.ayah}')),
-                          onPressed: () => context.push('/lesson/${next.id}'),
-                        ),
+              Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(l.dashGreeting, style: t.headlineMedium),
+                    Text(l.levelLabel(level.index), style: t.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
+                  ]),
                 ),
+                _StreakFlame(streak: streak),
+              ]),
+              const SizedBox(height: HSpace.l),
+
+              // Daily goal ring + the next action.
+              LearningCard(
+                child: Column(children: [
+                  Row(children: [
+                    ProgressRing(
+                      value: ring,
+                      size: 104,
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Text('${(ring * 100).round()}%', style: t.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+                        Text(l.todayGoal, style: t.labelSmall),
+                      ]),
+                    ),
+                    const SizedBox(width: HSpace.m),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        _GoalLine(icon: Icons.add_circle, label: l.dashNewAyahs, done: p.newDoneToday, target: newTarget),
+                        _GoalLine(icon: Icons.replay_circle_filled, label: l.dashRevision, done: p.revisedToday, target: reviseTarget),
+                        if (ring >= 1) Text(l.goalReached, style: t.bodyMedium?.copyWith(color: HColors.gold500, fontWeight: FontWeight.w700)),
+                      ]),
+                    ),
+                  ]),
+                  const SizedBox(height: HSpace.m),
+                  if (q.revision.isNotEmpty)
+                    FilledButton.icon(
+                      icon: const Icon(Icons.replay),
+                      label: Text(l.ctaRevise(q.revision.length)),
+                      onPressed: () => context.push('/review'),
+                    ),
+                  if (next != null) ...[
+                    if (q.revision.isNotEmpty) const SizedBox(height: HSpace.s),
+                    (q.revision.isEmpty
+                        ? FilledButton.icon(
+                            icon: const Icon(Icons.auto_stories),
+                            label: Text(l.ctaLearn('${quran.surahInfo(next.surah).nameTransliterated} ${next.surah}:${next.ayah}')),
+                            onPressed: () => context.push('/lesson/${next.id}'),
+                          )
+                        : OutlinedButton.icon(
+                            icon: const Icon(Icons.auto_stories),
+                            label: Text(l.ctaLearn('${quran.surahInfo(next.surah).nameTransliterated} ${next.surah}:${next.ayah}')),
+                            onPressed: () => context.push('/lesson/${next.id}'),
+                          )),
+                  ],
+                  if (q.revision.isEmpty && next == null && p.memorisedCount > 0)
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.emoji_events),
+                      label: Text(l.chDaily),
+                      onPressed: () => context.push('/challenge/daily'),
+                    ),
+                ]),
+              ),
               if (plan?.startsWithReading ?? false) _Note(l.planReadingFirst),
               if (q.throttled) _Note(l.revisionThrottled),
-              if (q.revision.isEmpty && next == null && p.memorisedCount > 0) _Note(l.dashAllDoneToday),
+              const SizedBox(height: HSpace.m),
+
+              // This week
+              LearningCard(
+                title: l.thisWeek,
+                trailing: Text(l.dashDays(streak), style: t.labelLarge),
+                child: WeekDots(learnedDays: p.learnedDays, freezeDays: p.freezeDays),
+              ),
               const SizedBox(height: HSpace.m),
 
               Row(children: [
@@ -97,44 +154,121 @@ class DashboardScreen extends ConsumerWidget {
                 const SizedBox(width: HSpace.s),
                 Expanded(child: StatTile(label: l.dashRetained, value: '${p.retainedCount(now)}', icon: Icons.verified_outlined)),
                 const SizedBox(width: HSpace.s),
-                Expanded(child: StatTile(label: l.xpLabel, value: '${p.xpTotal}', icon: Icons.star_outline)),
+                Expanded(child: StatTile(label: l.xpLabel, value: '${p.xpTotal}', icon: Icons.star_rounded)),
               ]),
               const SizedBox(height: HSpace.m),
 
-              if (missions.isNotEmpty)
+              // Level progress
+              if (nextLevel != null)
                 LearningCard(
-                  title: l.missionsTitle,
-                  child: Column(children: [
-                    for (final m in missions)
-                      CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: m.complete,
-                        onChanged: null,
-                        title: Text(missionText(m)),
-                        subtitle: Text('${m.done.clamp(0, m.target)} / ${m.target}'),
-                      ),
-                  ]),
+                  title: l.nextLevel(nextLevel.index),
+                  trailing: Text('${p.memorisedCount}/${nextLevel.minAyahs}', style: t.labelLarge),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.all(HRadius.pill),
+                    child: LinearProgressIndicator(
+                      minHeight: 10,
+                      value: ((p.memorisedCount - level.minAyahs) / (nextLevel.minAyahs - level.minAyahs)).clamp(0.0, 1.0).toDouble(),
+                    ),
+                  ),
                 ),
               const SizedBox(height: HSpace.m),
 
-              if (weak.isNotEmpty)
-                LearningCard(
-                  title: l.dashWeak,
-                  child: Wrap(spacing: HSpace.s, children: [
-                    for (final id in weak)
-                      ActionChip(
-                        label: Text(quran.byId(id).key),
-                        onPressed: () => context.push('/challenge/recovery'),
-                      ),
-                  ]),
+              // Badges + journey
+              Row(children: [
+                Expanded(
+                  child: _Tile(
+                    icon: Icons.military_tech,
+                    title: l.achievements,
+                    subtitle: l.badgesUnlocked(badges.where((b) => b.unlocked).length, badges.length),
+                    onTap: () => context.push('/achievements'),
+                  ),
                 ),
-              if (p.memorisedCount == 0) _Note(l.dashNoProgress),
+                const SizedBox(width: HSpace.s),
+                Expanded(
+                  child: _Tile(
+                    icon: Icons.route,
+                    title: l.screenJourney,
+                    subtitle: l.journeySub,
+                    onTap: () => context.push('/journey'),
+                  ),
+                ),
+              ]),
+              if (p.memorisedCount == 0) ...[
+                const SizedBox(height: HSpace.m),
+                _Note(l.dashNoProgress),
+              ],
             ],
           ),
         ),
       ),
     );
   }
+}
+
+class _StreakFlame extends StatelessWidget {
+  const _StreakFlame({required this.streak});
+  final int streak;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.8, end: 1),
+        duration: const Duration(milliseconds: 700),
+        curve: Curves.elasticOut,
+        builder: (_, s, child) => Transform.scale(scale: s, child: child),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: streak > 0 ? HColors.gold100 : Theme.of(context).colorScheme.surfaceContainer,
+            borderRadius: const BorderRadius.all(HRadius.pill),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.local_fire_department, color: streak > 0 ? HColors.gold500 : Theme.of(context).colorScheme.onSurfaceVariant),
+            const SizedBox(width: 4),
+            Text('$streak', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+          ]),
+        ),
+      );
+}
+
+class _GoalLine extends StatelessWidget {
+  const _GoalLine({required this.icon, required this.label, required this.done, required this.target});
+  final IconData icon;
+  final String label;
+  final int done;
+  final int target;
+
+  @override
+  Widget build(BuildContext context) {
+    final complete = target > 0 && done >= target;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(children: [
+        Icon(complete ? Icons.check_circle : icon, size: 20, color: complete ? HColors.gold500 : Theme.of(context).colorScheme.primary),
+        const SizedBox(width: HSpace.s),
+        Expanded(child: Text(label)),
+        Text('${done.clamp(0, target)}/$target', style: const TextStyle(fontWeight: FontWeight.w700)),
+      ]),
+    );
+  }
+}
+
+class _Tile extends StatelessWidget {
+  const _Tile({required this.icon, required this.title, required this.subtitle, required this.onTap});
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => LearningCard(
+        onTap: onTap,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, size: 32, color: HColors.gold500),
+          const SizedBox(height: HSpace.s),
+          Text(title, style: Theme.of(context).textTheme.titleSmall),
+          Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+        ]),
+      );
 }
 
 class _Note extends StatelessWidget {
@@ -145,7 +279,7 @@ class _Note extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = Theme.of(context).colorScheme;
     return Container(
-      margin: const EdgeInsets.only(bottom: HSpace.s),
+      margin: const EdgeInsets.only(top: HSpace.s),
       padding: const EdgeInsets.all(HSpace.m),
       decoration: BoxDecoration(color: s.primaryContainer, borderRadius: const BorderRadius.all(HRadius.m)),
       child: Text(text, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: s.onPrimaryContainer)),

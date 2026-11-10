@@ -122,3 +122,78 @@ List<Mission> todaysMissions({
       if (hasMemorised) Mission(MissionKind.revise, math.max(1, math.min(5, dueCount + revisedToday)), revisedToday),
       if (hasMemorised) Mission(MissionKind.recallTest, 1, recallTestsToday),
     ];
+
+/// Badges are earned by real memorisation and consistency, never by opening the app.
+enum BadgeKind {
+  firstAyah, fatiha, firstSurah, ayahs10, ayahs50, ayahs100, ayahs500, juzAmma, fullHifz,
+  streak3, streak7, streak30, revisions25, revisions100, perfect10,
+}
+
+class BadgeStatus {
+  const BadgeStatus(this.kind, this.progress, this.target);
+  final BadgeKind kind;
+  final int progress;
+  final int target;
+  bool get unlocked => progress >= target;
+  double get fraction => target == 0 ? 1 : (progress / target).clamp(0, 1).toDouble();
+}
+
+class BadgeInputs {
+  const BadgeInputs({
+    required this.memorised,
+    required this.fatihaDone,
+    required this.surahsCompleted,
+    required this.juzAmmaAyahsMemorised,
+    required this.bestStreak,
+    required this.revisions,
+    required this.perfectRecalls,
+  });
+  final int memorised;
+  final bool fatihaDone;
+  final int surahsCompleted;
+  final int juzAmmaAyahsMemorised; // out of 564 (Surahs 78–114)
+  final int bestStreak;
+  final int revisions;
+  final int perfectRecalls;
+}
+
+List<BadgeStatus> evaluateBadges(BadgeInputs i) => [
+      BadgeStatus(BadgeKind.firstAyah, i.memorised, 1),
+      BadgeStatus(BadgeKind.fatiha, i.fatihaDone ? 1 : 0, 1),
+      BadgeStatus(BadgeKind.firstSurah, i.surahsCompleted, 1),
+      BadgeStatus(BadgeKind.ayahs10, i.memorised, 10),
+      BadgeStatus(BadgeKind.ayahs50, i.memorised, 50),
+      BadgeStatus(BadgeKind.ayahs100, i.memorised, 100),
+      BadgeStatus(BadgeKind.ayahs500, i.memorised, 500),
+      BadgeStatus(BadgeKind.juzAmma, i.juzAmmaAyahsMemorised, 564),
+      BadgeStatus(BadgeKind.fullHifz, i.memorised, 6236),
+      BadgeStatus(BadgeKind.streak3, i.bestStreak, 3),
+      BadgeStatus(BadgeKind.streak7, i.bestStreak, 7),
+      BadgeStatus(BadgeKind.streak30, i.bestStreak, 30),
+      BadgeStatus(BadgeKind.revisions25, i.revisions, 25),
+      BadgeStatus(BadgeKind.revisions100, i.revisions, 100),
+      BadgeStatus(BadgeKind.perfect10, i.perfectRecalls, 10),
+    ];
+
+/// Longest run of consecutive kept days (learned or covered by a freeze).
+int bestStreak(Set<DateTime> learnedDays, Set<DateTime> freezeDays) {
+  final learned = learnedDays.map(dayOf).toSet();
+  final kept = {...learned, ...freezeDays.map(dayOf)}.toList()..sort();
+  var best = 0, run = 0;
+  DateTime? prev;
+  for (final d in kept) {
+    final consecutive = prev != null && DateTime(prev.year, prev.month, prev.day + 1) == d;
+    run = consecutive ? run : 0;
+    if (learned.contains(d)) run++;
+    best = math.max(best, run);
+    prev = d;
+  }
+  return best;
+}
+
+/// Share of today's plan that is done, for the daily goal ring (0–1).
+double dailyProgress({required int newTarget, required int newDone, required int reviseTarget, required int revisedDone}) {
+  final total = newTarget + reviseTarget;
+  if (total == 0) return 1;
+  return ((math.min(newDone, newTarget) + math.min(revisedDone, reviseTarget)) / total).clamp(0, 1).toDouble();
+}

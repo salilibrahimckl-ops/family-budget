@@ -1,4 +1,4 @@
-name: Build Hifz Academy (web)
+name: Build Hifz Academy (web + Android)
 on:
   push:
     branches: [hifz]
@@ -9,6 +9,8 @@ permissions:
 concurrency:
   group: hifz-${{ github.ref }}
   cancel-in-progress: true
+env:
+  BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
   web:
@@ -18,10 +20,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with: { channel: stable, cache: true }
+      - name: Fetch translations (Tanzil.net)
+        run: python3 -I tools/fetch_translations.py app/assets/translations 2>&1 | tee translations.log
       - name: Test and build web app
         shell: bash
         run: |
           set -o pipefail
+          B=$((100 + BUILD_NUMBER))
           cd app
           {
             flutter create --platforms web --org com.salil --project-name hifz_academy .
@@ -30,7 +35,7 @@ jobs:
             dart run sqflite_common_ffi_web:setup
             flutter analyze --no-fatal-infos
             flutter test
-          } 2>&1 | tee ../build-hifz.log
+          } 2>&1 | tee ../build-web.log
           python3 - <<'PY'
           import json, re
           m = json.load(open('web/manifest.json'))
@@ -40,11 +45,11 @@ jobs:
           h = open('web/index.html').read()
           h = re.sub(r'<title>.*?</title>', '<title>Hifz Academy</title>', h)
           h = h.replace('content="hifz_academy"', 'content="Hifz Academy"')
-          h = h.replace('<head>', '<head>\n  <meta name="theme-color" content="#0F5E50">', 1)
+          if 'theme-color' not in h:
+              h = h.replace('<head>', '<head>\n  <meta name="theme-color" content="#0F5E50">', 1)
           open('web/index.html', 'w').write(h)
           PY
-          flutter build web --release --base-href /family-budget/hifz/ 2>&1 | tee -a ../build-hifz.log
-          # Self-clearing service worker: the home-screen app always loads the newest version.
+          flutter build web --release --base-href /family-budget/hifz/ --build-number=$B 2>&1 | tee -a ../build-web.log
           cat > build/web/flutter_service_worker.js <<'JS'
           self.addEventListener('install', () => self.skipWaiting());
           self.addEventListener('activate', (event) => {
@@ -58,18 +63,81 @@ jobs:
           });
           JS
           tar -czf ../hifz-web.tar.gz -C build/web .
-      - name: Publish to hifz-builds branch
+      - uses: actions/upload-artifact@v4
         if: always()
+        with:
+          name: web
+          path: |
+            hifz-web.tar.gz
+            build-web.log
+            translations.log
+          if-no-files-found: ignore
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - name: Fetch translations (Tanzil.net)
+        run: python3 -I tools/fetch_translations.py app/assets/translations
+      - name: Build APK
         shell: bash
         run: |
-          mkdir -p /tmp/out && cp build-hifz.log /tmp/out/ || true
-          cp hifz-web.tar.gz /tmp/out/ 2>/dev/null || true
-          echo "${{ job.status }} run ${{ github.run_number }} $(date -u)" > /tmp/out/STATUS
+          set -o pipefail
+          B=$((100 + BUILD_NUMBER))
+          cd app
+          {
+            flutter create --platforms android --org com.salil --project-name hifz_academy .
+            python3 -I ../tools/android/patch_android.py
+            flutter pub get
+            flutter gen-l10n
+            flutter build apk --release --build-number=$B
+          } 2>&1 | tee ../build-android.log
+          cp build/app/outputs/flutter-apk/app-release.apk ../HifzAcademy.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android
+          path: |
+            HifzAcademy.apk
+            build-android.log
+          if-no-files-found: ignore
+
+  publish:
+    needs: [web, android]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: /tmp/art }
+      - name: Publish to hifz-builds branch
+        shell: bash
+        run: |
+          mkdir -p /tmp/out
+          cp /tmp/art/web/* /tmp/out/ 2>/dev/null || true
+          cp /tmp/art/android/* /tmp/out/ 2>/dev/null || true
+          B=$((100 + BUILD_NUMBER))
+          V=$(grep -m1 '^version:' app/pubspec.yaml | sed 's/version: *//; s/+.*//')
+          echo "web=${{ needs.web.result }} android=${{ needs.android.result }} build $B $(date -u)" > /tmp/out/STATUS
+          if [ -f /tmp/out/HifzAcademy.apk ]; then
+            python3 - "$B" "$V" <<'PY'
+          import json, sys
+          log = json.load(open('app/assets/changelog.json'))
+          notes = next((e['notes'] for e in log if e['version'] == sys.argv[2]), [])
+          json.dump({'build': int(sys.argv[1]), 'version': sys.argv[2], 'notes': notes},
+                    open('/tmp/out/version.json', 'w'), ensure_ascii=False, indent=1)
+          PY
+          fi
           cd /tmp/out && git init -q && git checkout -q -b hifz-builds
           git config user.name github-actions; git config user.email github-actions@users.noreply.github.com
-          git add -A && git commit -qm "Hifz web build ${{ github.sha }}"
+          git add -A && git commit -qm "Hifz build $B (${GITHUB_SHA::7})"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" hifz-builds
       - name: Redeploy the Pages site
-        if: success()
+        if: needs.web.result == 'success'
         env: { GH_TOKEN: "${{ github.token }}" }
         run: gh workflow run pages.yml --repo "${{ github.repository }}" --ref main

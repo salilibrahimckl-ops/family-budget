@@ -36,7 +36,7 @@ class SyncService {
       final plan = buildPlan(a);
       await c.from('learning_preferences').upsert({
         'user_id': uid,
-        'goal': _goalDb(a.goal),
+        'goal': _goalDb(a.primaryGoal),
         'level': plan.level.name,
         'ui_language': a.uiLanguage,
         'daily_minutes': a.dailyMinutes,

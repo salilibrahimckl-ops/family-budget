@@ -22,7 +22,7 @@ class OnboardingAnswers {
     required this.reading,
     required this.tajweed,
     required this.memorised,
-    required this.goal,
+    required this.goals,
     required this.dailyMinutes,
     required this.pace,
     required this.uiLanguage,
@@ -31,8 +31,12 @@ class OnboardingAnswers {
   final ReadingAbility reading;
   final TajweedKnowledge tajweed;
   final MemorisedAmount memorised;
-  final LearningGoal goal;
+  /// One or more goals; the plan blends them.
+  final Set<LearningGoal> goals;
   final int dailyMinutes; // 10, 20, 30, 45, 60
+
+  /// The goal stored on the server (a single value): the first chosen.
+  LearningGoal get primaryGoal => goals.first;
   final Pace pace;
   final String uiLanguage;
 
@@ -40,7 +44,7 @@ class OnboardingAnswers {
         'reading': reading.name,
         'tajweed': tajweed.name,
         'memorised': memorised.name,
-        'goal': goal.name,
+        'goals': [for (final g in goals) g.name],
         'dailyMinutes': dailyMinutes,
         'pace': pace.name,
         'uiLanguage': uiLanguage,
@@ -50,7 +54,9 @@ class OnboardingAnswers {
         reading: ReadingAbility.values.byName(j['reading'] as String),
         tajweed: TajweedKnowledge.values.byName(j['tajweed'] as String),
         memorised: MemorisedAmount.values.byName(j['memorised'] as String),
-        goal: LearningGoal.values.byName(j['goal'] as String),
+        goals: j['goals'] != null
+            ? {for (final g in (j['goals'] as List)) LearningGoal.values.byName(g as String)}
+            : {LearningGoal.values.byName(j['goal'] as String)}, // older saved answers
         dailyMinutes: j['dailyMinutes'] as int,
         pace: Pace.values.byName(j['pace'] as String),
         uiLanguage: j['uiLanguage'] as String,
@@ -94,6 +100,12 @@ LearningPlan buildPlan(OnboardingAnswers a) {
         : LearnerLevel.beginner,
   };
 
+  final g = a.goals;
+  if (g.isEmpty) throw ArgumentError.value(g, 'goals', 'choose at least one goal');
+  final wantsNew = g.contains(LearningGoal.fromBeginning) ||
+      g.contains(LearningGoal.selectedSurahs) ||
+      g.contains(LearningGoal.completeQuran);
+
   // More existing Hifz means more of each session goes to keeping it.
   var revisionShare = switch (a.memorised) {
     MemorisedAmount.none => 0.3,
@@ -102,14 +114,14 @@ LearningPlan buildPlan(OnboardingAnswers a) {
     MemorisedAmount.severalJuz => 0.6,
     MemorisedAmount.hafiz => 0.85,
   };
-  if (a.goal == LearningGoal.strengthenHifz) revisionShare = 0.9;
-  if (a.goal == LearningGoal.tajweed) revisionShare = math.min(revisionShare + 0.1, 0.9);
+  if (g.contains(LearningGoal.strengthenHifz)) revisionShare = math.max(revisionShare, wantsNew ? 0.6 : 0.9);
+  if (g.contains(LearningGoal.tajweed)) revisionShare = math.min(revisionShare + 0.1, 0.9);
 
   final startsWithReading = a.reading == ReadingAbility.none;
 
   var desired = switch (a.pace) { Pace.gentle => 1, Pace.steady => 3, Pace.intensive => 5 };
-  if (a.goal == LearningGoal.strengthenHifz || a.goal == LearningGoal.tajweed) desired = 0;
-  if (a.memorised == MemorisedAmount.hafiz && a.goal != LearningGoal.completeQuran) desired = 0;
+  if (!wantsNew) desired = 0;
+  if (a.memorised == MemorisedAmount.hafiz && !g.contains(LearningGoal.completeQuran)) desired = 0;
   if (startsWithReading) desired = 0; // reading lessons first, memorisation unlocks later
 
   final newMinutes = a.dailyMinutes * (1 - revisionShare);

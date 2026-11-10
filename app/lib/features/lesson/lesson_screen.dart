@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/audio/audio.dart';
 import '../../core/design/quran_text.dart';
 import '../../core/design/tokens.dart';
 import '../../core/l10n/l10n.dart';
 import '../../core/quran/quran_providers.dart';
 import '../../core/quran/quran_repository.dart';
+import '../../core/settings/settings_controller.dart';
+import '../../core/widgets/fun.dart';
+import '../audio/audio_widgets.dart';
 import '../memorisation/progress_controller.dart';
 import '../memorisation/widgets/recall_check.dart';
 
@@ -35,6 +39,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   static const _minReads = 3;
 
   void _go(LessonStep s) => setState(() {
+        ref.read(audioProvider.notifier).stop();
         _step = s;
         _attemptKey++;
         _peek = false;
@@ -70,13 +75,19 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
     Widget body;
     switch (_step) {
       case LessonStep.listen:
+        final settings = ref.watch(settingsProvider);
         body = _Section(
           title: l.stepListen,
           children: [
             if (ayah.ayah == 1) BasmalaText(surah, size: HQuranSize.min),
             _AyahCard(ayah),
-            _Info(l.listenNoAudio),
-            FilledButton(onPressed: () => _go(LessonStep.understand), child: Text(l.continueLabel)),
+            Text(l.listenHint(reciterById(settings.reciterId).nameEn), textAlign: TextAlign.center, style: t.bodyMedium),
+            const SizedBox(height: HSpace.s),
+            PlayAyahButton(ayahs: [ayah], repeat: settings.repeatCount, big: true),
+            const SizedBox(height: HSpace.s),
+            const AudioOptions(),
+            const SizedBox(height: HSpace.m),
+            FilledButton.tonal(onPressed: () => _go(LessonStep.understand), child: Text(l.continueLabel)),
           ],
         );
       case LessonStep.understand:
@@ -84,7 +95,16 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
           title: l.stepUnderstand,
           children: [
             _AyahCard(ayah),
-            _Info(l.understandNoTranslation),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(HSpace.m),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  TranslationsBlock(ayah: ayah),
+                  if (ref.watch(settingsProvider).translationIds.isEmpty) Text(l.understandNoTranslation),
+                ]),
+              ),
+            ),
+            const SizedBox(height: HSpace.s),
             Text(l.ayahFacts(ayah.wordCount, ayah.juz ?? 0, ayah.page ?? 0), textAlign: TextAlign.center, style: t.bodyMedium),
             const SizedBox(height: HSpace.m),
             FilledButton(onPressed: () => _go(LessonStep.repeat), child: Text(l.continueLabel)),
@@ -182,6 +202,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                 if (!mounted) return;
                 if (r.accuracy >= defaultMasteryThreshold) {
                   setState(() => _xp = xp);
+                  await showCelebration(context, title: l.masteredTitle, body: l.masteredCheer, xp: xp);
                 } else {
                   _failedMastery = true;
                   _backToPractice(l.masterNotYet);

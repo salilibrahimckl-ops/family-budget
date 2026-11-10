@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hifz_academy/core/l10n/l10n.dart';
 import 'package:hifz_academy/core/settings/settings_controller.dart';
+import 'package:hifz_academy/features/onboarding/learning_plan.dart';
 import 'package:hifz_academy/features/onboarding/onboarding_flow.dart';
 import 'package:hifz_academy/features/onboarding/onboarding_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -42,7 +43,7 @@ Future<ProviderContainer> pump(WidgetTester tester, {Map<String, Object> prefs =
 void main() {
   testWidgets('assessment builds a plan and saves it', (tester) async {
     final c = await pump(tester);
-    expect(find.text('Step 1 of 7'), findsOneWidget);
+    expect(find.text('Step 1 of 9'), findsOneWidget);
 
     Future<void> pick(String label) async {
       await tester.tap(find.text(label));
@@ -59,6 +60,10 @@ void main() {
     await pick('Memorise selected Surahs');
     await pick('30 minutes');
     await pick('Steady — about 3 new Ayahs a day');
+    await tester.tap(find.text('Continue')); // translations (keep defaults)
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue')); // reciter (keep default)
+    await tester.pumpAndSettle();
 
     expect(find.text('3 new Ayahs a day'), findsOneWidget);
     await tester.tap(find.text('Start learning'));
@@ -66,6 +71,7 @@ void main() {
 
     expect(find.text('TODAY'), findsOneWidget);
     expect(c.read(onboardingProvider)?.dailyMinutes, 30);
+    expect(c.read(onboardingProvider)?.goals, {LearningGoal.selectedSurahs});
   });
 
   testWidgets('Arabic interface lays out right-to-left', (tester) async {

@@ -1,7 +1,7 @@
 name: hifz_academy
 description: Quran Hifz & Recitation Academy — Android and iOS.
 publish_to: none
-version: 0.5.0+5
+version: 0.6.0+6
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -22,9 +22,12 @@ dependencies:
   sqflite_common_ffi_web: ^1.0.0
   path: ^1.9.0
   uuid: ^4.5.1
-  # Added when their phase starts (nothing unused ships):
-  # just_audio + audio_service (audio, once a reciter licence is in place), record (Phase 9),
-  # purchases_flutter (Phase 13)
+  just_audio: ">=0.9.40 <1.0.0"
+  http: ^1.2.0
+  package_info_plus: ">=8.0.0 <12.0.0"
+  ota_update: ^7.1.0
+  web: ^1.1.0
+  # Later: audio_service (lock-screen playback), record (Phase 9), purchases_flutter (Phase 13)
 
 dev_dependencies:
   flutter_test:
@@ -36,6 +39,8 @@ flutter:
   generate: true
   assets:
     - assets/quran/
+    - assets/translations/
+    - assets/changelog.json
   # Note: assets/quran/ holds the verified Tanzil text produced by tools/quran_import.
   # Fonts: add the files to assets/fonts/ and uncomment (see README, "Fonts").
   # fonts:

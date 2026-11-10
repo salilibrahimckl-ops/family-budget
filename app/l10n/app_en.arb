@@ -31,7 +31,7 @@
   "memJuzAmma": "Most or all of Juz 30",
   "memSeveralJuz": "Several Juz",
   "memHafiz": "The whole Quran",
-  "qGoal": "What is your goal?",
+  "qGoal": "What are your goals?",
   "goalFromBeginning": "Learn the Quran from the beginning",
   "goalSelected": "Memorise selected Surahs",
   "goalComplete": "Complete the entire Quran",
@@ -425,5 +425,153 @@
   "deleteLocalData": "Delete all progress on this phone",
   "deleteTitle": "Delete everything?",
   "deleteBody": "Your memorisation history, revision schedule, XP and streak will be permanently deleted from this phone and, if you are signed in, from the server. This cannot be undone.",
-  "deleteConfirm": "Delete permanently"
+  "deleteConfirm": "Delete permanently",
+  "listen": "Listen",
+  "stop": "Stop",
+  "playingRound": "Playing {n} of {total}",
+  "@playingRound": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "repeatTimes": "{n}×",
+  "@repeatTimes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "listenHint": "Listen closely to {name}, then recite along with him.",
+  "@listenHint": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "masteredCheer": "MashaAllah! It’s in your heart now. We’ll remind you to revise it tomorrow.",
+  "chooseAnyNumber": "Choose as many as you like.",
+  "paceNotNeeded": "Your goals focus on revision and recitation, so no new memorisation pace is needed. You can change this later.",
+  "qTranslations": "Which translations would you like to see?",
+  "translationsMissing": "Translations are not included in this build.",
+  "qReciter": "Choose your Qari",
+  "reciterHint": "Tap ▶ to hear Al-Fatiha. Memorise with one Qari so the melody helps you remember. Teaching-style recitations are slow and clear.",
+  "teachingStyle": "teaching",
+  "reciterLabel": "Qari (reciter)",
+  "translationsLabel": "Translations",
+  "audioSource": "Recitations: EveryAyah.com, streamed verse by verse.",
+  "translationSource": "Translations: Tanzil.net, credited to each translator.",
+  "appUpdates": "App updates",
+  "appUpdatesSub": "Check for a new version and see what’s new",
+  "checkForUpdates": "Check for updates",
+  "currentVersion": "You have version {version} (build {build})",
+  "@currentVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "build": {
+        "type": "String"
+      }
+    }
+  },
+  "upToDate": "You have the latest version.",
+  "updateOffline": "Couldn’t check right now. Check your internet and try again.",
+  "updateAvailable": "New version {version} is ready",
+  "@updateAvailable": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "update": "Update",
+  "updateNow": "Update now",
+  "updateDownloading": "Downloading… {pct}%",
+  "@updateDownloading": {
+    "placeholders": {
+      "pct": {
+        "type": "int"
+      }
+    }
+  },
+  "updateTapInstall": "Tap “Update” on the Android screen to finish. Your progress is kept.",
+  "updatePermission": "Allow “Install unknown apps” for Hifz Academy in Android settings, then try again.",
+  "updateFailed": "The update didn’t finish. Please try again.",
+  "whatsNew": "What’s new",
+  "achievements": "Badges",
+  "badgesUnlocked": "{n} of {total} earned",
+  "@badgesUnlocked": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "badgeFirstAyah": "First Ayah",
+  "badgeFatiha": "Al-Fatiha",
+  "badgeFirstSurah": "First Surah",
+  "badgeAyahs": "{n} Ayahs",
+  "@badgeAyahs": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "badgeJuzAmma": "Juz ‘Amma",
+  "badgeFullHifz": "Hafiz of the Quran",
+  "badgeStreak": "{n}-day streak",
+  "@badgeStreak": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "badgeRevisions": "{n} revisions",
+  "@badgeRevisions": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "badgePerfect": "{n} perfect recalls",
+  "@badgePerfect": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "juzLabel": "Juz {n}",
+  "@juzLabel": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "journeySub": "Your path through 30 Juz",
+  "todayGoal": "today",
+  "goalReached": "Daily goal reached! 🎉",
+  "thisWeek": "This week",
+  "nextLevel": "Next: level {n}",
+  "@nextLevel": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }
