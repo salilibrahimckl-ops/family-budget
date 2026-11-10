@@ -6,6 +6,7 @@ import '../../core/audio/audio.dart';
 import '../../core/design/quran_text.dart';
 import '../../core/design/tokens.dart';
 import '../../core/l10n/l10n.dart';
+import '../../core/widgets/break_reminder.dart';
 import '../../core/quran/quran_providers.dart';
 import '../../core/quran/quran_repository.dart';
 import '../../core/settings/settings_controller.dart';
@@ -25,7 +26,7 @@ class LessonScreen extends ConsumerStatefulWidget {
   ConsumerState<LessonScreen> createState() => _LessonScreenState();
 }
 
-class _LessonScreenState extends ConsumerState<LessonScreen> {
+class _LessonScreenState extends ConsumerState<LessonScreen> with BreakReminder {
   LessonStep _step = LessonStep.listen;
   int _reads = 0;
   int _round = 1; // visual memory rounds 1..4
@@ -101,6 +102,8 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   TranslationsBlock(ayah: ayah),
                   if (ref.watch(settingsProvider).translationIds.isEmpty) Text(l.understandNoTranslation),
+                  const SizedBox(height: HSpace.s),
+                  ExplanationBlock(ayah: ayah, initiallyExpanded: true),
                 ]),
               ),
             ),
@@ -197,6 +200,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                       accuracy: r.accuracy,
                       missedWordPositions: r.missed,
                       recallMs: r.recallMs,
+                      method: r.method,
                       quran: quran,
                     );
                 if (!mounted) return;

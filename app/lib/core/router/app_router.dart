@@ -6,6 +6,7 @@ import '../../features/challenges/challenges.dart';
 import '../../features/common/upcoming_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/gamification/achievements_screens.dart';
+import '../../features/gamification/sticker_book.dart';
 import '../../features/lesson/lesson_screen.dart';
 import '../../features/onboarding/onboarding_flow.dart';
 import '../../features/reader/reader_screens.dart';
@@ -53,6 +54,7 @@ GoRouter buildRouter() => GoRouter(
         GoRoute(path: '/analytics', builder: (c, __) => UpcomingScreen(title: c.l10n.screenAnalytics, phase: 13)),      // 14
         GoRoute(path: '/journey', builder: (_, __) => const JourneyScreen()),                                          // 15
         GoRoute(path: '/achievements', builder: (_, __) => const AchievementsScreen()),
+        GoRoute(path: '/stickers', builder: (_, __) => const StickerBookScreen()),
         GoRoute(path: '/updates', builder: (_, __) => const UpdatesScreen()),
         GoRoute(path: '/premium', builder: (c, __) => UpcomingScreen(title: c.l10n.screenSubscription, phase: 13)),     // 17
       ],

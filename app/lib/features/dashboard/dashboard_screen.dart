@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../core/design/tokens.dart';
 import '../../core/l10n/l10n.dart';
 import '../../core/quran/quran_providers.dart';
+import '../../core/settings/settings_controller.dart';
 import '../../core/widgets/fun.dart';
+import '../../core/widgets/noor.dart';
 import '../../core/widgets/widgets.dart';
 import '../gamification/achievements_screens.dart';
 import '../gamification/gamification.dart';
@@ -55,6 +57,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final ring = dailyProgress(newTarget: newTarget, newDone: p.newDoneToday, reviseTarget: reviseTarget, revisedDone: p.revisedToday);
     final badges = badgesFor(p, quran);
     final streak = p.streak(now);
+    final kids = ref.watch(settingsProvider).kidsMode;
+    final noorLine = ring >= 1
+        ? l.noorDone
+        : ring > 0
+            ? l.noorKeepGoing
+            : (p.memorisedCount == 0 ? l.noorHello : l.noorWelcomeBack(streak));
 
     return Scaffold(
       body: SafeArea(
@@ -86,6 +94,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 _StreakFlame(streak: streak),
               ]),
               const SizedBox(height: HSpace.l),
+              if (kids) ...[
+                NoorSays(noorLine),
+                const SizedBox(height: HSpace.m),
+              ],
 
               // Daily goal ring + the next action.
               LearningCard(
@@ -193,6 +205,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ),
               ]),
+              const SizedBox(height: HSpace.s),
+              _Tile(
+                icon: Icons.auto_awesome,
+                title: l.stickerBook,
+                subtitle: l.stickersCount(p.memorisedCount),
+                onTap: () => context.push('/stickers'),
+              ),
               if (p.memorisedCount == 0) ...[
                 const SizedBox(height: HSpace.m),
                 _Note(l.dashNoProgress),

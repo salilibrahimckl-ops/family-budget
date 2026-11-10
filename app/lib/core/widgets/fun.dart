@@ -3,7 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../audio/sfx.dart';
 import '../design/tokens.dart';
+import '../settings/settings_controller.dart';
+import 'noor.dart';
 import '../l10n/l10n.dart';
 
 /// Falling confetti, drawn in code (no assets). Plays once.
@@ -77,6 +82,12 @@ class _ConfettiPainter extends CustomPainter {
 /// completion and new badges. Celebrates real learning, never just opening the app.
 Future<void> showCelebration(BuildContext context, {required String title, String? body, int xp = 0, IconData icon = Icons.verified}) {
   HapticFeedback.mediumImpact();
+  var kids = false;
+  try {
+    final container = ProviderScope.containerOf(context, listen: false);
+    kids = container.read(settingsProvider).kidsMode;
+    container.read(sfxProvider).success();
+  } catch (_) {}
   return showGeneralDialog(
     context: context,
     barrierDismissible: true,
@@ -97,11 +108,14 @@ Future<void> showCelebration(BuildContext context, {required String title, Strin
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 320),
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Container(
-                    padding: const EdgeInsets.all(HSpace.m),
-                    decoration: BoxDecoration(color: scheme.primaryContainer, shape: BoxShape.circle),
-                    child: Icon(icon, size: 44, color: scheme.primary),
-                  ),
+                  if (kids)
+                    const Noor(size: 96)
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(HSpace.m),
+                      decoration: BoxDecoration(color: scheme.primaryContainer, shape: BoxShape.circle),
+                      child: Icon(icon, size: 44, color: scheme.primary),
+                    ),
                   const SizedBox(height: HSpace.m),
                   Text(title, style: t.headlineSmall, textAlign: TextAlign.center),
                   if (body != null) ...[

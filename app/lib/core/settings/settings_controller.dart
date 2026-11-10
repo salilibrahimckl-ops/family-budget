@@ -16,6 +16,9 @@ class AppSettings {
     required this.translationIds,
     required this.speed,
     required this.repeatCount,
+    this.kidsMode = false,
+    this.soundEffects = true,
+    this.tafsirId,
   });
 
   final Locale locale;
@@ -29,6 +32,13 @@ class AppSettings {
   final double speed; // 0.5 – 1.5
   final int repeatCount; // how many times each Ayah plays in Listen
 
+  /// Brighter look, bigger text, Noor the star, stickers and break reminders.
+  final bool kidsMode;
+  final bool soundEffects;
+
+  /// Explanation (tafsir) shown under the Ayah. null = match the app language; 'none' = off.
+  final String? tafsirId;
+
   AppSettings copyWith({
     Locale? locale,
     ThemeMode? themeMode,
@@ -36,6 +46,9 @@ class AppSettings {
     List<String>? translationIds,
     double? speed,
     int? repeatCount,
+    bool? kidsMode,
+    bool? soundEffects,
+    String? tafsirId,
   }) =>
       AppSettings(
         locale: locale ?? this.locale,
@@ -44,6 +57,9 @@ class AppSettings {
         translationIds: translationIds ?? this.translationIds,
         speed: speed ?? this.speed,
         repeatCount: repeatCount ?? this.repeatCount,
+        kidsMode: kidsMode ?? this.kidsMode,
+        soundEffects: soundEffects ?? this.soundEffects,
+        tafsirId: tafsirId ?? this.tafsirId,
       );
 }
 
@@ -56,6 +72,9 @@ class SettingsController extends Notifier<AppSettings> {
   static const _kTranslations = 'translation_ids';
   static const _kSpeed = 'audio_speed';
   static const _kRepeat = 'audio_repeat';
+  static const _kKids = 'kids_mode';
+  static const _kSfx = 'sound_effects';
+  static const _kTafsir = 'tafsir_id';
 
   SharedPreferences get _prefs => ref.read(sharedPrefsProvider);
 
@@ -71,6 +90,9 @@ class SettingsController extends Notifier<AppSettings> {
       translationIds: _prefs.getStringList(_kTranslations) ?? defaultTranslations,
       speed: _prefs.getDouble(_kSpeed) ?? 1.0,
       repeatCount: _prefs.getInt(_kRepeat) ?? 3,
+      kidsMode: _prefs.getBool(_kKids) ?? false,
+      soundEffects: _prefs.getBool(_kSfx) ?? true,
+      tafsirId: _prefs.getString(_kTafsir),
     );
   }
 
@@ -104,6 +126,21 @@ class SettingsController extends Notifier<AppSettings> {
   Future<void> setSpeed(double s) async {
     await _prefs.setDouble(_kSpeed, s);
     state = state.copyWith(speed: s);
+  }
+
+  Future<void> setKidsMode(bool v) async {
+    await _prefs.setBool(_kKids, v);
+    state = state.copyWith(kidsMode: v);
+  }
+
+  Future<void> setSoundEffects(bool v) async {
+    await _prefs.setBool(_kSfx, v);
+    state = state.copyWith(soundEffects: v);
+  }
+
+  Future<void> setTafsir(String id) async {
+    await _prefs.setString(_kTafsir, id);
+    state = state.copyWith(tafsirId: id);
   }
 
   Future<void> setRepeat(int n) async {

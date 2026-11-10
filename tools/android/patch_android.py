@@ -9,7 +9,8 @@ man = 'android/app/src/main/AndroidManifest.xml'
 s = open(man).read()
 s = s.replace('android:label="hifz_academy"', 'android:label="Hifz Academy"')
 perms = ('    <uses-permission android:name="android.permission.INTERNET"/>\n'
-         '    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>\n')
+         '    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>\n'
+         '    <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n')
 if 'REQUEST_INSTALL_PACKAGES' not in s:
     s = re.sub(r'(<manifest[^>]*>\n)', lambda m: m.group(1) + perms, s, count=1)
 provider = '''        <provider
@@ -24,6 +25,15 @@ provider = '''        <provider
 '''
 if 'OtaUpdateFileProvider' not in s:
     s = s.replace('    </application>', provider + '    </application>', 1)
+# "Recite to me": let the app find the phone's speech recogniser (Android 11+).
+speech = ('        <intent>\n'
+          '            <action android:name="android.speech.RecognitionService"/>\n'
+          '        </intent>\n')
+if 'RecognitionService' not in s:
+    if '<queries>' in s:
+        s = s.replace('<queries>\n', '<queries>\n' + speech, 1)
+    else:
+        s = s.replace('</manifest>', '    <queries>\n' + speech + '    </queries>\n</manifest>', 1)
 open(man, 'w').write(s)
 os.makedirs('android/app/src/main/res/xml', exist_ok=True)
 shutil.copy(os.path.join(here, 'filepaths.xml'), 'android/app/src/main/res/xml/filepaths.xml')

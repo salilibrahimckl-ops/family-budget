@@ -191,6 +191,7 @@ class ProgressController extends AsyncNotifier<ProgressState> {
     required QuranRepository quran,
     int? recallMs,
     int hintsUsed = 0,
+    String method = 'self_report', // 'asr_word' when the phone's speech recogniser marked the words
     double masteryThreshold = defaultMasteryThreshold,
     VerifiedAyah? rangeStart,
   }) async {
@@ -214,7 +215,7 @@ class ProgressController extends AsyncNotifier<ProgressState> {
         'ayah_from': (rangeStart ?? ayah).id,
         'ayah_to': ayah.id,
         'mode': mode.db,
-        'method': 'self_report',
+        'method': method,
         'passed': passed ? 1 : 0,
         'accuracy': accuracy,
         'recall_ms': recallMs,

@@ -119,6 +119,7 @@ class SurahScreen extends ConsumerWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 QuranText(a, showNumber: true, textAlign: TextAlign.right),
                 TranslationsBlock(ayah: a, compact: true),
+                ExplanationBlock(ayah: a),
               ]),
             ),
           );

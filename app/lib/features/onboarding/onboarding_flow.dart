@@ -23,7 +23,7 @@ class OnboardingFlow extends ConsumerStatefulWidget {
 }
 
 class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
-  static const _questions = 9;
+  static const _questions = 10;
   int _step = 0;
 
   ReadingAbility? _reading;
@@ -192,6 +192,14 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
               selected: s.translationIds.contains(t.id),
               onTap: () => ref.read(settingsProvider.notifier).toggleTranslation(t.id),
             ),
+        ]);
+      case 9:
+        final kids = ref.watch(settingsProvider).kidsMode;
+        return _question(l.qWho, [
+          OptionTile(label: l.whoAdult, selected: !kids, onTap: () => ref.read(settingsProvider.notifier).setKidsMode(false)),
+          OptionTile(label: l.whoChild, selected: kids, onTap: () => ref.read(settingsProvider.notifier).setKidsMode(true)),
+          const SizedBox(height: HSpace.s),
+          Text(l.whoHint, style: Theme.of(context).textTheme.bodyMedium),
         ]);
       default:
         final s = ref.watch(settingsProvider);

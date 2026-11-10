@@ -43,7 +43,7 @@ Future<ProviderContainer> pump(WidgetTester tester, {Map<String, Object> prefs =
 void main() {
   testWidgets('assessment builds a plan and saves it', (tester) async {
     final c = await pump(tester);
-    expect(find.text('Step 1 of 9'), findsOneWidget);
+    expect(find.text('Step 1 of 10'), findsOneWidget);
 
     Future<void> pick(String label) async {
       await tester.tap(find.text(label));
@@ -63,6 +63,8 @@ void main() {
     await tester.tap(find.text('Continue')); // translations (keep defaults)
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue')); // reciter (keep default)
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue')); // who is learning (keep adult)
     await tester.pumpAndSettle();
 
     expect(find.text('3 new Ayahs a day'), findsOneWidget);

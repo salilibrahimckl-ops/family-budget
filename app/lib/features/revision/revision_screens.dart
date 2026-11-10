@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/design/tokens.dart';
 import '../../core/l10n/l10n.dart';
+import '../../core/widgets/break_reminder.dart';
 import '../../core/quran/quran_providers.dart';
 import '../../core/widgets/widgets.dart';
 import '../memorisation/engine/srs.dart';
@@ -73,7 +74,7 @@ class ReviewSessionScreen extends ConsumerStatefulWidget {
   ConsumerState<ReviewSessionScreen> createState() => _ReviewSessionScreenState();
 }
 
-class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
+class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> with BreakReminder {
   List<int>? _items;
   int _i = 0;
   int _xp = 0;
@@ -135,6 +136,7 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
                   missedWordPositions: r.missed,
                   recallMs: r.recallMs,
                   hintsUsed: r.hintsUsed,
+                  method: r.method,
                   quran: quran,
                 );
             if (!mounted) return;

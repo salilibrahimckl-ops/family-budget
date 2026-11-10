@@ -5,6 +5,7 @@ import '../../core/audio/audio.dart';
 import '../../core/design/tokens.dart';
 import '../../core/l10n/l10n.dart';
 import '../../core/quran/quran_repository.dart';
+import '../../core/quran/tafsir.dart';
 import '../../core/quran/translations.dart';
 import '../../core/settings/settings_controller.dart';
 
@@ -105,5 +106,57 @@ class TranslationsBlock extends ConsumerWidget {
     }
     if (widgets.isEmpty) return const SizedBox.shrink();
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: widgets);
+  }
+}
+
+/// Picks the explanation to show: the learner's choice, or the one in the app language.
+TranslationInfo? chosenTafsir(List<TranslationInfo> index, AppSettings s) {
+  if (s.tafsirId == 'none' || index.isEmpty) return null;
+  return index.where((i) => i.id == s.tafsirId).firstOrNull ??
+      index.where((i) => i.lang == s.locale.languageCode).firstOrNull ??
+      index.where((i) => i.lang == 'en').firstOrNull ??
+      index.first;
+}
+
+/// "What does it mean?" — a short scholar-written explanation (Al-Mukhtasar), credited,
+/// shown exactly as published. Folded by default so it never crowds the Ayah.
+class ExplanationBlock extends ConsumerWidget {
+  const ExplanationBlock({super.key, required this.ayah, this.initiallyExpanded = false});
+  final VerifiedAyah ayah;
+  final bool initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(settingsProvider);
+    final index = ref.watch(tafsirIndexProvider).valueOrNull ?? const <TranslationInfo>[];
+    final info = chosenTafsir(index, s);
+    if (info == null) return const SizedBox.shrink();
+    final rows = ref.watch(tafsirProvider(info.id)).valueOrNull;
+    if (rows == null) return const SizedBox.shrink();
+    final text = rows[ayah.id - 1].trim();
+    if (text.isEmpty) return const SizedBox.shrink();
+    final t = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final isAr = info.lang == 'ar';
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        initiallyExpanded: initiallyExpanded,
+        tilePadding: EdgeInsets.zero,
+        leading: Icon(Icons.lightbulb_outline, color: scheme.secondary),
+        title: Text(context.l10n.explanationTitle, style: t.titleSmall),
+        childrenPadding: const EdgeInsets.only(bottom: HSpace.s),
+        expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            text,
+            textDirection: isAr ? TextDirection.rtl : null,
+            style: t.bodyMedium?.copyWith(fontFamily: info.lang == 'ml' ? HFonts.malayalam : null),
+          ),
+          const SizedBox(height: 4),
+          Text('— ${info.name}, ${info.author} (QuranEnc.com)', style: t.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+        ],
+      ),
+    );
   }
 }

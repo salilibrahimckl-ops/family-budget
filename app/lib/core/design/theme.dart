@@ -5,12 +5,26 @@ import 'tokens.dart';
 /// Builds light and dark themes. Malayalam gets its own font and extra line height,
 /// because Malayalam conjuncts are taller than Latin text.
 abstract final class HTheme {
-  static ThemeData light(Locale locale) => _build(Brightness.light, locale);
-  static ThemeData dark(Locale locale) => _build(Brightness.dark, locale);
+  static ThemeData light(Locale locale, {bool kids = false}) => _build(Brightness.light, locale, kids);
+  static ThemeData dark(Locale locale, {bool kids = false}) => _build(Brightness.dark, locale, kids);
 
-  static ThemeData _build(Brightness b, Locale locale) {
+  /// Kids mode: the same layout in sunnier colours (violet, sky blue and orange).
+  static ColorScheme _kids(bool isDark, ColorScheme s) => s.copyWith(
+        primary: isDark ? const Color(0xFFB39DFF) : const Color(0xFF6A4CE0),
+        onPrimary: isDark ? const Color(0xFF1E1240) : Colors.white,
+        primaryContainer: isDark ? const Color(0xFF3B2C7A) : const Color(0xFFE9E2FF),
+        onPrimaryContainer: isDark ? const Color(0xFFE9E2FF) : const Color(0xFF241466),
+        secondary: const Color(0xFFFF9F1C),
+        secondaryContainer: isDark ? const Color(0xFF5A3A0A) : const Color(0xFFFFE8C2),
+        tertiary: const Color(0xFF2EC4F1),
+        surface: isDark ? const Color(0xFF16132B) : const Color(0xFFFBF8FF),
+        surfaceContainerLow: isDark ? const Color(0xFF211C3D) : Colors.white,
+        surfaceContainer: isDark ? const Color(0xFF2A2449) : const Color(0xFFF1ECFF),
+      );
+
+  static ThemeData _build(Brightness b, Locale locale, bool kids) {
     final isDark = b == Brightness.dark;
-    final scheme = ColorScheme(
+    final adult = ColorScheme(
       brightness: b,
       primary: isDark ? HColors.emerald500 : HColors.emerald700,
       onPrimary: Colors.white,
@@ -33,6 +47,7 @@ abstract final class HTheme {
       outline: isDark ? HColors.night500 : HColors.stone300,
       outlineVariant: isDark ? HColors.night700 : const Color(0xFFE6E1D7),
     );
+    final scheme = kids ? _kids(isDark, adult) : adult;
 
     final isMl = locale.languageCode == 'ml';
     final base = ThemeData(useMaterial3: true, colorScheme: scheme, brightness: b);

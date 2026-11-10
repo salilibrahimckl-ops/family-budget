@@ -573,5 +573,60 @@
         "type": "int"
       }
     }
-  }
+  },
+  "micRecite": "Recite to me 🎤",
+  "micListening": "Listening… recite the Ayah",
+  "micDone": "I’m done",
+  "micUnavailable": "Speech checking isn’t available on this device or browser. Use Check and mark your own mistakes.",
+  "micConsentTitle": "Check my recitation",
+  "micConsentBody": "Your phone’s own speech recogniser (Google on Android, Apple on iPhone, or your browser) will listen while you recite and turn it into words. Hifz Academy compares those words with the verified Ayah and marks missed or wrong words.\n\nIt checks words only, not Tajweed. Hifz Academy does not save your voice, but the speech service may process it online.",
+  "micConsentAgree": "Allow",
+  "unableToAssess": "I couldn’t hear enough to check confidently. Try again closer to the phone in a quiet place — or mark your mistakes below.",
+  "speechPerfect": "MashaAllah! Every word was right. 🌟",
+  "speechFoundMistakes": "{n} word(s) were missed or said differently — they’re marked in red. Tap a word to change it if I got it wrong.",
+  "@speechFoundMistakes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "speechDisclaimer": "Checked by speech recognition: words only, not Tajweed. It can make mistakes.",
+  "explanationTitle": "What does it mean?",
+  "explanationLabel": "Explanation (tafsir)",
+  "explanationOff": "Don’t show",
+  "explanationMissing": "Explanations are not included in this build.",
+  "kidsModeLabel": "Kids mode",
+  "kidsModeSub": "Brighter colours, bigger text, Noor the star, stickers and break reminders",
+  "soundEffectsLabel": "Sound effects",
+  "qWho": "Who is learning?",
+  "whoAdult": "Me — an adult or teen",
+  "whoChild": "A child (kids mode)",
+  "whoHint": "Kids mode adds Noor the friendly star, stickers for every Ayah, cheerful sounds and gentle break reminders. You can switch it any time in Me.",
+  "noorHello": "Assalamu alaikum! I’m Noor ⭐ Let’s learn your first Ayah together!",
+  "noorWelcomeBack": "Welcome back! Your streak is {n} day(s) — let’s keep it shining! ✨",
+  "@noorWelcomeBack": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "noorKeepGoing": "You’re doing great! A little more and today’s ring is full! 💪",
+  "noorDone": "MashaAllah, you did it today! I’m so proud of you! 🎉",
+  "stickerBook": "Sticker book",
+  "stickersCount": "{n} sticker(s) collected",
+  "@stickersCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "stickersEmpty": "Memorise an Ayah to earn your first sticker!",
+  "stickersHint": "Every Ayah you memorise adds a new sticker.",
+  "breakTitle": "Time for a little break!",
+  "breakBody": "Great work! Stand up, stretch, drink some water — then come back if you like.",
+  "breakOk": "OK, Noor!",
+  "tafsirSource": "Explanations: Al-Mukhtasar, QuranEnc.com."
 }

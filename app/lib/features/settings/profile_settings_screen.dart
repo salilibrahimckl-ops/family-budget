@@ -8,7 +8,9 @@ import '../../core/design/tokens.dart';
 import '../../core/l10n/l10n.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../core/audio/audio.dart';
+import '../../core/quran/tafsir.dart';
 import '../../core/quran/translations.dart';
+import '../audio/audio_widgets.dart';
 import '../onboarding/onboarding_store.dart';
 
 /// Me tab: account and sync, language, theme, assessment, data rights, sources.
@@ -146,6 +148,47 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
               onChanged: (_) => ctrl.toggleTranslation(tr.id),
             ),
           const SizedBox(height: HSpace.l),
+          Text(l.explanationLabel, style: t.titleSmall),
+          const SizedBox(height: HSpace.s),
+          Builder(builder: (context) {
+            final tIndex = ref.watch(tafsirIndexProvider).valueOrNull ?? const <TranslationInfo>[];
+            if (tIndex.isEmpty) return Text(l.explanationMissing, style: t.bodySmall);
+            final current = chosenTafsir(tIndex, s)?.id ?? 'none';
+            String langName(String code) => switch (code) { 'ml' => 'മലയാളം', 'ar' => 'العربية', _ => 'English' };
+            return DropdownButtonFormField<String>(
+              key: ValueKey(current),
+              initialValue: current,
+              isExpanded: true,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+              items: [
+                for (final x in tIndex) DropdownMenuItem(value: x.id, child: Text('${langName(x.lang)} · ${x.name}')),
+                DropdownMenuItem(value: 'none', child: Text(l.explanationOff)),
+              ],
+              onChanged: (v) => v == null ? null : ctrl.setTafsir(v),
+            );
+          }),
+          const SizedBox(height: HSpace.l),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.child_care),
+            title: Text(l.kidsModeLabel),
+            subtitle: Text(l.kidsModeSub),
+            value: s.kidsMode,
+            onChanged: ctrl.setKidsMode,
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.music_note),
+            title: Text(l.soundEffectsLabel),
+            value: s.soundEffects,
+            onChanged: ctrl.setSoundEffects,
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.auto_awesome),
+            title: Text(l.stickerBook),
+            onTap: () => context.push('/stickers'),
+          ),
           const Divider(),
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -173,7 +216,7 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.info_outline),
             title: Text(l.about),
-            subtitle: Text('${l.quranSource}\n${l.audioSource}\n${l.translationSource}'),
+            subtitle: Text('${l.quranSource}\n${l.audioSource}\n${l.translationSource}\n${l.tafsirSource}'),
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,

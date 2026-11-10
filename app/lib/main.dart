@@ -44,9 +44,18 @@ class _HifzAppState extends ConsumerState<HifzApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: HTheme.light(s.locale),
-      darkTheme: HTheme.dark(s.locale),
+      theme: HTheme.light(s.locale, kids: s.kidsMode),
+      darkTheme: HTheme.dark(s.locale, kids: s.kidsMode),
       themeMode: s.themeMode,
+      // Kids mode: slightly bigger text everywhere.
+      builder: (context, child) => s.kidsMode
+          ? MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(MediaQuery.textScalerOf(context).scale(1) * 1.12),
+              ),
+              child: child!,
+            )
+          : child!,
     );
   }
 }
