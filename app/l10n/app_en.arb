@@ -685,5 +685,119 @@
   "tourCardTitle": "New here? Take the 1-minute tour",
   "tourCardBody": "See how to use every feature, or explore the app with sample progress.",
   "tourCardTour": "Take the tour",
-  "tourCardDemo": "Try demo"
+  "tourCardDemo": "Try demo",
+  "teacherTitle": "AI recitation teacher",
+  "teacherConsent": "Recite the Ayah aloud. Your recording is sent to the Hifz Academy teacher (the open-source Quran Muaalem model on our server). It checks every word, letter and harakah, and Tajweed: Madd lengths, Ghunnah, Qalqalah and Idgham. The recording is not stored.",
+  "teacherNotice": "This Quranic Teacher is an artificial-intelligence model that may make mistakes. It is intended for assistance only and must not be relied upon. It is not a replacement for a proficient, authorized teacher, because the Quran is only received through oral transmission (mushafahah).",
+  "teacherCredit": "Powered by Quran Muaalem (open source, Quran Muaalem License).",
+  "teacherShortNotice": "AI teacher: may make mistakes. For help only — not a replacement for a qualified teacher.",
+  "teacherListening": "Recording… recite the Ayah, then tap I’m done",
+  "teacherChecking": "The teacher is listening to your recitation…",
+  "teacherWaking": "Waking the teacher up — the first check after a break can take up to 2 minutes…",
+  "teacherPerfect": "MashaAllah! The teacher found no mistakes in the words, harakat or Tajweed. 🌟",
+  "teacherDifferent": "That didn’t sound like this Ayah. Did you recite a different one? Try again, or mark your mistakes below.",
+  "teacherOffline": "Couldn’t reach the teacher (no internet?). Mark your mistakes yourself this time.",
+  "teacherUnclear": "The recording wasn’t very clear, so some of these may be wrong.",
+  "countWords": "{n} word/letter",
+  "@countWords": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "countHarakat": "{n} harakah",
+  "@countHarakat": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "countTajweed": "{n} Tajweed",
+  "@countTajweed": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "missedTitle": "Missed",
+  "letterTitle": "Wrong word or letter",
+  "harakahTitle": "Wrong harakah (vowel)",
+  "harakahHow": "Check the fatha, kasra, damma or sukun on this word.",
+  "leftOut": "Left out: {expected}",
+  "@leftOut": {
+    "placeholders": {
+      "expected": {
+        "type": "String"
+      }
+    }
+  },
+  "addedExtra": "Added something extra: {heard}",
+  "@addedExtra": {
+    "placeholders": {
+      "heard": {
+        "type": "String"
+      }
+    }
+  },
+  "saidInstead": "You said {heard} — it should be {expected}",
+  "@saidInstead": {
+    "placeholders": {
+      "heard": {
+        "type": "String"
+      },
+      "expected": {
+        "type": "String"
+      }
+    }
+  },
+  "tajweedGeneric": "Tajweed",
+  "heldTooShort": "Hold it for {expected} counts — you held about {heard}.",
+  "@heldTooShort": {
+    "placeholders": {
+      "expected": {
+        "type": "int"
+      },
+      "heard": {
+        "type": "int"
+      }
+    }
+  },
+  "heldTooLong": "Hold it for {expected} counts — you held about {heard}, too long.",
+  "@heldTooLong": {
+    "placeholders": {
+      "expected": {
+        "type": "int"
+      },
+      "heard": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleMissing": "This rule was not applied.",
+  "ruleExtra": "Applied where it shouldn’t be.",
+  "ruleNotApplied": "Not pronounced as the rule requires.",
+  "ruleNormalMadd": "Natural Madd (Madd Tabee‘i)",
+  "ruleMonfasel": "Separated Madd (Madd Munfasil)",
+  "ruleMottasel": "Connected Madd (Madd Muttasil)",
+  "ruleLazem": "Necessary Madd (Madd Lazim)",
+  "ruleAared": "Madd for a stop (Madd ‘Aarid)",
+  "ruleLeen": "Madd al-Leen",
+  "ruleQalqalah": "Qalqalah (echo)",
+  "ruleIdgham": "Idgham (merging)",
+  "ruleGhunnah": "Ghunnah (nasal sound)",
+  "howNormalMadd": "A plain madd letter is held for 2 counts.",
+  "howMonfasel": "A madd letter at the end of a word followed by hamzah in the next word: 4–5 counts (2 is also allowed).",
+  "howMottasel": "A madd letter followed by hamzah in the same word: 4–5 counts (up to 6 when stopping).",
+  "howLazem": "A madd letter followed by a permanent sukun or shaddah: always 6 counts.",
+  "howAared": "When you stop on a word after a madd letter: 2, 4 or 6 counts — keep it the same every time.",
+  "howLeen": "Sakin waw or yaa after a fatha, when stopping: 2, 4 or 6 counts.",
+  "howQalqalah": "ق ط ب ج د with sukun get a slight echo/bounce.",
+  "howIdgham": "The first letter merges fully into the next one.",
+  "howGhunnah": "Noon or meem with shaddah, or hidden/merged noon: hold the nasal sound for 2 counts.",
+  "teacherAbout": "About the AI teacher",
+  "teacherStatusOn": "Connected — checks words, harakat and Tajweed",
+  "teacherStatusOff": "Not set up yet — using the phone’s speech recognition (words only)"
 }

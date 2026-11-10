@@ -201,6 +201,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> with BreakReminder 
                       missedWordPositions: r.missed,
                       recallMs: r.recallMs,
                       method: r.method,
+                      tajweedWordPositions: r.tajweedWords,
                       quran: quran,
                     );
                 if (!mounted) return;

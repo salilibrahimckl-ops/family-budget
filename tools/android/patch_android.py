@@ -66,6 +66,8 @@ for f in ['android/app/build.gradle.kts', 'android/app/build.gradle']:
     }
 ''')
     g = re.sub(r'^android \{\n', lambda m: m.group(0) + block, g, count=1, flags=re.M)
+    # The recorder used by the recitation teacher needs Android 7 (API 24) or newer.
+    g = g.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24').replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
     if kts:
         g = re.sub(r'compileOptions \{\n', lambda m: m.group(0) + '        isCoreLibraryDesugaringEnabled = true\n', g, count=1)
         g += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'

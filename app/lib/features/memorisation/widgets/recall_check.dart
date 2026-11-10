@@ -9,6 +9,8 @@ import '../../../core/quran/quran_repository.dart';
 import '../../../core/quran/tafsir.dart';
 import '../../recite/matcher.dart';
 import '../../recite/recite_service.dart';
+import '../../recite/teacher.dart';
+import '../../recite/teacher_feedback.dart';
 
 class RecallResult {
   const RecallResult({
@@ -18,13 +20,18 @@ class RecallResult {
     required this.hintsUsed,
     this.method = 'self_report',
     this.confidence,
+    this.tajweedWords = const {},
   });
   final Set<int> missed; // 1-based word positions
   final double accuracy;
   final int recallMs;
   final int hintsUsed;
-  final String method; // 'self_report' | 'asr_word'
+  final String method; // 'self_report' | 'asr_word' | 'ai_phoneme'
   final double? confidence;
+
+  /// Words with a Tajweed mistake found by the AI teacher (1-based). Recorded and shown,
+  /// but not counted against memorisation: the words themselves were right.
+  final Set<int> tajweedWords;
 }
 
 /// Active-recall check used by lessons, revision and challenges.
@@ -72,6 +79,24 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
 
   late final ReciteService _recite = ref.read(reciteServiceProvider);
 
+  // AI teacher
+  TeacherClient? _client;
+  bool _recording = false;
+  bool _checking = false;
+  bool _waking = false;
+  TeacherResult? _teacher;
+  final _tajweed = <int>{};
+  final _wordColor = <int, TeacherErrorType>{};
+
+  @override
+  void initState() {
+    super.initState();
+    // Wake the free server early so it's ready by the time the learner recites.
+    ref.read(teacherUrlProvider.future).then((u) {
+      if (u != null) warmUpTeacher(u);
+    }).ignore();
+  }
+
   Set<int> get _allWords => {for (var i = 1; i <= widget.ayah.wordCount; i++) i};
 
   Set<int> get _hidden {
@@ -83,6 +108,8 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
   @override
   void dispose() {
     if (_listening) _recite.stop();
+    if (_recording) _client?.cancel();
+    _client?.dispose();
     super.dispose();
   }
 
@@ -92,6 +119,9 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
       });
 
   Future<void> _startListening() async {
+    final url = await ref.read(teacherUrlProvider.future);
+    if (!mounted) return;
+    if (url != null) return _startTeacher(url);
     final l = context.l10n;
     if (!await ensureSpeechConsent(context, ref)) return;
     final svc = _recite;
@@ -117,6 +147,96 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
     await _recite.stop();
     // onDone fires with the final result; if nothing was heard, finish here.
     if (mounted && _listening && _heard.isEmpty) _finish('', -1);
+  }
+
+  String? _teacherUrl;
+
+  Future<void> _startTeacher(String url) async {
+    final l = context.l10n;
+    if (!await ensureTeacherNotice(context, ref)) return;
+    _client ??= TeacherClient();
+    bool started;
+    try {
+      started = await _client!.start();
+    } catch (_) {
+      started = false;
+    }
+    if (!mounted) return;
+    if (!started) {
+      setState(() => _speechNote = l.micUnavailable);
+      return;
+    }
+    _teacherUrl = url;
+    setState(() {
+      _recording = true;
+      _speechNote = null;
+      _unsure = false;
+    });
+  }
+
+  Future<void> _finishTeacher() async {
+    final l = context.l10n;
+    setState(() {
+      _recording = false;
+      _checking = true;
+      _waking = false;
+    });
+    try {
+      final audio = await _client!.stop();
+      if (audio == null || audio.isEmpty) throw const TeacherUnavailable('no audio');
+      final r = await _client!.check(
+        baseUrl: _teacherUrl!,
+        audio: audio,
+        sura: widget.ayah.surah,
+        aya: widget.ayah.ayah,
+        onStatus: (w) {
+          if (mounted) setState(() => _waking = w);
+        },
+      );
+      if (!mounted) return;
+      _reveal();
+      setState(() {
+        _checking = false;
+        _teacher = r;
+        if (!r.assessed) {
+          _unsure = true;
+          _speechNote = switch (r.status) { 'different_ayah' => l.teacherDifferent, _ => l.unableToAssess };
+          return;
+        }
+        _method = 'ai_phoneme';
+        _confidence = r.confidence;
+        _missed.clear();
+        _tajweed.clear();
+        _wordColor.clear();
+        int pos(int i) => mapPosition(i + 1, r.words.length, widget.ayah.wordCount);
+        for (final e in r.errors) {
+          for (var i = e.wordStart; i <= e.wordEnd; i++) {
+            final p = pos(i);
+            if (e.type == TeacherErrorType.tajweed) {
+              _tajweed.add(p);
+            } else {
+              _missed.add(p);
+            }
+            final prev = _wordColor[p];
+            if (prev == null || e.type.index < prev.index) _wordColor[p] = e.type;
+          }
+        }
+        _speechNote = r.errors.isEmpty ? l.teacherPerfect : null;
+      });
+      if (r.errors.isEmpty) {
+        ref.read(sfxProvider).success();
+      } else {
+        ref.read(sfxProvider).oops();
+      }
+    } on TeacherUnavailable {
+      if (!mounted) return;
+      _reveal();
+      setState(() {
+        _checking = false;
+        _unsure = true;
+        _speechNote = l.teacherOffline;
+      });
+    }
   }
 
   Future<void> _finish(String words, double conf) async {
@@ -173,7 +293,20 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
         ),
       ),
       const SizedBox(height: HSpace.m),
-      if (_listening) ...[
+      if (_recording) ...[
+        _ListeningPanel(heard: '', label: l.teacherListening),
+        const SizedBox(height: HSpace.s),
+        FilledButton.icon(
+          style: FilledButton.styleFrom(backgroundColor: scheme.error),
+          icon: const Icon(Icons.stop_rounded),
+          label: Text(l.micDone),
+          onPressed: _finishTeacher,
+        ),
+      ] else if (_checking) ...[
+        const Center(child: CircularProgressIndicator()),
+        const SizedBox(height: HSpace.s),
+        Text(_waking ? l.teacherWaking : l.teacherChecking, textAlign: TextAlign.center, style: t.bodyMedium),
+      ] else if (_listening) ...[
         _ListeningPanel(heard: _heard),
         const SizedBox(height: HSpace.s),
         FilledButton.icon(
@@ -200,6 +333,10 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Text(_speechNote!, style: t.bodyMedium),
+              if (_method == 'ai_phoneme') ...[
+                const SizedBox(height: 4),
+                Text(l.teacherShortNotice, style: t.bodySmall),
+              ],
               if (_method == 'asr_word') ...[
                 const SizedBox(height: 4),
                 Text(l.speechDisclaimer, style: t.bodySmall),
@@ -217,13 +354,25 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
                 FilterChip(
                   label: Text(widget.ayah.word(i), style: const TextStyle(fontFamily: HFonts.quran, fontSize: 20)),
                   selected: _missed.contains(i),
-                  selectedColor: scheme.errorContainer,
+                  selectedColor: _wordColor[i] == TeacherErrorType.harakah
+                      ? colorFor(TeacherErrorType.harakah, scheme).withValues(alpha: 0.25)
+                      : scheme.errorContainer,
+                  side: _tajweed.contains(i) && !_missed.contains(i)
+                      ? BorderSide(color: colorFor(TeacherErrorType.tajweed, scheme), width: 2)
+                      : null,
                   showCheckmark: false,
                   onSelected: (v) => setState(() => v ? _missed.add(i) : _missed.remove(i)),
                 ),
             ],
           ),
         ),
+        if (_teacher != null && _teacher!.assessed && _teacher!.errors.isNotEmpty) ...[
+          const SizedBox(height: HSpace.m),
+          TeacherReport(
+            result: _teacher!,
+            wordAt: (i) => widget.ayah.word(mapPosition(i + 1, _teacher!.words.length, widget.ayah.wordCount)),
+          ),
+        ],
         const SizedBox(height: HSpace.m),
         Text(_missed.isEmpty ? l.recallNoMistakes : l.recallAccuracy((accuracy * 100).round()),
             textAlign: TextAlign.center, style: t.titleMedium),
@@ -236,6 +385,7 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
             hintsUsed: _hints,
             method: _method,
             confidence: _confidence,
+            tajweedWords: Set.of(_tajweed),
           )),
           child: Text(l.continueLabel),
         ),
@@ -245,8 +395,9 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
 }
 
 class _ListeningPanel extends StatefulWidget {
-  const _ListeningPanel({required this.heard});
+  const _ListeningPanel({required this.heard, this.label});
   final String heard;
+  final String? label;
 
   @override
   State<_ListeningPanel> createState() => _ListeningPanelState();
@@ -271,7 +422,7 @@ class _ListeningPanelState extends State<_ListeningPanel> with SingleTickerProvi
         child: CircleAvatar(radius: 32, backgroundColor: scheme.errorContainer, child: Icon(Icons.mic, size: 32, color: scheme.error)),
       ),
       const SizedBox(height: HSpace.s),
-      Text(context.l10n.micListening, style: Theme.of(context).textTheme.titleMedium),
+      Text(widget.label ?? context.l10n.micListening, style: Theme.of(context).textTheme.titleMedium),
       if (widget.heard.isNotEmpty)
         Padding(
           padding: const EdgeInsets.only(top: HSpace.s),

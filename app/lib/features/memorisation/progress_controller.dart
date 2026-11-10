@@ -198,7 +198,8 @@ class ProgressController extends AsyncNotifier<ProgressState> {
     required QuranRepository quran,
     int? recallMs,
     int hintsUsed = 0,
-    String method = 'self_report', // 'asr_word' when the phone's speech recogniser marked the words
+    String method = 'self_report', // 'asr_word' (phone speech recogniser) or 'ai_phoneme' (AI teacher)
+    Set<int> tajweedWordPositions = const {},
     double masteryThreshold = defaultMasteryThreshold,
     VerifiedAyah? rangeStart,
   }) async {
@@ -231,6 +232,10 @@ class ProgressController extends AsyncNotifier<ProgressState> {
       });
       for (final pos in missedWordPositions) {
         await txn.insert('mistakes', {'attempt_id': attemptId, 'word_id': ayah.wordId(pos), 'kind': 'missing'});
+      }
+      for (final pos in tajweedWordPositions.difference(missedWordPositions)) {
+        await txn.insert('mistakes', {'attempt_id': attemptId, 'word_id': ayah.wordId(pos), 'kind': 'tajweed'},
+            conflictAlgorithm: ConflictAlgorithm.ignore);
       }
       // Challenges on Ayahs not yet memorised don't change the schedule; nor does multiple
       // choice, which tests recognition rather than recall.

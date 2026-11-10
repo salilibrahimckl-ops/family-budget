@@ -137,6 +137,7 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> with 
                   recallMs: r.recallMs,
                   hintsUsed: r.hintsUsed,
                   method: r.method,
+                  tajweedWordPositions: r.tajweedWords,
                   quran: quran,
                 );
             if (!mounted) return;

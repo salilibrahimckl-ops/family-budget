@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.8.0",
+    "notes": [
+      "AI recitation teacher: tap Recite to me and the teacher listens to your Ayah and points out missed or wrong words and letters, wrong harakat, and Tajweed mistakes — Madd lengths (with the counts you held), Ghunnah, Qalqalah and Idgham — each shown on its word with how to fix it.",
+      "Mistake colours: red = word or letter, purple = harakah, orange outline = Tajweed.",
+      "The teacher is an AI and can make mistakes: it helps you practise but does not replace a qualified teacher."
+    ]
+  },
+  {
     "version": "0.7.1",
     "notes": [
       "Fixed: tapping a Juz in the Quran journey showed a blank page. It now opens a list of that Juz’s Surahs with your progress in each.",

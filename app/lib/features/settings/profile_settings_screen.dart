@@ -12,6 +12,7 @@ import '../../core/quran/tafsir.dart';
 import '../../core/quran/translations.dart';
 import '../audio/audio_widgets.dart';
 import '../demo/demo_data.dart';
+import '../recite/teacher.dart';
 import '../onboarding/onboarding_store.dart';
 
 /// Me tab: account and sync, language, theme, assessment, data rights, sources.
@@ -169,6 +170,21 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
             );
           }),
           const SizedBox(height: HSpace.l),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.school),
+            title: Text(l.teacherAbout),
+            subtitle: Text(ref.watch(teacherUrlProvider).valueOrNull != null ? l.teacherStatusOn : l.teacherStatusOff),
+            onTap: () => showDialog<void>(
+              context: context,
+              builder: (c) => AlertDialog(
+                icon: const Icon(Icons.school),
+                title: Text(l.teacherTitle),
+                content: SingleChildScrollView(child: TeacherNotice(intro: l.teacherConsent)),
+                actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text(l.continueLabel))],
+              ),
+            ),
+          ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             secondary: const Icon(Icons.child_care),

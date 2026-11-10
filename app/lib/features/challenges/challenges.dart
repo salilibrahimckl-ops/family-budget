@@ -185,7 +185,7 @@ class _ChallengeSessionScreenState extends ConsumerState<ChallengeSessionScreen>
     }
   }
 
-  Future<void> _finishRound(VerifiedAyah a, double accuracy, Set<int> missed, {int? recallMs, int hints = 0, String method = 'self_report'}) async {
+  Future<void> _finishRound(VerifiedAyah a, double accuracy, Set<int> missed, {int? recallMs, int hints = 0, String method = 'self_report', Set<int> tajweed = const {}}) async {
     final quran = ref.read(quranProvider)!;
     final xp = await ref.read(progressProvider.notifier).record(
           ayah: a,
@@ -195,6 +195,7 @@ class _ChallengeSessionScreenState extends ConsumerState<ChallengeSessionScreen>
           recallMs: recallMs,
           hintsUsed: hints,
           method: method,
+          tajweedWordPositions: tajweed,
           quran: quran,
         );
     if (!mounted) return;
@@ -292,7 +293,7 @@ class _ChallengeSessionScreenState extends ConsumerState<ChallengeSessionScreen>
               key: ValueKey('g$_i'),
               ayah: a,
               visibleWords: const {1, 2},
-              onDone: (r) => _finishRound(a, _surahCorrect! ? r.accuracy : r.accuracy * 0.5, r.missed, recallMs: r.recallMs, hints: r.hintsUsed, method: r.method),
+              onDone: (r) => _finishRound(a, _surahCorrect! ? r.accuracy : r.accuracy * 0.5, r.missed, recallMs: r.recallMs, hints: r.hintsUsed, method: r.method, tajweed: r.tajweedWords),
             ),
           ]);
         }
@@ -307,7 +308,7 @@ class _ChallengeSessionScreenState extends ConsumerState<ChallengeSessionScreen>
             ayah: a,
             visibleWords: visible,
             prompt: prompt,
-            onDone: (r) => _finishRound(a, r.accuracy, r.missed, recallMs: r.recallMs, hints: r.hintsUsed, method: r.method),
+            onDone: (r) => _finishRound(a, r.accuracy, r.missed, recallMs: r.recallMs, hints: r.hintsUsed, method: r.method, tajweed: r.tajweedWords),
           ),
         ]);
     }
