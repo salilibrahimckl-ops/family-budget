@@ -63,9 +63,26 @@ def main(assets: str) -> int:
     catalogue = json.loads(get("https://quranenc.com/api/v1/translations/list"))
     catalogue = catalogue["translations"] if isinstance(catalogue, dict) else catalogue
     keys = {c["key"]: c for c in catalogue}
+    print(f"QuranEnc catalogue: {len(keys)} entries; mukhtasar-like: "
+          f"{sorted(k for k in keys if 'mokh' in k or 'mukh' in k)[:40]}")
     index = []
     for lang, word in WANT:
-        key = next((k for k in keys if k.startswith(word) and "mokhtasar" in k), None)
+        def is_mukhtasar(k: str) -> bool:
+            c = keys.get(k, {})
+            blob = " ".join(str(v) for v in c.values()).lower() if isinstance(c, dict) else ""
+            return "mokhtasar" in k or "mukhtasar" in k or "mukhtasar" in blob or "المختصر" in blob
+        key = next((k for k in keys if k.startswith(word) and is_mukhtasar(k)), None)
+        if key is None:
+            # The catalogue may not list it; try the usual key directly.
+            for cand in (f"{word}_mokhtasar", f"{word}_mukhtasar"):
+                try:
+                    data = json.loads(get(f"https://quranenc.com/api/v1/translation/sura/{cand}/1", tries=2))
+                    if (data.get("result") if isinstance(data, dict) else data):
+                        key = cand
+                        keys.setdefault(cand, {})
+                        break
+                except Exception:
+                    pass
         if key is None:
             print(f"!! no Al-Mukhtasar found for {lang}")
             continue
