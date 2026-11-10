@@ -21,6 +21,7 @@ Audio is processed in memory and deleted after the check; nothing is stored.
 """
 from __future__ import annotations
 
+import asyncio
 import os
 import subprocess
 import tempfile
@@ -298,6 +299,11 @@ async def check(
     madd_mottasel_len: int = Form(4),
     madd_aared_len: int = Form(4),
 ):
+    # Just woke up: wait for the model rather than turning the learner away.
+    for _ in range(120):
+        if M.ready or M.error:
+            break
+        await asyncio.sleep(1)
     if not M.ready:
         raise HTTPException(503, M.error or "The teacher is waking up. Try again in a minute.")
     t0 = time.time()
