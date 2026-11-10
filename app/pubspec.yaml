@@ -1,7 +1,7 @@
 name: hifz_academy
 description: Quran Hifz & Recitation Academy — Android and iOS.
 publish_to: none
-version: 0.6.0+6
+version: 0.6.1+7
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -33,6 +33,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.0
 
 flutter:
   uses-material-design: true
@@ -52,3 +53,16 @@ flutter:
   #       - asset: assets/fonts/NotoSansMalayalam-Regular.ttf
   #       - asset: assets/fonts/NotoSansMalayalam-SemiBold.ttf
   #         weight: 600
+
+# App icon: emerald with the gold Rub el Hizb star and an open Mushaf (assets/icon/icon.svg).
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/icon/icon.png
+  adaptive_icon_background: "#0F5E50"
+  adaptive_icon_foreground: assets/icon/icon_fg.png
+  web:
+    generate: true
+    image_path: assets/icon/icon.png
+    background_color: "#0F5E50"
+    theme_color: "#0F5E50"

@@ -31,6 +31,7 @@ jobs:
           {
             flutter create --platforms web --org com.salil --project-name hifz_academy .
             flutter pub get
+            dart run flutter_launcher_icons
             flutter gen-l10n
             dart run sqflite_common_ffi_web:setup
             flutter analyze --no-fatal-infos
@@ -94,6 +95,7 @@ jobs:
             flutter create --platforms android --org com.salil --project-name hifz_academy .
             python3 -I ../tools/android/patch_android.py
             flutter pub get
+            dart run flutter_launcher_icons
             flutter gen-l10n
             flutter build apk --release --build-number=$B
           } 2>&1 | tee ../build-android.log
