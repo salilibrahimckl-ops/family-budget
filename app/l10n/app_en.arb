@@ -1,0 +1,429 @@
+{
+  "@@locale": "en",
+  "appTitle": "Hifz Academy",
+  "tagline": "Memorise the Quran. Keep it for life.",
+  "getStarted": "Get started",
+  "continueLabel": "Continue",
+  "back": "Back",
+  "stepOf": "Step {current} of {total}",
+  "@stepOf": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "qLanguage": "Which language should the app use?",
+  "qReading": "How well can you read the Quran from the Mushaf?",
+  "readingNone": "I can't read Arabic script yet",
+  "readingSlow": "I read slowly, letter by letter",
+  "readingFluent": "I read fluently",
+  "qTajweed": "How much Tajweed do you know?",
+  "tajweedNone": "None yet",
+  "tajweedBasic": "The basics (Noon Sakinah, Madd)",
+  "tajweedGood": "Most rules, applied consistently",
+  "qMemorised": "How much have you memorised so far?",
+  "memNone": "Nothing yet",
+  "memFew": "A few short Surahs",
+  "memJuzAmma": "Most or all of Juz 30",
+  "memSeveralJuz": "Several Juz",
+  "memHafiz": "The whole Quran",
+  "qGoal": "What is your goal?",
+  "goalFromBeginning": "Learn the Quran from the beginning",
+  "goalSelected": "Memorise selected Surahs",
+  "goalComplete": "Complete the entire Quran",
+  "goalStrengthen": "Strengthen my existing Hifz",
+  "goalTajweed": "Improve my recitation and Tajweed",
+  "qTime": "How much time can you give each day?",
+  "minutes": "{n} minutes",
+  "@minutes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "qPace": "How fast do you want to add new Ayahs?",
+  "paceGentle": "Gentle — about 1 new Ayah a day",
+  "paceSteady": "Steady — about 3 new Ayahs a day",
+  "paceIntensive": "Intensive — about 5 new Ayahs a day",
+  "planTitle": "Your plan",
+  "planLevel": "Level: {level}",
+  "@planLevel": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "levelBeginner": "Beginner",
+  "levelIntermediate": "Intermediate",
+  "levelHafiz": "Hafiz",
+  "planNewPerDay": "{n, plural, =0{No new Ayahs — revision only} =1{1 new Ayah a day} other{{n} new Ayahs a day}}",
+  "@planNewPerDay": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "planDaily": "{n} minutes a day",
+  "@planDaily": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "planRevisionShare": "{pct}% of each session is revision",
+  "@planRevisionShare": {
+    "placeholders": {
+      "pct": {
+        "type": "int"
+      }
+    }
+  },
+  "planReadingFirst": "Starts with Arabic letters and reading before memorisation",
+  "planCapped": "New Ayahs reduced to fit your daily time",
+  "planSavedLocally": "Saved on this phone. Account and sync come in the next update.",
+  "startLearning": "Start learning",
+  "navToday": "Today",
+  "navQuran": "Quran",
+  "navRevise": "Revise",
+  "navChallenges": "Challenges",
+  "navMe": "Me",
+  "dashGreeting": "Assalamu alaikum",
+  "dashTodayPlan": "Today's plan",
+  "dashNewAyahs": "New Ayahs",
+  "dashRevision": "Revision due",
+  "dashStreak": "Streak",
+  "dashDays": "{n, plural, =1{1 day} other{{n} days}}",
+  "@dashDays": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dashMemorised": "Memorised",
+  "dashRetained": "Consistently retained",
+  "dashNoProgress": "No Ayahs memorised yet. Your progress will appear here after your first lesson.",
+  "upcomingTitle": "{screen} is being built",
+  "@upcomingTitle": {
+    "placeholders": {
+      "screen": {
+        "type": "String"
+      }
+    }
+  },
+  "upcomingBody": "This screen arrives in Phase {phase}. Nothing here is a working feature yet.",
+  "@upcomingBody": {
+    "placeholders": {
+      "phase": {
+        "type": "int"
+      }
+    }
+  },
+  "screenAuth": "Sign in",
+  "screenReader": "Quran reader",
+  "screenLesson": "Memorisation lesson",
+  "screenAudio": "Audio player",
+  "screenRecord": "Recitation recording",
+  "screenFeedback": "Recitation feedback",
+  "screenRevision": "Revision queue",
+  "screenChallenges": "Daily challenges",
+  "screenTajweed": "Tajweed Academy",
+  "screenAnalytics": "Progress analytics",
+  "screenJourney": "Quran journey",
+  "screenSubscription": "Premium",
+  "settings": "Settings",
+  "settingsLanguage": "App language",
+  "settingsTheme": "Theme",
+  "themeSystem": "Match phone",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "resetPlan": "Redo the learning assessment",
+  "about": "About and sources",
+  "quranSource": "Quran text: Tanzil Uthmani (Medina Mushaf), used verbatim. tanzil.net",
+  "quranMissingTitle": "Quran text not installed",
+  "quranMissingBody": "This development build has no verified Quran text yet. Run the import tool and add the files to assets/quran/.",
+  "quranCorruptTitle": "Quran text failed verification",
+  "quranCorruptBody": "The Quran text on this device does not match its verified checksum, so it will not be shown. Please reinstall the app.",
+  "devBuild": "Development build",
+  "cancel": "Cancel",
+  "backToToday": "Back to Today",
+  "xpLabel": "XP",
+  "xpEarned": "+{n} XP",
+  "@xpEarned": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "levelLabel": "Hifz level {n}",
+  "@levelLabel": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "makki": "Makki",
+  "madani": "Madani",
+  "surahMeta": "{n} Ayahs · {place}",
+  "@surahMeta": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "surahProgress": "{done} of {total} memorised",
+  "@surahProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "memoriseThisSurah": "Memorise this Surah",
+  "statusNew": "New",
+  "statusLearning": "Learning",
+  "statusRecent": "Recently memorised",
+  "statusStable": "Stable",
+  "statusStrong": "Strong",
+  "statusNeedsRevision": "Needs revision",
+  "stepListen": "Listen",
+  "stepUnderstand": "Understand",
+  "stepRepeat": "Repeat",
+  "stepVisual": "Visual memory",
+  "stepRecall": "Recite from memory",
+  "stepConnect": "Connect",
+  "stepMaster": "Mastery test",
+  "listenNoAudio": "Read the Ayah slowly, word by word. Recitation audio will play here once a licensed reciter is added to the app.",
+  "understandNoTranslation": "Translation and word meanings are not installed yet. They will appear here once a licensed, reviewed translation is added.",
+  "ayahFacts": "{words} words · Juz {juz} · page {page}",
+  "@ayahFacts": {
+    "placeholders": {
+      "words": {
+        "type": "int"
+      },
+      "juz": {
+        "type": "int"
+      },
+      "page": {
+        "type": "int"
+      }
+    }
+  },
+  "repeatCount": "Read aloud: {n} / {target}",
+  "@repeatCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "target": {
+        "type": "int"
+      }
+    }
+  },
+  "repeatReadOnce": "I read it aloud once",
+  "visualRound": "Round {n} of {total} — recite, filling in the hidden words",
+  "@visualRound": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "visualPeek": "Show hidden words",
+  "visualHide": "Hide them again",
+  "recallInstruction": "Recite the Ayah aloud from memory, then tap Check.",
+  "recallMarkMissed": "Tap every word you missed or said wrongly. Be honest — this decides when you revise it next.",
+  "recallCheck": "Check",
+  "recallHint": "Show the next word (hint)",
+  "recallNoMistakes": "No mistakes",
+  "recallAccuracy": "{pct}% correct",
+  "@recallAccuracy": {
+    "placeholders": {
+      "pct": {
+        "type": "int"
+      }
+    }
+  },
+  "recallTryAgain": "Not quite yet. Let’s practise with hidden words once more.",
+  "connectFirstAyah": "This is the first Ayah of the Surah, so there is nothing to connect yet.",
+  "connectPrevious": "Recite the previous Ayah aloud, then carry straight on into this one.",
+  "connectNow": "Now continue with this Ayah from memory, then tap Check.",
+  "masterPrompt": "Final test: recite the whole Ayah without any help.",
+  "masterNotYet": "Almost — a little more practice and you’ll have it.",
+  "masteredTitle": "Ayah memorised",
+  "masteredBody": "+{xp} XP. It is now in your revision schedule: you’ll see it again tomorrow, then at growing intervals.",
+  "@masteredBody": {
+    "placeholders": {
+      "xp": {
+        "type": "int"
+      }
+    }
+  },
+  "revisionNothingYet": "Nothing to revise yet. Memorise your first Ayah and it will appear here tomorrow.",
+  "revisionAllDone": "All revision for today is done. MashaAllah.",
+  "revisionDueCount": "{n, plural, =1{1 Ayah due} other{{n} Ayahs due}}",
+  "@revisionDueCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "revisionThrottled": "Revision has built up, so new memorisation is reduced until you catch up. Keeping what you have comes first.",
+  "revisionStart": "Start revision",
+  "revisionSummary": "{passed} of {total} recited well",
+  "@revisionSummary": {
+    "placeholders": {
+      "passed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewAfter": "Comes after Ayah {n}",
+  "@reviewAfter": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ctaRevise": "Revise ({n} due)",
+  "@ctaRevise": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ctaLearn": "Learn next: {ref}",
+  "@ctaLearn": {
+    "placeholders": {
+      "ref": {
+        "type": "String"
+      }
+    }
+  },
+  "dashAllDoneToday": "Today’s plan is complete. Come back tomorrow, in sha Allah.",
+  "dashWeak": "Weakest Ayahs",
+  "missionsTitle": "Today’s missions",
+  "missionNew": "{n, plural, =1{Memorise 1 new Ayah} other{Memorise {n} new Ayahs}}",
+  "@missionNew": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "missionRevise": "{n, plural, =1{Revise 1 Ayah} other{Revise {n} Ayahs}}",
+  "@missionRevise": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "missionRecall": "Complete a recall challenge",
+  "chLocked": "Challenges use Ayahs you have memorised. Memorise your first Ayah to unlock them.",
+  "chDaily": "Daily Hifz challenge",
+  "chDailyDesc": "Five mixed rounds. Your personal score — no rankings.",
+  "chMissing": "Missing words",
+  "chMissingDesc": "Pick the hidden word.",
+  "chComplete": "Complete the Ayah",
+  "chCompleteDesc": "See the beginning, recite the rest.",
+  "chCompletePrompt": "Recite the rest of this Ayah from memory, then tap Check.",
+  "chRandom": "Random Surah test",
+  "chRandomDesc": "Identify where an Ayah is from, then recite it.",
+  "chWhichSurah": "Which Surah is this from?",
+  "chItWas": "It is from {name}.",
+  "@chItWas": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chConnect": "Connect the Ayahs",
+  "chConnectDesc": "See one Ayah, recite the next.",
+  "chConnectPrompt": "Recite the Ayah that comes next.",
+  "chRecovery": "Forgotten Ayah recovery",
+  "chRecoveryDesc": "Strengthen the Ayahs you find hardest.",
+  "chRecoveryPrompt": "This one has been slipping. Recite it slowly from memory.",
+  "chFullSurah": "Surah without assistance",
+  "chFullSurahDesc": "Recite a whole memorised Surah, Ayah by Ayah, with the text hidden.",
+  "chNeedsFullSurah": "Unlocks when you have memorised a complete Surah.",
+  "chContinue": "Continue reciting",
+  "chContinueDesc": "Audio stops at a random point; you carry on.",
+  "chNeedsAudio": "Needs recitation audio — available once a licensed reciter is added.",
+  "chChooseWord": "Which word is hidden?",
+  "chCorrect": "Correct",
+  "chWrong": "Not this one — the correct word is now shown in the Ayah.",
+  "chScore": "Score: {n}%",
+  "@chScore": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "chNothingToTest": "Not enough memorised Ayahs for this challenge yet.",
+  "authWhy": "Sign in to back up your progress and continue on another phone. The app works fully without an account.",
+  "authEmail": "Email address",
+  "authSendCode": "Send me a code",
+  "authCodeSent": "We sent a 6-digit code to {email}.",
+  "@authCodeSent": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "authCode": "6-digit code",
+  "authVerify": "Sign in",
+  "authChangeEmail": "Use a different email",
+  "authPrivacy": "We store your learning progress only. Voice recordings are never uploaded without your separate permission.",
+  "authNotConfigured": "Sign-in is not set up in this build. Your progress is saved on this phone.",
+  "authNetworkError": "Couldn’t reach the server. Check your connection and try again.",
+  "signInToSync": "Sign in to back up and sync",
+  "signInToSyncSub": "Use your progress on Android and iPhone",
+  "syncNow": "Sync now",
+  "syncDone": "Synced: {up} sent, {down} received",
+  "@syncDone": {
+    "placeholders": {
+      "up": {
+        "type": "int"
+      },
+      "down": {
+        "type": "int"
+      }
+    }
+  },
+  "signOut": "Sign out",
+  "deleteAccount": "Delete account and all data",
+  "deleteLocalData": "Delete all progress on this phone",
+  "deleteTitle": "Delete everything?",
+  "deleteBody": "Your memorisation history, revision schedule, XP and streak will be permanently deleted from this phone and, if you are signed in, from the server. This cannot be undone.",
+  "deleteConfirm": "Delete permanently"
+}

@@ -1,0 +1,4 @@
+env.json
+.dart_tool/
+build/
+.flutter-plugins*

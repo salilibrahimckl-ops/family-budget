@@ -1,0 +1,49 @@
+name: hifz_academy
+description: Quran Hifz & Recitation Academy — Android and iOS.
+publish_to: none
+version: 0.5.0+5
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+  flutter_riverpod: ^2.5.1
+  go_router: ^14.2.0
+  shared_preferences: ^2.2.3
+  crypto: ^3.0.3
+  supabase_flutter: ^2.8.0
+  sqflite: ^2.4.1
+  sqflite_common_ffi_web: ^1.0.0
+  path: ^1.9.0
+  uuid: ^4.5.1
+  # Added when their phase starts (nothing unused ships):
+  # just_audio + audio_service (audio, once a reciter licence is in place), record (Phase 9),
+  # purchases_flutter (Phase 13)
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  generate: true
+  assets:
+    - assets/quran/
+  # Note: assets/quran/ holds the verified Tanzil text produced by tools/quran_import.
+  # Fonts: add the files to assets/fonts/ and uncomment (see README, "Fonts").
+  # fonts:
+  #   - family: UthmanicHafs
+  #     fonts:
+  #       - asset: assets/fonts/UthmanicHafs_V22.ttf
+  #   - family: NotoSansMalayalam
+  #     fonts:
+  #       - asset: assets/fonts/NotoSansMalayalam-Regular.ttf
+  #       - asset: assets/fonts/NotoSansMalayalam-SemiBold.ttf
+  #         weight: 600

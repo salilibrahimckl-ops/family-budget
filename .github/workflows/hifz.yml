@@ -1,0 +1,75 @@
+name: Build Hifz Academy (web)
+on:
+  push:
+    branches: [hifz]
+  workflow_dispatch: {}
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: hifz-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - name: Test and build web app
+        shell: bash
+        run: |
+          set -o pipefail
+          cd app
+          {
+            flutter create --platforms web --org com.salil --project-name hifz_academy .
+            flutter pub get
+            flutter gen-l10n
+            dart run sqflite_common_ffi_web:setup
+            flutter analyze --no-fatal-infos
+            flutter test
+          } 2>&1 | tee ../build-hifz.log
+          python3 - <<'PY'
+          import json, re
+          m = json.load(open('web/manifest.json'))
+          m.update(name='Hifz Academy', short_name='Hifz', background_color='#FBF9F4',
+                   theme_color='#0F5E50', display='standalone', orientation='portrait')
+          json.dump(m, open('web/manifest.json', 'w'), indent=2)
+          h = open('web/index.html').read()
+          h = re.sub(r'<title>.*?</title>', '<title>Hifz Academy</title>', h)
+          h = h.replace('content="hifz_academy"', 'content="Hifz Academy"')
+          h = h.replace('<head>', '<head>\n  <meta name="theme-color" content="#0F5E50">', 1)
+          open('web/index.html', 'w').write(h)
+          PY
+          flutter build web --release --base-href /family-budget/hifz/ 2>&1 | tee -a ../build-hifz.log
+          # Self-clearing service worker: the home-screen app always loads the newest version.
+          cat > build/web/flutter_service_worker.js <<'JS'
+          self.addEventListener('install', () => self.skipWaiting());
+          self.addEventListener('activate', (event) => {
+            event.waitUntil((async () => {
+              const keys = await caches.keys();
+              await Promise.all(keys.map((k) => caches.delete(k)));
+              await self.registration.unregister();
+              const clients = await self.clients.matchAll({ type: 'window' });
+              clients.forEach((c) => c.navigate(c.url));
+            })());
+          });
+          JS
+          tar -czf ../hifz-web.tar.gz -C build/web .
+      - name: Publish to hifz-builds branch
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p /tmp/out && cp build-hifz.log /tmp/out/ || true
+          cp hifz-web.tar.gz /tmp/out/ 2>/dev/null || true
+          echo "${{ job.status }} run ${{ github.run_number }} $(date -u)" > /tmp/out/STATUS
+          cd /tmp/out && git init -q && git checkout -q -b hifz-builds
+          git config user.name github-actions; git config user.email github-actions@users.noreply.github.com
+          git add -A && git commit -qm "Hifz web build ${{ github.sha }}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" hifz-builds
+      - name: Redeploy the Pages site
+        if: success()
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: gh workflow run pages.yml --repo "${{ github.repository }}" --ref main

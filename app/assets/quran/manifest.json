@@ -1,0 +1,13 @@
+{
+  "source": "Tanzil Uthmani",
+  "source_url": "https://tanzil.net",
+  "version": "Uthmani 1.1, downloaded 2026-11-10",
+  "license": "CC BY 3.0 — verbatim copies only; changing the text is not allowed; credit Tanzil.net",
+  "quran_file_sha256": "8c5aeae20363a98f6963720d29fce040ca8b56a8e75f8b564c257fce7f6d0417",
+  "meta_file_sha256": "8867c1d88191472adec9db694b3cd9f135b1a2ef580574d32cf888dcb22c5c7a",
+  "surah_count": 114,
+  "ayah_count": 6236,
+  "word_count": 77433,
+  "bismillah_count": 112,
+  "content_sha256": "79a6ff354e2ce0c6a63b00c80fd631e330204ad1524b92528eb43864fd8e0083"
+}
