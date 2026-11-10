@@ -54,15 +54,3 @@ flutter:
   #       - asset: assets/fonts/NotoSansMalayalam-SemiBold.ttf
   #         weight: 600
 
-# App icon: emerald with the gold Rub el Hizb star and an open Mushaf (assets/icon/icon.svg).
-flutter_launcher_icons:
-  android: true
-  ios: false
-  image_path: assets/icon/icon.png
-  adaptive_icon_background: "#0F5E50"
-  adaptive_icon_foreground: assets/icon/icon_fg.png
-  web:
-    generate: true
-    image_path: assets/icon/icon.png
-    background_color: "#0F5E50"
-    theme_color: "#0F5E50"

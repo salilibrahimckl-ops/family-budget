@@ -1,0 +1,9 @@
+# App icon (web / iPhone home screen and browser tab).
+flutter_launcher_icons:
+  android: false
+  ios: false
+  web:
+    generate: true
+    image_path: assets/icon/icon.png
+    background_color: "#0F5E50"
+    theme_color: "#0F5E50"
