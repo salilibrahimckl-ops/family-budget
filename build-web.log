@@ -1,0 +1,205 @@
+Recreating project ....
+  .idea/runConfigurations/main_dart.xml (created)
+  .idea/workspace.xml (created)
+  .idea/modules.xml (created)
+  .idea/libraries/Dart_SDK.xml (created)
+  .idea/libraries/KotlinJavaRuntime.xml (created)
+  hifz_academy.iml (created)
+  web/manifest.json (created)
+  web/icons/Icon-512.png (created)
+  web/icons/Icon-maskable-512.png (created)
+  web/icons/Icon-192.png (created)
+  web/icons/Icon-maskable-192.png (created)
+  web/favicon.png (created)
+  web/index.html (created)
+  README.md (created)
+Got dependencies.
+Upgrading analysis_options.yaml to exclude build and platform directories.
+Wrote 14 files.
+
+All done!
+You can find general documentation for Flutter at: https://docs.flutter.dev/
+Detailed API documentation is available at: https://api.flutter.dev/
+If you prefer video documentation, consider: https://www.youtube.com/c/flutterdev
+
+In order to run your application, type:
+
+  $ flutter run
+
+Your application code is in ./lib/main.dart.
+
+Resolving dependencies...
+Downloading packages...
+  cli_util 0.4.2 (0.6.0 available)
+  cross_file 0.3.5+5 (0.4.0 available)
+  dbus 0.7.15 (0.8.0 available)
+  flutter_lints 4.0.0 (6.0.0 available)
+  flutter_local_notifications 19.5.0 (23.0.2 available)
+  flutter_local_notifications_linux 6.0.0 (9.0.0 available)
+  flutter_local_notifications_platform_interface 9.1.0 (13.0.0 available)
+  flutter_local_notifications_windows 1.0.3 (4.0.1 available)
+  flutter_riverpod 2.6.1 (3.5.0 available)
+  geolocator 14.0.2 (14.1.2 available)
+  geolocator_linux 0.2.4 (0.2.6 available)
+  go_router 14.8.1 (18.1.4 available)
+  gsettings 0.2.8 (0.2.9 available)
+  lints 4.0.0 (6.1.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  package_info_plus 9.0.1 (10.2.2 available)
+  package_info_plus_platform_interface 3.2.1 (4.1.0 available)
+  record 6.2.1 (7.2.0 available)
+  record_android 1.5.2 (2.3.0 available)
+  record_ios 1.2.1 (2.1.1 available)
+  record_linux 1.3.1 (2.2.0 available)
+  record_macos 1.2.2 (2.1.1 available)
+  record_platform_interface 1.6.0 (2.2.0 available)
+  record_web 1.3.0 (2.2.0 available)
+  record_windows 1.0.7 (2.4.0 available)
+  riverpod 2.6.1 (3.5.0 available)
+  share_plus 10.1.4 (13.3.1 available)
+  share_plus_platform_interface 5.0.2 (7.2.0 available)
+  test_api 0.7.14 (0.7.15 available)
+  timezone 0.10.1 (0.11.2 available)
+  vector_math 2.4.3 (2.4.4 available)
+  win32 5.15.0 (6.4.0 available)
+  xml 6.6.1 (7.1.0 available)
+Got dependencies!
+33 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+  ════════════════════════════════════════════
+     FLUTTER LAUNCHER ICONS (v0.14.4)                               
+  ════════════════════════════════════════════
+  
+Creating Icons for Web...
+
+✓ Successfully generated launcher icons
+Because l10n.yaml exists, the options defined there will be used instead.
+To use the command line arguments, delete the l10n.yaml file in the Flutter project.
+
+
+Building sqflite_common_ffi_web shared worker
+/home/runner/work/family-budget/family-budget/app/.dart_tool/sqflite_common_ffi_web/setup/1.2.2
+Fetching: https://github.com/simolus3/sqlite3.dart/releases/download/sqlite3-3.6.0/sqlite3.wasm
+created: /home/runner/work/family-budget/family-budget/app/web/sqflite_sw.js (262764 bytes)
+created: /home/runner/work/family-budget/family-budget/app/web/sqlite3.wasm (748686 bytes)
+Analyzing app...                                                
+
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/core/design/quran_text.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/core/design/theme.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/core/design/tokens.dart:1:1 • deprecated_member_use
+   info • 'GlobalMaterialLocalizations' is deprecated and shouldn't be used. Use GlobalMaterialLocalizations from package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/core/l10n/gen/app_localizations.dart:91:5 • deprecated_member_use
+   info • 'GlobalCupertinoLocalizations' is deprecated and shouldn't be used. Use GlobalCupertinoLocalizations from package:cupertino_ui/cupertino_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/core/l10n/gen/app_localizations.dart:92:5 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/core/router/app_router.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/core/settings/settings_controller.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/core/widgets/break_reminder.dart:3:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/core/widgets/fun.dart:3:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/core/widgets/noor.dart:3:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/core/widgets/widgets.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/audio/audio_widgets.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/auth/auth_screen.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/challenges/challenges.dart:3:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/common/upcoming_screen.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/dashboard/dashboard_screen.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/demo/guide_screen.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/gamification/achievements_screens.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/gamification/sticker_book.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/lesson/lesson_screen.dart:1:1 • deprecated_member_use
+   info • Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check. Guard a 'State.context' use with a 'mounted' check on the State, and other BuildContext use with a 'mounted' check on the BuildContext • lib/features/lesson/lesson_screen.dart:210:41 • use_build_context_synchronously
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/memorisation/widgets/recall_check.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/onboarding/onboarding_flow.dart:1:1 • deprecated_member_use
+   info • Dangling library doc comment. Add a 'library' directive after the library comment • lib/features/prayer/compass_source.dart:1:1 • dangling_library_doc_comments
+   info • Dangling library doc comment. Add a 'library' directive after the library comment • lib/features/prayer/prayer_alerts.dart:1:1 • dangling_library_doc_comments
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/prayer/prayer_screen.dart:4:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/reader/reader_screens.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/recite/correction_panel.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/recite/recite_home_screen.dart:3:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/recite/recite_service.dart:3:1 • deprecated_member_use
+   info • 'localeId' is deprecated and shouldn't be used. Use SpeechListenOptions.localeId instead. Try replacing the use of the deprecated member with the replacement • lib/features/recite/recite_service.dart:43:7 • deprecated_member_use
+   info • 'listenFor' is deprecated and shouldn't be used. Use SpeechListenOptions.listenFor instead. Try replacing the use of the deprecated member with the replacement • lib/features/recite/recite_service.dart:44:7 • deprecated_member_use
+   info • 'pauseFor' is deprecated and shouldn't be used. Use SpeechListenOptions.pauseFor instead. Try replacing the use of the deprecated member with the replacement • lib/features/recite/recite_service.dart:45:7 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/recite/section_recite_screen.dart:3:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/recite/teacher.dart:5:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/recite/teacher_feedback.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/revision/revision_screens.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/settings/profile_settings_screen.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/share/share_app.dart:1:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/splash/splash_screen.dart:2:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/features/updates/updates.dart:4:1 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/main.dart:1:1 • deprecated_member_use
+   info • 'GlobalMaterialLocalizations' is deprecated and shouldn't be used. Use GlobalMaterialLocalizations from package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/main.dart:43:9 • deprecated_member_use
+   info • 'GlobalCupertinoLocalizations' is deprecated and shouldn't be used. Use GlobalCupertinoLocalizations from package:cupertino_ui/cupertino_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/main.dart:45:9 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • test/app_flow_test.dart:1:1 • deprecated_member_use
+   info • 'GlobalMaterialLocalizations' is deprecated and shouldn't be used. Use GlobalMaterialLocalizations from package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • test/app_flow_test.dart:32:11 • deprecated_member_use
+   info • 'GlobalCupertinoLocalizations' is deprecated and shouldn't be used. Use GlobalCupertinoLocalizations from package:cupertino_ui/cupertino_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • test/app_flow_test.dart:34:11 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • test/guide_test.dart:1:1 • deprecated_member_use
+   info • 'GlobalMaterialLocalizations' is deprecated and shouldn't be used. Use GlobalMaterialLocalizations from package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • test/guide_test.dart:28:11 • deprecated_member_use
+   info • 'GlobalCupertinoLocalizations' is deprecated and shouldn't be used. Use GlobalCupertinoLocalizations from package:cupertino_ui/cupertino_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • test/guide_test.dart:30:11 • deprecated_member_use
+   info • 'package:flutter/material.dart' is deprecated and shouldn't be used. Use package:material_ui/material_ui.dart instead. This feature was deprecated after v3.47.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • test/widget_test.dart:2:1 • deprecated_member_use
+
+51 issues found. (ran in 11.0s)
+
+::group::✅ Passing tests
+✅ /home/runner/work/family-budget/family-budget/app/test/quran_repository_test.dart: verified text loads unchanged, with words and pause marks separated
+✅ /home/runner/work/family-budget/family-budget/app/test/quran_repository_test.dart: a single changed character is rejected
+✅ /home/runner/work/family-budget/family-budget/app/test/quran_repository_test.dart: a changed Basmala is rejected
+✅ /home/runner/work/family-budget/family-budget/app/test/quran_repository_test.dart: a partial Quran is rejected in production mode
+✅ /home/runner/work/family-budget/family-budget/app/test/real_quran_assets_test.dart: bundled Tanzil text passes full verification
+✅ /home/runner/work/family-budget/family-budget/app/test/matcher_test.dart: normalisation removes harakat and unifies letter forms
+✅ /home/runner/work/family-budget/family-budget/app/test/matcher_test.dart: close spellings still match
+✅ /home/runner/work/family-budget/family-budget/app/test/matcher_test.dart: a perfect recitation
+✅ /home/runner/work/family-budget/family-budget/app/test/matcher_test.dart: a missing word is found in the right place
+✅ /home/runner/work/family-budget/family-budget/app/test/matcher_test.dart: a substituted word is marked wrong, with what was heard
+✅ /home/runner/work/family-budget/family-budget/app/test/matcher_test.dart: a repeated word is counted as a repeat, not a mistake in the Ayah
+✅ /home/runner/work/family-budget/family-budget/app/test/matcher_test.dart: hearing almost nothing is not judged
+✅ /home/runner/work/family-budget/family-budget/app/test/matcher_test.dart: position mapping between spellings
+✅ /home/runner/work/family-budget/family-budget/app/test/gamification_test.dart: streak counts consecutive learned days
+✅ /home/runner/work/family-budget/family-budget/app/test/gamification_test.dart: streak survives until today ends
+✅ /home/runner/work/family-budget/family-budget/app/test/gamification_test.dart: a missed day breaks the streak unless a freeze covers it
+✅ /home/runner/work/family-budget/family-budget/app/test/gamification_test.dart: freezes are earned weekly and capped at two
+✅ /home/runner/work/family-budget/family-budget/app/test/gamification_test.dart: auto-freeze covers only a gap right before a streak
+✅ /home/runner/work/family-budget/family-budget/app/test/gamification_test.dart: revision XP is not given twice a day or for Ayahs not due
+✅ /home/runner/work/family-budget/family-budget/app/test/gamification_test.dart: challenge XP needs at least half correct
+✅ /home/runner/work/family-budget/family-budget/app/test/gamification_test.dart: levels follow memorised Ayahs, not XP
+✅ /home/runner/work/family-budget/family-budget/app/test/gamification_test.dart: badges unlock from real progress only
+✅ /home/runner/work/family-budget/family-budget/app/test/gamification_test.dart: best streak counts the longest run, freezes keep it but do not add
+✅ /home/runner/work/family-budget/family-budget/app/test/gamification_test.dart: daily progress ring
+✅ /home/runner/work/family-budget/family-budget/app/test/app_flow_test.dart: assessment builds a plan and saves it
+✅ /home/runner/work/family-budget/family-budget/app/test/app_flow_test.dart: Arabic interface lays out right-to-left
+✅ /home/runner/work/family-budget/family-budget/app/test/app_flow_test.dart: Malayalam interface loads its strings
+✅ /home/runner/work/family-budget/family-budget/app/test/widget_test.dart: light and dark themes build for all three languages
+✅ /home/runner/work/family-budget/family-budget/app/test/srs_test.dart: applyReview mastery schedules the first revision for tomorrow
+✅ /home/runner/work/family-budget/family-budget/app/test/srs_test.dart: applyReview never strong after a single correct answer
+✅ /home/runner/work/family-budget/family-budget/app/test/srs_test.dart: applyReview intervals grow with good reviews and reach strong only with history
+✅ /home/runner/work/family-budget/family-budget/app/test/srs_test.dart: applyReview a lapse resets the streak, lowers ease and marks needs revision
+✅ /home/runner/work/family-budget/family-budget/app/test/srs_test.dart: applyReview ease never drops below the minimum
+✅ /home/runner/work/family-budget/family-budget/app/test/srs_test.dart: applyReview failed mastery test leaves the Ayah in learning
+✅ /home/runner/work/family-budget/family-budget/app/test/srs_test.dart: applyReview an Ayah left far past its due date needs revision
+✅ /home/runner/work/family-budget/family-budget/app/test/srs_test.dart: applyReview record survives a round trip through the database map
+✅ /home/runner/work/family-budget/family-budget/app/test/srs_test.dart: gradeFromAccuracy below threshold fails, perfect without hints is good
+✅ /home/runner/work/family-budget/family-budget/app/test/srs_test.dart: buildDailyQueue weak Ayahs come before stable ones
+✅ /home/runner/work/family-budget/family-budget/app/test/srs_test.dart: buildDailyQueue a large backlog stops new memorisation
+✅ /home/runner/work/family-budget/family-budget/app/test/srs_test.dart: buildDailyQueue no backlog keeps the full new allowance
+✅ /home/runner/work/family-budget/family-budget/app/test/srs_test.dart: buildDailyQueue learning order starts with Al-Fatiha then Juz Amma from An-Nas
+✅ /home/runner/work/family-budget/family-budget/app/test/learning_plan_test.dart: steady pace with 30 minutes gives 3 new Ayahs
+✅ /home/runner/work/family-budget/family-budget/app/test/learning_plan_test.dart: 10 minutes caps intensive pace and says so
+✅ /home/runner/work/family-budget/family-budget/app/test/learning_plan_test.dart: learner who cannot read starts with reading, no memorisation yet
+✅ /home/runner/work/family-budget/family-budget/app/test/learning_plan_test.dart: strengthen-Hifz goal is revision only
+✅ /home/runner/work/family-budget/family-budget/app/test/learning_plan_test.dart: Hafiz is classified as Hafiz with heavy revision
+✅ /home/runner/work/family-budget/family-budget/app/test/learning_plan_test.dart: more existing Hifz never lowers the revision share
+✅ /home/runner/work/family-budget/family-budget/app/test/learning_plan_test.dart: only 10/20/30/45/60 minute plans are accepted
+✅ /home/runner/work/family-budget/family-budget/app/test/learning_plan_test.dart: several goals blend: new memorisation plus strengthening keeps new Ayahs
+✅ /home/runner/work/family-budget/family-budget/app/test/learning_plan_test.dart: older saved answers with a single goal still load
+✅ /home/runner/work/family-budget/family-budget/app/test/learning_plan_test.dart: answers round-trip through JSON
+✅ /home/runner/work/family-budget/family-budget/app/test/guide_test.dart: the tour walks through every page and can start demo mode
+✅ /home/runner/work/family-budget/family-budget/app/test/prayer_times_test.dart: Kozhikode, 14 Nov 2026 (Karachi, Shafi Asr) is within a few minutes of expected
+✅ /home/runner/work/family-budget/family-budget/app/test/prayer_times_test.dart: times are in order and Hanafi Asr is later
+✅ /home/runner/work/family-budget/family-budget/app/test/prayer_times_test.dart: Qibla from Kozhikode points west-north-west (~291°)
+::endgroup::
+
+🎉 55 tests passed.
+Compiling lib/main.dart for the Web...                          
+Wasm dry run succeeded. Consider building and testing your application with the `--wasm` flag. See docs for more info: https://docs.flutter.dev/platform-integration/web/wasm
+Use --no-wasm-dry-run to disable these warnings.
+Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 15236 bytes (99.1% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Compiling lib/main.dart for the Web...                             45.3s
+✓ Built build/web
