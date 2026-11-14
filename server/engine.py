@@ -302,7 +302,7 @@ def _severity(e, rules: list[dict], strict: bool, seg_conf: float, word_phonemes
     return "mistake" if strict else "tip"
 
 
-def _align(segs: list[str], ref: Reference) -> list[tuple[int, int, int, float]]:
+def _align(segs: list[str], ref: Reference, debug: list | None = None) -> list[tuple[int, int, int, float]]:
     """Finds the words each breath covers. Breaths that match nothing (someone else
     talking, background sounds the detector let through) are left out."""
     n, out, pointer = ref.n, [], None
@@ -332,6 +332,9 @@ def _align(segs: list[str], ref: Reference) -> list[tuple[int, int, int, float]]
                     d += 0.01 * (s0 - pointer)
                 if best is None or d < best[0] - 1e-9 or (abs(d - best[0]) < 1e-9 and e > best[2]):
                     best = (d, s0, e)
+        if debug is not None:
+            debug.append({"breath": k, "heard": seg, "best": best and [round(best[0], 3), best[1], best[2]],
+                          "ref": best and ref.slice(best[1], best[2]), "pointer": pointer})
         if best is None or best[0] > 0.55:
             continue  # not part of these Ayahs
         d, s0, e = best
@@ -343,7 +346,8 @@ def _align(segs: list[str], ref: Reference) -> list[tuple[int, int, int, float]]
 def analyse(segs: list[tuple[str, float]], ref: Reference, strict: bool) -> dict:
     phon = [p for p, _ in segs]
     confs = [c for _, c in segs]
-    spans = _align(phon, ref)
+    debug: list = []
+    spans = _align(phon, ref, debug)
     by_word: dict[int, list[dict]] = {}
     covered: set[int] = set()
     for k, s0, e, _ in spans:
@@ -428,4 +432,5 @@ def analyse(segs: list[tuple[str, float]], ref: Reference, strict: bool) -> dict
         "confidence": round(confidence, 3),
         "breaths": len(phon),
         "breaths_used": len(spans),
+        "debug": debug if os.environ.get("HIFZ_DEBUG") == "1" else None,
     }

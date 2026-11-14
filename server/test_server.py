@@ -8,6 +8,8 @@ import io, json, subprocess, sys, time, urllib.request, wave
 import numpy as np
 from fastapi.testclient import TestClient
 
+import os
+os.environ["HIFZ_DEBUG"] = "1"
 import app as server
 import engine
 import fairuse
@@ -48,6 +50,9 @@ def show(j, label):
     print(f"\n{label}: status={j['status']} conf={j['confidence']} breaths={j['breaths_used']}/{j['breaths']} "
           f"ayahs={[a['status'][0] for a in j['ayahs']]} mistakes={len(mistakes)} tips={tips} "
           f"audio={j['seconds_audio']}s took={j['seconds']}s (compare {j['seconds_compare']}s)")
+    if j.get("debug") and (mistakes or j["breaths_used"] < j["breaths"]):
+        for d in j["debug"]:
+            print("       ~", json.dumps(d, ensure_ascii=False))
     for a, e in mistakes[:10]:
         print("    ", a, json.dumps({k: e[k] for k in ("word_start", "word_end", "type", "speech", "expected", "heard", "expected_len", "heard_len")}, ensure_ascii=False),
               [r["kind"] for r in e["rules"]])
