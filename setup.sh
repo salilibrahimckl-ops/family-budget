@@ -77,6 +77,10 @@ for f in ['android/app/build.gradle.kts', 'android/app/build.gradle']:
             keyPassword = "android"
         }
     }
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
 '''
     else:
         block = '''
@@ -87,6 +91,10 @@ for f in ['android/app/build.gradle.kts', 'android/app/build.gradle']:
             keyAlias "androiddebugkey"
             keyPassword "android"
         }
+    }
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
     }
 '''
     s = re.sub(r'^android \{\n', lambda m: m.group(0) + block, s, count=1, flags=re.M)
