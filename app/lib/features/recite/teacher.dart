@@ -1,12 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
-import 'package:cross_file/cross_file.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -65,16 +63,20 @@ class TeacherError {
     required this.speech,
     required this.expected,
     required this.heard,
+    this.mistake = true,
     this.expectedLen,
     this.heardLen,
     this.rules = const [],
     this.missingRules = const [],
     this.extraRules = const [],
   });
-  final int wordStart; // 0-based, in the server's Uthmani words
+  final int wordStart; // 0-based, in the Ayah's Uthmani words
   final int wordEnd;
   final TeacherErrorType type;
   final String speech; // insert | delete | replace
+
+  /// true = a real mistake; false = a tip (shown softly, never counted against you).
+  final bool mistake;
   final String expected; // Quran phonetic script
   final String heard;
   final int? expectedLen;
@@ -89,8 +91,13 @@ class TeacherError {
     return TeacherError(
       wordStart: (j['word_start'] as num).toInt(),
       wordEnd: (j['word_end'] as num).toInt(),
-      type: switch (j['type']) { 'tajweed' => TeacherErrorType.tajweed, 'tashkeel' => TeacherErrorType.harakah, _ => TeacherErrorType.word },
+      type: switch (j['type']) {
+        'tajweed' => TeacherErrorType.tajweed,
+        'tashkeel' || 'harakah' => TeacherErrorType.harakah,
+        _ => TeacherErrorType.word,
+      },
       speech: (j['speech'] as String?) ?? 'replace',
+      mistake: (j['severity'] as String? ?? 'mistake') == 'mistake',
       expected: (j['expected'] as String?) ?? '',
       heard: (j['heard'] as String?) ?? '',
       expectedLen: (j['expected_len'] as num?)?.toInt(),
@@ -102,23 +109,57 @@ class TeacherError {
   }
 }
 
+/// The teacher's findings for one Ayah.
+class AyahReport {
+  const AyahReport({required this.aya, required this.words, required this.recited, required this.errors});
+  final int aya;
+  final List<String> words;
+  final bool recited; // false = the learner stopped before reaching this Ayah
+  final List<TeacherError> errors;
+
+  Iterable<TeacherError> get mistakes => errors.where((e) => e.mistake);
+  Iterable<TeacherError> get tips => errors.where((e) => !e.mistake);
+
+  /// Word mistakes only: what counts for memorisation. Tajweed and pronunciation are
+  /// shown and practised, but never cost you a revision.
+  Iterable<TeacherError> get wordMistakes => mistakes.where((e) => e.type == TeacherErrorType.word);
+
+  static AyahReport fromJson(Map<String, dynamic> j) => AyahReport(
+        aya: (j['aya'] as num).toInt(),
+        words: [for (final w in j['words'] as List) w as String],
+        recited: j['status'] != 'not_recited',
+        errors: [for (final e in j['errors'] as List) TeacherError.fromJson(e as Map<String, dynamic>)],
+      );
+}
+
 class TeacherResult {
-  const TeacherResult({required this.status, required this.words, required this.errors, required this.confidence});
+  const TeacherResult({required this.status, required this.ayahs, required this.confidence});
 
   /// ok | unclear | too_little | different_ayah | silent
   final String status;
-  final List<String> words;
-  final List<TeacherError> errors;
+  final List<AyahReport> ayahs;
   final double confidence;
 
   bool get assessed => status == 'ok' || status == 'unclear';
+  AyahReport get first => ayahs.first;
 
-  static TeacherResult fromJson(Map<String, dynamic> j) => TeacherResult(
-        status: j['status'] as String,
-        words: [for (final w in j['words'] as List) w as String],
-        errors: [for (final e in j['errors'] as List) TeacherError.fromJson(e as Map<String, dynamic>)],
-        confidence: (j['confidence'] as num?)?.toDouble() ?? 0,
-      );
+  // One-Ayah views (lessons and revision).
+  List<String> get words => first.words;
+  List<TeacherError> get errors => first.errors;
+
+  static TeacherResult fromJson(Map<String, dynamic> j) {
+    final ayahs = j['ayahs'] is List
+        ? [for (final a in j['ayahs'] as List) AyahReport.fromJson(a as Map<String, dynamic>)]
+        : [
+            AyahReport(
+              aya: (j['aya'] as num?)?.toInt() ?? 0,
+              words: [for (final w in j['words'] as List) w as String],
+              recited: true,
+              errors: [for (final e in j['errors'] as List) TeacherError.fromJson(e as Map<String, dynamic>)],
+            ),
+          ];
+    return TeacherResult(status: j['status'] as String, ayahs: ayahs, confidence: (j['confidence'] as num?)?.toDouble() ?? 0);
+  }
 }
 
 /// Sent with every check so the teacher can share its free credit fairly (see /server).
@@ -154,55 +195,168 @@ class TeacherUnavailable implements Exception {
   final String reason;
 }
 
-/// Records the learner and sends the recording to the teacher.
+/// Records the learner and streams the recitation to the teacher while they recite, so
+/// the teacher has heard and checked almost everything by the time they tap "I'm done".
+/// The phone's own noise suppression is switched on, and the teacher's voice detector
+/// skips background sounds and silences. If streaming fails, the whole recording is
+/// sent in one go instead.
 class TeacherClient {
   TeacherClient(this._prefs);
   final SharedPreferences _prefs;
   final _rec = AudioRecorder();
-  String _ext = 'wav';
 
-  Future<bool> start() async {
+  String? _base;
+  String? _session;
+  int _seq = 0;
+  bool _streamOk = true;
+  final _pending = BytesBuilder(copy: false);
+  final _all = BytesBuilder(copy: false);
+  StreamSubscription<Uint8List>? _sub;
+  Timer? _flush;
+  Future<void> _sending = Future.value();
+  late int _sura, _from, _to;
+  late bool _strict;
+
+  /// How long the learner has been reciting.
+  Duration get elapsed => Duration(milliseconds: _all.length ~/ 32);
+
+  /// Starts listening for Ayahs [from]..[to] of [sura]. Returns false without microphone
+  /// permission.
+  Future<bool> start({
+    required String baseUrl,
+    required int sura,
+    required int from,
+    required int to,
+    required bool strict,
+  }) async {
     if (!await _rec.hasPermission()) return false;
-    var encoder = AudioEncoder.wav;
-    if (!await _rec.isEncoderSupported(encoder)) {
-      encoder = await _rec.isEncoderSupported(AudioEncoder.opus) ? AudioEncoder.opus : AudioEncoder.aacLc;
-    }
-    _ext = switch (encoder) { AudioEncoder.wav => 'wav', AudioEncoder.opus => kIsWeb ? 'webm' : 'ogg', _ => 'm4a' };
-    final path = kIsWeb ? '' : '${(await getTemporaryDirectory()).path}/recitation.$_ext';
-    await _rec.start(RecordConfig(encoder: encoder, sampleRate: 16000, numChannels: 1), path: path);
+    _base = baseUrl;
+    _sura = sura;
+    _from = from;
+    _to = to;
+    _strict = strict;
+    _seq = 0;
+    _streamOk = true;
+    _session = null;
+    _all.clear();
+    _pending.clear();
+    const config = RecordConfig(
+      encoder: AudioEncoder.pcm16bits,
+      sampleRate: 16000,
+      numChannels: 1,
+      noiseSuppress: true,
+      autoGain: true,
+      echoCancel: true,
+    );
+    final stream = await _rec.startStream(config);
+    _sub = stream.listen((b) {
+      _all.add(b);
+      _pending.add(b);
+    });
+    // Open the session while the learner starts reciting.
+    _openSession().ignore();
+    _flush = Timer.periodic(const Duration(seconds: 2), (_) => _send());
     return true;
   }
 
-  Future<Uint8List?> stop() async {
-    final path = await _rec.stop();
-    if (path == null) return null;
-    return XFile(path).readAsBytes();
+  Future<void> _openSession() async {
+    try {
+      final r = await http.post(
+        Uri.parse('$_base/session'),
+        headers: teacherHeaders(_prefs),
+        body: {'sura': '$_sura', 'aya_from': '$_from', 'aya_to': '$_to', 'strict': '$_strict'},
+      ).timeout(const Duration(seconds: 60));
+      if (r.statusCode == 200) {
+        _session = (jsonDecode(r.body) as Map<String, dynamic>)['id'] as String;
+      } else {
+        _streamOk = false;
+        _startError = r;
+      }
+    } catch (_) {
+      _streamOk = false;
+    }
+  }
+
+  http.Response? _startError;
+
+  void _send() {
+    if (!_streamOk || _session == null || _pending.isEmpty) return;
+    final chunk = _pending.takeBytes();
+    final seq = _seq++;
+    _sending = _sending.then((_) async {
+      if (!_streamOk) return;
+      try {
+        final r = await http
+            .post(Uri.parse('$_base/session/$_session/audio?seq=$seq'),
+                headers: {'Content-Type': 'application/octet-stream'}, body: chunk)
+            .timeout(const Duration(seconds: 30));
+        if (r.statusCode != 200) _streamOk = false;
+      } catch (_) {
+        _streamOk = false;
+      }
+    });
+  }
+
+  /// Stops listening and returns the teacher's report.
+  Future<TeacherResult> finish({void Function(bool wakingUp)? onStatus}) async {
+    _flush?.cancel();
+    await _rec.stop();
+    await _sub?.cancel();
+    final err = _startError;
+    if (err != null && err.statusCode == 429) throw TeacherUnavailable(_reason(err));
+    // Give the session a moment to open if the learner was very quick.
+    for (var i = 0; i < 50 && _session == null && _streamOk; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+    _send();
+    await _sending;
+    if (_streamOk && _session != null && _seq > 0) {
+      try {
+        final r = await http
+            .post(Uri.parse('$_base/session/$_session/finish?last_seq=${_seq - 1}'))
+            .timeout(const Duration(seconds: 150));
+        if (r.statusCode == 200) return _parse(r);
+      } catch (_) {}
+    }
+    // Fall back: send everything at once.
+    return _checkWhole(onStatus: onStatus);
   }
 
   Future<void> cancel() async {
+    _flush?.cancel();
     try {
       await _rec.cancel();
     } catch (_) {}
+    await _sub?.cancel();
   }
 
-  void dispose() => _rec.dispose();
+  void dispose() {
+    _flush?.cancel();
+    _rec.dispose();
+  }
 
-  /// Sends the recording. While the free server is waking up (it sleeps when unused)
-  /// it answers 503; we keep trying for up to ~3 minutes and report progress.
-  Future<TeacherResult> check({
-    required String baseUrl,
-    required Uint8List audio,
-    required int sura,
-    required int aya,
-    void Function(bool wakingUp)? onStatus,
-  }) async {
+  TeacherResult _parse(http.Response r) =>
+      TeacherResult.fromJson(jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>);
+
+  String _reason(http.Response r) {
+    try {
+      return ((jsonDecode(r.body) as Map<String, dynamic>)['detail'] as Map<String, dynamic>)['reason'] as String;
+    } catch (_) {
+      return 'daily_limit';
+    }
+  }
+
+  Future<TeacherResult> _checkWhole({void Function(bool wakingUp)? onStatus}) async {
+    final audio = _wav(_all.toBytes());
     final deadline = DateTime.now().add(const Duration(minutes: 3));
     while (true) {
-      final req = http.MultipartRequest('POST', Uri.parse('$baseUrl/check'))
+      final req = http.MultipartRequest('POST', Uri.parse('$_base/check'))
         ..headers.addAll(teacherHeaders(_prefs))
-        ..fields['sura'] = '$sura'
-        ..fields['aya'] = '$aya'
-        ..files.add(http.MultipartFile.fromBytes('file', audio, filename: 'recitation.$_ext'));
+        ..fields['sura'] = '$_sura'
+        ..fields['aya_from'] = '$_from'
+        ..fields['aya_to'] = '$_to'
+        ..fields['strict'] = '$_strict'
+        ..files.add(http.MultipartFile.fromBytes('file', audio, filename: 'recitation.wav'));
       http.Response r;
       try {
         r = await http.Response.fromStream(await req.send().timeout(const Duration(seconds: 150)));
@@ -211,24 +365,46 @@ class TeacherClient {
       } catch (_) {
         if (DateTime.now().isAfter(deadline)) throw const TeacherUnavailable('offline');
         onStatus?.call(true);
-        await Future<void>.delayed(const Duration(seconds: 8));
+        await Future<void>.delayed(const Duration(seconds: 5));
         continue;
       }
-      if (r.statusCode == 200) return TeacherResult.fromJson(jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>);
+      if (r.statusCode == 200) return _parse(r);
       if ((r.statusCode == 503 || r.statusCode == 502 || r.statusCode == 504) && DateTime.now().isBefore(deadline)) {
         onStatus?.call(true);
-        await Future<void>.delayed(const Duration(seconds: 8));
+        await Future<void>.delayed(const Duration(seconds: 5));
         continue;
       }
-      if (r.statusCode == 429) {
-        String reason = 'daily_limit';
-        try {
-          reason = ((jsonDecode(r.body) as Map<String, dynamic>)['detail'] as Map<String, dynamic>)['reason'] as String;
-        } catch (_) {}
-        throw TeacherUnavailable(reason);
-      }
+      if (r.statusCode == 429) throw TeacherUnavailable(_reason(r));
       throw TeacherUnavailable('http ${r.statusCode}');
     }
+  }
+
+  /// 16 kHz 16-bit mono PCM wrapped as a WAV file.
+  static Uint8List _wav(Uint8List pcm) {
+    final b = ByteData(44);
+    void str(int o, String v) {
+      for (var i = 0; i < v.length; i++) {
+        b.setUint8(o + i, v.codeUnitAt(i));
+      }
+    }
+
+    str(0, 'RIFF');
+    b.setUint32(4, 36 + pcm.length, Endian.little);
+    str(8, 'WAVE');
+    str(12, 'fmt ');
+    b.setUint32(16, 16, Endian.little);
+    b.setUint16(20, 1, Endian.little);
+    b.setUint16(22, 1, Endian.little);
+    b.setUint32(24, 16000, Endian.little);
+    b.setUint32(28, 32000, Endian.little);
+    b.setUint16(32, 2, Endian.little);
+    b.setUint16(34, 16, Endian.little);
+    str(36, 'data');
+    b.setUint32(40, pcm.length, Endian.little);
+    return (BytesBuilder()
+          ..add(b.buffer.asUint8List())
+          ..add(pcm))
+        .toBytes();
   }
 }
 

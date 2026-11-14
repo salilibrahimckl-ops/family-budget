@@ -1,7 +1,7 @@
 name: hifz_academy
 description: Quran Hifz & Recitation Academy — Android and iOS.
 publish_to: none
-version: 0.9.0+12
+version: 0.10.0+13
 
 environment:
   sdk: ">=3.4.0 <4.0.0"

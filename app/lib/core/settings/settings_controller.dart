@@ -19,6 +19,7 @@ class AppSettings {
     this.kidsMode = false,
     this.soundEffects = true,
     this.tafsirId,
+    this.strictTajweed = false,
   });
 
   final Locale locale;
@@ -39,6 +40,9 @@ class AppSettings {
   /// Explanation (tafsir) shown under the Ayah. null = match the app language; 'none' = off.
   final String? tafsirId;
 
+  /// AI teacher: false (default) = lenient, allowing for non-Arab accents; true = strict.
+  final bool strictTajweed;
+
   AppSettings copyWith({
     Locale? locale,
     ThemeMode? themeMode,
@@ -49,6 +53,7 @@ class AppSettings {
     bool? kidsMode,
     bool? soundEffects,
     String? tafsirId,
+    bool? strictTajweed,
   }) =>
       AppSettings(
         locale: locale ?? this.locale,
@@ -60,6 +65,7 @@ class AppSettings {
         kidsMode: kidsMode ?? this.kidsMode,
         soundEffects: soundEffects ?? this.soundEffects,
         tafsirId: tafsirId ?? this.tafsirId,
+        strictTajweed: strictTajweed ?? this.strictTajweed,
       );
 }
 
@@ -75,6 +81,7 @@ class SettingsController extends Notifier<AppSettings> {
   static const _kKids = 'kids_mode';
   static const _kSfx = 'sound_effects';
   static const _kTafsir = 'tafsir_id';
+  static const _kStrict = 'strict_tajweed';
 
   SharedPreferences get _prefs => ref.read(sharedPrefsProvider);
 
@@ -93,6 +100,7 @@ class SettingsController extends Notifier<AppSettings> {
       kidsMode: _prefs.getBool(_kKids) ?? false,
       soundEffects: _prefs.getBool(_kSfx) ?? true,
       tafsirId: _prefs.getString(_kTafsir),
+      strictTajweed: _prefs.getBool(_kStrict) ?? false,
     );
   }
 
@@ -136,6 +144,11 @@ class SettingsController extends Notifier<AppSettings> {
   Future<void> setSoundEffects(bool v) async {
     await _prefs.setBool(_kSfx, v);
     state = state.copyWith(soundEffects: v);
+  }
+
+  Future<void> setStrictTajweed(bool v) async {
+    await _prefs.setBool(_kStrict, v);
+    state = state.copyWith(strictTajweed: v);
   }
 
   Future<void> setTafsir(String id) async {

@@ -10,6 +10,7 @@ import '../../core/widgets/widgets.dart';
 import '../memorisation/engine/srs.dart';
 import '../memorisation/progress_controller.dart';
 import '../memorisation/widgets/recall_check.dart';
+import '../recite/section_recite_screen.dart';
 
 /// Revision queue: what is due today, most urgent first.
 class RevisionQueueScreen extends ConsumerWidget {
@@ -26,17 +27,34 @@ class RevisionQueueScreen extends ConsumerWidget {
     final q = ref.read(progressProvider.notifier).queue(p, now);
     final t = Theme.of(context).textTheme;
 
+    final sec = suggestedSection(quran, p, q.revision);
+    final sectionCard = Card(
+      color: Theme.of(context).colorScheme.primaryContainer,
+      child: ListTile(
+        leading: const Icon(Icons.record_voice_over),
+        title: Text(l.sectionCardTitle),
+        subtitle: Text(l.sectionCardSub('${quran.surahInfo(sec.$1).nameTransliterated} ${sec.$2}–${sec.$3}')),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => openSection(context, sec.$1, sec.$2, sec.$3),
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(title: Text(l.screenRevision)),
       body: q.revision.isEmpty
-          ? Center(
+          ? ListView(padding: const EdgeInsets.all(HSpace.m), children: [
+              if (p.memorisedCount > 0) sectionCard,
+              Center(
               child: Padding(
                 padding: const EdgeInsets.all(HSpace.xl),
                 child: Text(p.memorisedCount == 0 ? l.revisionNothingYet : l.revisionAllDone,
                     textAlign: TextAlign.center, style: t.bodyLarge),
               ),
-            )
+            ),
+            ])
           : ListView(padding: const EdgeInsets.all(HSpace.m), children: [
+              sectionCard,
+              const SizedBox(height: HSpace.m),
               Text(l.revisionDueCount(q.dueCount), style: t.titleMedium),
               if (q.throttled) ...[
                 const SizedBox(height: HSpace.s),

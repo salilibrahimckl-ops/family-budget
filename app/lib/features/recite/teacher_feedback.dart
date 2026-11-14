@@ -76,17 +76,21 @@ Color colorFor(TeacherErrorType t, ColorScheme s) => switch (t) {
 
 /// The teacher's summary: how many word, harakah and Tajweed mistakes it found.
 class TeacherReport extends StatelessWidget {
-  const TeacherReport({super.key, required this.result});
+  const TeacherReport({super.key, required this.result, this.errors});
   final TeacherResult result;
+
+  /// The findings to count (defaults to the first Ayah's).
+  final Iterable<TeacherError>? errors;
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
     final t = Theme.of(context).textTheme;
     final s = Theme.of(context).colorScheme;
-    final words = result.errors.where((e) => e.type == TeacherErrorType.word).length;
-    final harakat = result.errors.where((e) => e.type == TeacherErrorType.harakah).length;
-    final tajweed = result.errors.where((e) => e.type == TeacherErrorType.tajweed).length;
+    final all = (errors ?? result.first.errors).where((e) => e.mistake);
+    final words = all.where((e) => e.type == TeacherErrorType.word).length;
+    final harakat = all.where((e) => e.type == TeacherErrorType.harakah).length;
+    final tajweed = all.where((e) => e.type == TeacherErrorType.tajweed).length;
 
     Widget pill(String text, Color c) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

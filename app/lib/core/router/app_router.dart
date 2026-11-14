@@ -8,6 +8,7 @@ import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/gamification/achievements_screens.dart';
 import '../../features/gamification/sticker_book.dart';
 import '../../features/demo/guide_screen.dart';
+import '../../features/recite/section_recite_screen.dart';
 import '../../features/lesson/lesson_screen.dart';
 import '../../features/onboarding/onboarding_flow.dart';
 import '../../features/reader/reader_screens.dart';
@@ -55,6 +56,14 @@ GoRouter buildRouter() => GoRouter(
         GoRoute(path: '/analytics', builder: (c, __) => UpcomingScreen(title: c.l10n.screenAnalytics, phase: 13)),      // 14
         GoRoute(path: '/journey', builder: (_, __) => const JourneyScreen()),                                          // 15
         GoRoute(path: '/achievements', builder: (_, __) => const AchievementsScreen()),
+        GoRoute(
+          path: '/recite/:surah',
+          builder: (_, st) => SectionReciteScreen(
+            surah: int.parse(st.pathParameters['surah']!),
+            from: int.tryParse(st.uri.queryParameters['from'] ?? ''),
+            to: int.tryParse(st.uri.queryParameters['to'] ?? ''),
+          ),
+        ),
         GoRoute(path: '/guide', builder: (_, __) => const GuideScreen()),
         GoRoute(path: '/stickers', builder: (_, __) => const StickerBookScreen()),
         GoRoute(path: '/updates', builder: (_, __) => const UpdatesScreen()),

@@ -844,5 +844,81 @@
   "familyCodeAccepted": "Family code accepted ✓",
   "familyCodeWrong": "That code isn’t right (or no internet). Please check and try again.",
   "teacherDailyLimit": "You’ve used today’s AI teacher checks — they refill tomorrow. Mark your mistakes yourself for now, or use the quick phone check.",
-  "teacherSharedLimit": "The AI teacher’s free allowance for this month has been used up. It comes back next month; mark your mistakes yourself for now."
+  "teacherSharedLimit": "The AI teacher’s free allowance for this month has been used up. It comes back next month; mark your mistakes yourself for now.",
+  "sectionTitle": "Recite to the teacher",
+  "sectionCardTitle": "Recite a whole section to the AI teacher",
+  "sectionCardSub": "Suggested: {range} · one check for the whole section",
+  "@sectionCardSub": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "fromAyah": "From Ayah",
+  "toAyah": "To Ayah",
+  "showTextWhileReciting": "Show the text while reciting",
+  "sectionHint": "Recite all the Ayahs in one go, pausing where you normally would. The teacher listens while you recite and ignores background sounds, then tells you Ayah by Ayah what to fix. The whole section counts as one check.",
+  "sectionStart": "Start reciting ({n} Ayahs)",
+  "@sectionStart": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "sectionListening": "Listening… recite at your own pace",
+  "sectionSummary": "{perfect} of {total} Ayahs without mistakes",
+  "@sectionSummary": {
+    "placeholders": {
+      "perfect": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sectionSave": "Save to my revision",
+  "sectionSavedShort": "Saved",
+  "sectionSaved": "{n} memorised Ayahs saved as revised",
+  "@sectionSaved": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "notRecited": "Not recited",
+  "ayahPerfect": "No mistakes",
+  "ayahMistakes": "{n} to fix",
+  "@ayahMistakes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ayahN": "Ayah {n}",
+  "@ayahN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "teacherNotSetUp": "The AI teacher isn’t available right now. Please try again later.",
+  "tipsTitle": "{n} tips (not counted)",
+  "@tipsTitle": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tipsSub": "Small pronunciation points worth listening to",
+  "notAMistake": "Not a mistake",
+  "strictTajweedLabel": "Strict Tajweed checking",
+  "strictTajweedOff": "Off (recommended): allows for non-Arab accents; small points are shown as tips and never cost you a revision",
+  "strictTajweedOn": "On: every difference the teacher hears is shown as a mistake"
 }

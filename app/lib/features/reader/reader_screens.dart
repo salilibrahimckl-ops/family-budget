@@ -73,6 +73,11 @@ class SurahScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text('${info.number}. ${info.nameTransliterated}'),
         actions: [
+          IconButton(
+            tooltip: l.sectionTitle,
+            icon: const Icon(Icons.record_voice_over),
+            onPressed: () => context.push('/recite/${info.number}?from=1&to=${info.ayahCount < 10 ? info.ayahCount : 10}'),
+          ),
           Padding(padding: const EdgeInsets.only(right: HSpace.s), child: PlayAyahButton(ayahs: ayahs)),
         ],
       ),

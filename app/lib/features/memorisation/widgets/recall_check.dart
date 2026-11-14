@@ -97,6 +97,7 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
 
   void _retry() {
     ref.read(audioProvider.notifier).stop();
+    _client?.cancel();
     setState(() {
       _revealed = false;
       _missed.clear();
@@ -173,7 +174,6 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
     if (mounted && _listening && _heard.isEmpty) _finish('', -1);
   }
 
-  String? _teacherUrl;
 
   Future<void> _startTeacher(String url) async {
     final l = context.l10n;
@@ -181,7 +181,13 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
     _client ??= TeacherClient(ref.read(sharedPrefsProvider));
     bool started;
     try {
-      started = await _client!.start();
+      started = await _client!.start(
+        baseUrl: url,
+        sura: widget.ayah.surah,
+        from: widget.ayah.ayah,
+        to: widget.ayah.ayah,
+        strict: ref.read(settingsProvider).strictTajweed,
+      );
     } catch (_) {
       started = false;
     }
@@ -190,11 +196,21 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
       setState(() => _speechNote = l.micUnavailable);
       return;
     }
-    _teacherUrl = url;
     setState(() {
       _recording = true;
       _speechNote = null;
       _unsure = false;
+    });
+  }
+
+  void _dismiss(Correction c) {
+    setState(() {
+      _corrections.remove(c);
+      if (!_corrections.any((x) => x.position == c.position && !x.tip)) {
+        _missed.remove(c.position);
+        _tajweed.remove(c.position);
+        _wordColor.remove(c.position);
+      }
     });
   }
 
@@ -206,23 +222,16 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
       _waking = false;
     });
     try {
-      final audio = await _client!.stop();
-      if (audio == null || audio.isEmpty) throw const TeacherUnavailable('no audio');
-      final r = await _client!.check(
-        baseUrl: _teacherUrl!,
-        audio: audio,
-        sura: widget.ayah.surah,
-        aya: widget.ayah.ayah,
-        onStatus: (w) {
-          if (mounted) setState(() => _waking = w);
-        },
-      );
+      final r = await _client!.finish(onStatus: (w) {
+        if (mounted) setState(() => _waking = w);
+      });
       if (!mounted) return;
       _reveal();
+      final a = r.first;
       setState(() {
         _checking = false;
         _teacher = r;
-        if (!r.assessed) {
+        if (!r.assessed || !a.recited) {
           _unsure = true;
           _speechNote = switch (r.status) { 'different_ayah' => l.teacherDifferent, _ => l.unableToAssess };
           return;
@@ -232,29 +241,26 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
         _missed.clear();
         _tajweed.clear();
         _wordColor.clear();
-        int pos(int i) => mapPosition(i + 1, r.words.length, widget.ayah.wordCount);
-        for (final e in r.errors) {
+        int pos(int i) => mapPosition(i + 1, a.words.length, widget.ayah.wordCount);
+        for (final e in a.mistakes) {
           for (var i = e.wordStart; i <= e.wordEnd; i++) {
             final p = pos(i);
-            if (e.type == TeacherErrorType.tajweed) {
-              _tajweed.add(p);
-            } else {
+            // Only missed or wrong words count against memorisation.
+            if (e.type == TeacherErrorType.word) {
               _missed.add(p);
+            } else {
+              _tajweed.add(p);
             }
             final prev = _wordColor[p];
             if (prev == null || e.type.index < prev.index) _wordColor[p] = e.type;
           }
         }
-        _corrections.clear();
-        final sch = Theme.of(context).colorScheme;
-        for (final e in r.errors) {
-          final f = describe(l, e);
-          final p = pos(e.wordStart);
-          _corrections.add(Correction(p, '${f.title}: ${f.detail}', color: colorFor(e.type, sch), how: f.how, arabicRule: f.arabicRule));
-        }
-        _speechNote = r.errors.isEmpty ? l.teacherPerfect : null;
+        _corrections
+          ..clear()
+          ..addAll(correctionsFor(l, a, widget.ayah.wordCount, Theme.of(context).colorScheme));
+        _speechNote = a.mistakes.isEmpty ? l.teacherPerfect : null;
       });
-      if (r.errors.isEmpty) {
+      if (a.mistakes.isEmpty) {
         ref.read(sfxProvider).success();
       } else {
         ref.read(sfxProvider).oops();
@@ -410,7 +416,7 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
             ],
           ),
         ),
-        if (_teacher != null && _teacher!.assessed && _teacher!.errors.isNotEmpty) ...[
+        if (_teacher != null && _teacher!.assessed && _teacher!.first.errors.isNotEmpty) ...[
           const SizedBox(height: HSpace.m),
           TeacherReport(result: _teacher!),
         ],
@@ -419,6 +425,7 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
           CorrectionPanel(
             ayah: widget.ayah,
             items: _corrections,
+            onDismiss: _method == 'ai_phoneme' ? _dismiss : null,
             onRetry: _retry,
             footer: _usedPhoneCheck && _teacher == null
                 ? Text(l.tajweedNotOnYet, style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant), textAlign: TextAlign.center)

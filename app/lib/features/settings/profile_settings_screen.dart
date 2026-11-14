@@ -227,6 +227,14 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
             subtitle: Text(ref.read(sharedPrefsProvider).getString(familyCodeKey) != null ? l.familyCodeOn : l.familyCodeOff),
             onTap: () => _enterFamilyCode(context),
           ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.tune),
+            title: Text(l.strictTajweedLabel),
+            subtitle: Text(s.strictTajweed ? l.strictTajweedOn : l.strictTajweedOff),
+            value: s.strictTajweed,
+            onChanged: ctrl.setStrictTajweed,
+          ),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.school),

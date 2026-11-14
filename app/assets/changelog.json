@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.10.0",
+    "notes": [
+      "Recite a whole section to the AI teacher — as many Ayahs as you like (up to 60) in one go, pausing as you normally would. It counts as just one check. Find it in the Revise tab and on every Surah page.",
+      "Much faster: the teacher now listens while you recite, so your results come within a few seconds of tapping I’m done.",
+      "Works in normal rooms: the phone’s noise suppression is on and the teacher skips background sounds and other noises.",
+      "Fairer for non-Arab accents: small pronunciation and harakah points are shown as tips (not counted), Madd lengths allow a count either way, and only missed or wrong words count against your memorisation. Tap “Not a mistake” if you disagree. Want it stricter? Me → Strict Tajweed checking."
+    ]
+  },
+  {
     "version": "0.9.0",
     "notes": [
       "Share button (Today and Me): send Hifz Academy to family and friends on WhatsApp or anywhere — with the Android download and the iPhone link.",
