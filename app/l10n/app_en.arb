@@ -1119,5 +1119,42 @@
   "iqFixed": "Fixed time",
   "iqMinutesAfter": "Iqamah: minutes after the Azan",
   "jumuah": "Jumu‘ah (Friday) Iqamah",
-  "jumuahNotSet": "Not set — tap to choose a time"
+  "jumuahNotSet": "Not set — tap to choose a time",
+  "alertsTitle": "Reminders",
+  "alertsAzan": "Notify me at the Azan for:",
+  "alertsAll": "All five prayers",
+  "alertsNone": "None",
+  "alertsIqamah": "Remind me before the Iqamah",
+  "alertsOff": "Off",
+  "alertsMinutesBefore": "{m} minutes before",
+  "@alertsMinutesBefore": {
+    "placeholders": {
+      "m": {
+        "type": "int"
+      }
+    }
+  },
+  "alertsNeedMosque": "Add your mosque in the Mosques tab to get Iqamah reminders.",
+  "alertsNote": "Reminders are set two weeks ahead and refresh each time you open the app. Some phones stop reminders to save battery: if they don’t arrive, allow Hifz Academy to run in the background (Settings → Apps → Hifz Academy → Battery → Unrestricted).",
+  "alertsWebOnly": "Reminders work in the Android app. The iPhone web app can’t show reminders while it’s closed.",
+  "alertsDenied": "Notifications are off for Hifz Academy. Turn them on in your phone settings to get reminders.",
+  "alertAzanTitle": "It’s time for {prayer} 🕌",
+  "@alertAzanTitle": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "alertIqamahTitle": "{prayer} Iqamah in {m} minutes",
+  "@alertIqamahTitle": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      },
+      "m": {
+        "type": "int"
+      }
+    }
+  }
 }

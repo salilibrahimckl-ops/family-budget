@@ -5,7 +5,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/l10n/l10n.dart';
 import '../../core/settings/settings_controller.dart';
+import 'prayer_alerts.dart';
 import 'prayer_times.dart';
 
 class SavedPlace {
@@ -97,8 +99,26 @@ class Mosque {
       );
 }
 
+/// Which reminders to show: a notification at each chosen Azan, and one a few minutes
+/// before the Iqamah at your mosque (0 = off).
+class AlertSettings {
+  const AlertSettings({this.azan = const {}, this.iqamahBefore = 0});
+  final Set<Prayer> azan;
+  final int iqamahBefore;
+  bool get any => azan.isNotEmpty || iqamahBefore > 0;
+
+  Map<String, dynamic> toJson() => {'azan': [for (final p in azan) p.name], 'iqamahBefore': iqamahBefore};
+  static AlertSettings fromJson(Map<String, dynamic>? j) => j == null
+      ? const AlertSettings()
+      : AlertSettings(
+          azan: {for (final n in (j['azan'] as List? ?? const [])) Prayer.values.byName(n as String)},
+          iqamahBefore: (j['iqamahBefore'] as num?)?.toInt() ?? 0,
+        );
+}
+
 class PrayerSettings {
   const PrayerSettings({
+    this.alerts = const AlertSettings(),
     this.place,
     this.method = 'karachi',
     this.hanafi = false,
@@ -110,11 +130,20 @@ class PrayerSettings {
   final bool hanafi;
   final List<Mosque> mosques;
   final String? selected; // mosque id
+  final AlertSettings alerts;
 
   Mosque? get mosque => mosques.where((m) => m.id == selected).firstOrNull ?? mosques.firstOrNull;
 
-  PrayerSettings copyWith({SavedPlace? place, String? method, bool? hanafi, List<Mosque>? mosques, String? selected}) =>
+  PrayerSettings copyWith({
+    SavedPlace? place,
+    String? method,
+    bool? hanafi,
+    List<Mosque>? mosques,
+    String? selected,
+    AlertSettings? alerts,
+  }) =>
       PrayerSettings(
+        alerts: alerts ?? this.alerts,
         place: place ?? this.place,
         method: method ?? this.method,
         hanafi: hanafi ?? this.hanafi,
@@ -164,6 +193,7 @@ class PrayerSettingsController extends Notifier<PrayerSettings> {
         hanafi: j['hanafi'] as bool? ?? false,
         mosques: [for (final m in (j['mosques'] as List? ?? const [])) Mosque.fromJson(m as Map<String, dynamic>)],
         selected: j['selected'] as String?,
+        alerts: AlertSettings.fromJson(j['alerts'] as Map<String, dynamic>?),
       );
     } catch (_) {
       return const PrayerSettings();
@@ -180,9 +210,14 @@ class PrayerSettingsController extends Notifier<PrayerSettings> {
         'hanafi': s.hanafi,
         'mosques': [for (final m in s.mosques) m.toJson()],
         if (s.selected != null) 'selected': s.selected,
+        'alerts': s.alerts.toJson(),
       }),
     );
+    // Keep the phone's reminders in step with the timetable.
+    rescheduleAlerts(s, lookupAppLocalizations(ref.read(settingsProvider).locale)).ignore();
   }
+
+  Future<void> setAlerts(AlertSettings a) => _save(state.copyWith(alerts: a));
 
   Future<void> setPlace(SavedPlace p) => _save(state.copyWith(place: p));
   Future<void> setMethod(String id) => _save(state.copyWith(method: id));
@@ -197,6 +232,7 @@ class PrayerSettingsController extends Notifier<PrayerSettings> {
   Future<void> removeMosque(String id) {
     final list = state.mosques.where((x) => x.id != id).toList();
     return _save(PrayerSettings(
+      alerts: state.alerts,
       place: state.place,
       method: state.method,
       hanafi: state.hanafi,

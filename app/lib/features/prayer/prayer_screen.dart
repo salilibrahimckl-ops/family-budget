@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/design/tokens.dart';
 import '../../core/l10n/l10n.dart';
 import 'compass_source.dart';
+import 'prayer_alerts.dart';
 import 'prayer_settings.dart';
 import 'prayer_times.dart';
 
@@ -232,6 +233,7 @@ class _TimesTab extends ConsumerWidget {
           child: Text(l.prJumuahAt(mosque.jumuah!), style: t.bodyMedium, textAlign: TextAlign.center),
         ),
       const SizedBox(height: HSpace.m),
+      const _RemindersCard(),
       ExpansionTile(
         leading: const Icon(Icons.tune),
         title: Text(l.prCalcSettings),
@@ -691,6 +693,84 @@ class _PlaceSearchDialogState extends State<_PlaceSearchDialog> {
         ]),
       ),
       actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel))],
+    );
+  }
+}
+
+
+/// Azan and Iqamah reminders (notifications on the phone).
+class _RemindersCard extends ConsumerWidget {
+  const _RemindersCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final t = Theme.of(context).textTheme;
+    final s = ref.watch(prayerSettingsProvider);
+    final ctrl = ref.read(prayerSettingsProvider.notifier);
+    final a = s.alerts;
+
+    Future<void> change(AlertSettings next) async {
+      if (next.any && !a.any) {
+        final ok = await requestAlertPermission();
+        if (!ok && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.alertsDenied)));
+        }
+      }
+      await ctrl.setAlerts(next);
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(HSpace.m),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            const Icon(Icons.notifications_active_outlined),
+            const SizedBox(width: HSpace.s),
+            Expanded(child: Text(l.alertsTitle, style: t.titleMedium)),
+          ]),
+          if (!alertsSupported) ...[
+            const SizedBox(height: HSpace.s),
+            Text(l.alertsWebOnly, style: t.bodySmall),
+          ] else ...[
+            const SizedBox(height: HSpace.s),
+            Text(l.alertsAzan, style: t.bodyMedium),
+            const SizedBox(height: 4),
+            Wrap(spacing: HSpace.s, runSpacing: 4, children: [
+              for (final p in salah)
+                FilterChip(
+                  label: Text(prayerName(l, p)),
+                  selected: a.azan.contains(p),
+                  onSelected: (v) => change(AlertSettings(
+                    azan: v ? {...a.azan, p} : ({...a.azan}..remove(p)),
+                    iqamahBefore: a.iqamahBefore,
+                  )),
+                ),
+            ]),
+            TextButton(
+              onPressed: () => change(AlertSettings(
+                azan: a.azan.length == salah.length ? {} : salah.toSet(),
+                iqamahBefore: a.iqamahBefore,
+              )),
+              child: Text(a.azan.length == salah.length ? l.alertsNone : l.alertsAll),
+            ),
+            if (s.mosque != null)
+              DropdownButtonFormField<int>(
+                initialValue: a.iqamahBefore,
+                decoration: InputDecoration(labelText: l.alertsIqamah, border: const OutlineInputBorder()),
+                items: [
+                  DropdownMenuItem(value: 0, child: Text(l.alertsOff)),
+                  for (final m in [5, 10, 15, 20, 30]) DropdownMenuItem(value: m, child: Text(l.alertsMinutesBefore(m))),
+                ],
+                onChanged: (v) => change(AlertSettings(azan: a.azan, iqamahBefore: v ?? 0)),
+              )
+            else
+              Text(l.alertsNeedMosque, style: t.bodySmall),
+            const SizedBox(height: HSpace.s),
+            Text(l.alertsNote, style: t.bodySmall),
+          ],
+        ]),
+      ),
     );
   }
 }

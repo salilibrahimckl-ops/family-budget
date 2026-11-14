@@ -15,6 +15,7 @@ import '../gamification/achievements_screens.dart';
 import '../gamification/gamification.dart';
 import '../memorisation/progress_controller.dart';
 import '../onboarding/onboarding_store.dart';
+import '../prayer/prayer_alerts.dart';
 import '../prayer/prayer_screen.dart';
 import '../prayer/prayer_settings.dart';
 import '../share/share_app.dart';
@@ -390,11 +391,18 @@ class _Note extends StatelessWidget {
 class _NextPrayerCard extends ConsumerWidget {
   const _NextPrayerCard();
 
+  /// Reminders are set two weeks ahead; top them up once each time the app opens.
+  static bool _toppedUp = false;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
     final t = Theme.of(context).textTheme;
     final s = ref.watch(prayerSettingsProvider);
+    if (!_toppedUp && s.alerts.any) {
+      _toppedUp = true;
+      rescheduleAlerts(s, l).ignore();
+    }
     final next = nextPrayer(s);
     return Padding(
       padding: const EdgeInsets.only(bottom: HSpace.m),

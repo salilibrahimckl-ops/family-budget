@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.13.0",
+    "notes": [
+      "Azan reminders: a notification at the Azan for the prayers you choose (Prayer times → Reminders).",
+      "Iqamah reminders: a notification 5–30 minutes before the Iqamah at your mosque, including Jumu‘ah.",
+      "Reminders keep working after the phone restarts. (Android app; the iPhone web app can’t show reminders while closed.)"
+    ]
+  },
+  {
     "version": "0.12.0",
     "notes": [
       "Qibla compass: turn until the needle points to the Kaaba — the phone tells you how far to turn and buzzes when you’re facing the Qibla.",

@@ -12,7 +12,11 @@ perms = ('    <uses-permission android:name="android.permission.INTERNET"/>\n'
          '    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>\n'
          '    <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n'
          '    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>\n'
-         '    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>\n')
+         '    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>\n'
+         '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n'
+         '    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>\n'
+         '    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>\n'
+         '    <uses-permission android:name="android.permission.VIBRATE"/>\n')
 if 'REQUEST_INSTALL_PACKAGES' not in s:
     s = re.sub(r'(<manifest[^>]*>\n)', lambda m: m.group(1) + perms, s, count=1)
 provider = '''        <provider
@@ -27,6 +31,20 @@ provider = '''        <provider
 '''
 if 'OtaUpdateFileProvider' not in s:
     s = s.replace('    </application>', provider + '    </application>', 1)
+# Azan/Iqamah reminders (flutter_local_notifications): fire scheduled ones, and set
+# them again after the phone restarts or the app updates.
+receivers = '''        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
+'''
+if 'ScheduledNotificationReceiver' not in s:
+    s = s.replace('    </application>', receivers + '    </application>', 1)
 # "Recite to me": let the app find the phone's speech recogniser (Android 11+).
 speech = ('        <intent>\n'
           '            <action android:name="android.speech.RecognitionService"/>\n'
