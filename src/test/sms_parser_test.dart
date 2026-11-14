@@ -124,4 +124,37 @@ void main() {
     final a = SmsParser.parseBalance('Rs 500 debited from A/c XX7475 on 14Nov. Avl Bal Rs 20,000')!;
     expect(a.account, '7475');
   });
+
+  group("Hiba's SBI SMS", () {
+    test('UPI debit without Rs', () {
+      final p = SmsParser.parse('Dear UPI user A/C X7475 debited by 85 on date 04Jan26 trf to Indian Railways Refno 600430414658 If not u? call-1800111109 for other services-18001234-SBI')!;
+      expect(p.amount, 85);
+      expect(p.payee!.toLowerCase(), contains('indian railways'));
+      expect(p.ref, '600430414658');
+      final p2 = SmsParser.parse('Dear UPI user A/C X7475 debited by 50.00 on date 19Jan26 trf to KOCHI METRO RAIL Refno 601979838429 If not u? call-1800111109 for other services-18001234-SBI')!;
+      expect(p2.amount, 50);
+      expect(p2.payee!.toUpperCase(), contains('KOCHI METRO'));
+      expect(SmsParser.parseBalance('Dear UPI user A/C X7475 debited by 85 on date 04Jan26 trf to Indian Railways Refno 600430414658 If not u?')!.account, '7475');
+    });
+    test('IMPS credit by mobile-linked account', () {
+      const t = 'Dear Customer, Your a/c no. XXXXXXXX7475 is credited by Rs.4379.36 on 04-11-26 by a/c linked to mobile 0XXXXXX000-Swalhath K (IMPS Ref# 630825084285)-SBI';
+      expect(SmsParser.parse(t), isNull);
+      final b = SmsParser.parseBalance(t)!;
+      expect(b.account, '7475');
+      expect(b.delta, 4379.36);
+      expect(b.payer, 'SWALHATH K');
+      final b2 = SmsParser.parseBalance('Dear Customer, Your a/c no. XXXXXXXX7475 is credited by Rs.113440.00 on 14-03-26 by a/c linked to mobile 9XXXXXX810-WISDOM GOL (IMPS Ref# 607312490556)-SBI')!;
+      expect(b2.delta, 113440);
+      expect(b2.payer, 'WISDOM GOL');
+    });
+    test('NEFT salary credit', () {
+      const t = 'Dear Customer, INR 20,538.00 credited to your A/c No XX7475 on 03/08/2026 through NEFT with UTR HDFCH01166734407 by VIVA COMPOSITE PANEL PVT LTD, INFO: BATCHID:00330001 NEFT DOMNEFT01 CX00000000TX1IER SALARY JULY 26-SBI';
+      expect(SmsParser.parse(t), isNull);
+      final b = SmsParser.parseBalance(t)!;
+      expect(b.account, '7475');
+      expect(b.delta, 20538);
+      expect(b.payer, contains('VIVA COMPOSITE'));
+      expect(b.isInterest, isFalse);
+    });
+  });
 }

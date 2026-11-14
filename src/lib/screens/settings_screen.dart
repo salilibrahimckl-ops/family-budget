@@ -1,3 +1,4 @@
+import 'paste_sms_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -168,6 +169,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               IconButton(icon: const Icon(Icons.copy), onPressed: () => _copy(shortcutUrl, 'Shortcut URL')),
             ]),
+          ),
+        if (!SmsSync.supported)
+          _Section(
+            icon: Icons.content_paste,
+            title: 'Missed a payment?',
+            body: 'The iPhone automation only sees new SMS. To add a missed or older bank SMS, copy it in Messages and paste it here.',
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.content_paste),
+              label: const Text('Paste bank SMS'),
+              onPressed: () => Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => PasteSmsScreen(repo: widget.repo))),
+            ),
           ),
         if (Updater.supported) _UpdateSection(),
         if (_devMode)

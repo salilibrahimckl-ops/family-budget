@@ -995,6 +995,24 @@ class Repo {
     return added;
   }
 
+  /// A bank SMS pasted by hand on the iPhone. Returns 1 = payment added,
+  /// 0 = balance / income only, -1 = already seen or not a bank SMS.
+  Future<int> ingestPasted(String text) async {
+    final p = SmsParser.parse(text);
+    final b = SmsParser.parseBalance(text);
+    if (p == null && b == null) return -1;
+    final member = myName;
+    final token = await myInboxToken() ?? 'paste';
+    final seen = family.collection('seen').doc('${token}_${_hash(text)}');
+    if ((await seen.get()).exists) return -1;
+    await seen.set({'at': FieldValue.serverTimestamp()});
+    final d = SmsParser.parseDate(text);
+    final now = DateTime.now();
+    final when = d == null || d.isAfter(now) ? now : DateTime(d.year, d.month, d.day, 12);
+    final ok = await ingestSms(text, receivedAt: when, member: member, source: 'iphone');
+    return ok ? 1 : (p == null ? 0 : -1);
+  }
+
   /// Short stable hash of an SMS, ignoring spacing. Uses 32-bit maths only, so
   /// the Android app and the iPhone web app produce the same value.
   static String _hash(String text) {

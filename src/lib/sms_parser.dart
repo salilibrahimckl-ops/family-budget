@@ -212,6 +212,8 @@ class SmsParser {
 
   // Who sent money in a credit SMS. Group 1 = payer.
   static final List<RegExp> _payerPatterns = [
+    // SBI IMPS: "by a/c linked to mobile 9XXXXXX810-WISDOM GOL (IMPS Ref# …)"
+    RegExp(r'linked to mobile\s*[\dx*]+\s*-\s*([a-z][a-z0-9 .&\x27\-]{1,40}?)\s*(?:\(|\||$)', caseSensitive: false),
     RegExp(r'upi/cr/\d+/([^/|]+?)(?:\s*/|\s*\||\.\s|\.?$)', caseSensitive: false),
     RegExp(r'(?:from|by|vpa)\s+(?:vpa\s+)?([a-z0-9][a-z0-9._\-]{1,60}@[a-z][a-z0-9]{1,30})', caseSensitive: false),
     RegExp(r'(?:from|by)\s+([a-z][a-z .&\x27\-]{1,40}?)(?:\s+on\b|\s+ref|\s+upi|\s+via|\s*\(|\s*\||[.,;]|$)',
