@@ -100,7 +100,7 @@ class Recording:
         from silero_vad import VADIterator, load_silero_vad
 
         # Each recording has its own small detector: it keeps state between pieces.
-        self.it = VADIterator(load_silero_vad(), threshold=0.5, sampling_rate=SR, min_silence_duration_ms=350, speech_pad_ms=120)
+        self.it = VADIterator(load_silero_vad(), threshold=0.5, sampling_rate=SR, min_silence_duration_ms=550, speech_pad_ms=150)
         self.it.reset_states()
 
     @property
@@ -302,43 +302,60 @@ def _severity(e, rules: list[dict], strict: bool, seg_conf: float, word_phonemes
     return "mistake" if strict else "tip"
 
 
-def _align(segs: list[str], ref: Reference, debug: list | None = None) -> list[tuple[int, int, int, float]]:
-    """Finds the words each breath covers. Breaths that match nothing (someone else
-    talking, background sounds the detector let through) are left out."""
+def _best(seg: str, ref: Reference, cand: list[int], pointer: int | None, min_e: int = 0):
+    lens = [ref.span[i + 1] - ref.span[i] for i in range(ref.n)]
+    L, best = len(seg), None
+    for s0 in cand:
+        acc = 0
+        for e in range(s0, ref.n):
+            acc += max(1, lens[e])
+            if e < min_e or acc < 0.5 * L:
+                continue
+            if acc > 1.7 * L + 4:
+                break
+            r = ref.slice(s0, e)
+            d = lv.distance(seg, r) / max(len(seg), len(r), 1)
+            if pointer is not None and s0 > pointer:
+                d += 0.01 * (s0 - pointer)
+            if best is None or d < best[0] - 1e-9 or (abs(d - best[0]) < 1e-9 and e > best[2]):
+                best = (d, s0, e)
+    return best
+
+
+def _align(segs: list[str], ref: Reference, debug: list | None = None) -> list[tuple[str, int, int, float]]:
+    """Finds the words each breath covers. Returns (phonemes, first word, last word,
+    distance). A short piece that only makes sense together with the breath before it
+    (the voice detector sometimes splits a long Madd) is joined to it. Breaths that match
+    nothing (someone else talking, background sounds) are left out."""
     n, out, pointer = ref.n, [], None
-    lens = [ref.span[i + 1] - ref.span[i] for i in range(n)]
     for k, seg in enumerate(segs):
         if not seg:
             continue
-        L = len(seg)
         if pointer is None:
             cand = sorted(set(ref.first_starts))
         else:
             window = set(range(max(0, pointer - 3), min(n, pointer + 12)))
             window |= {s for s in ref.ayah_start.values() if s <= pointer + 12}  # repeating an Ayah
             cand = sorted(window)
-        best = None
-        for s0 in cand:
-            acc = 0
-            for e in range(s0, n):
-                acc += max(1, lens[e])
-                if acc < 0.5 * L:
-                    continue
-                if acc > 1.7 * L + 4:
-                    break
-                r = ref.slice(s0, e)
-                d = lv.distance(seg, r) / max(len(seg), len(r), 1)
-                if pointer is not None and s0 > pointer:
-                    d += 0.01 * (s0 - pointer)
-                if best is None or d < best[0] - 1e-9 or (abs(d - best[0]) < 1e-9 and e > best[2]):
-                    best = (d, s0, e)
+        best = _best(seg, ref, cand, pointer)
+        if out and (best is None or best[0] > 0.3 or len(seg) < 10):
+            # Try it as the end of the previous breath.
+            pseg, ps0, pe, pd = out[-1]
+            joined = pseg + seg
+            jb = _best(joined, ref, [ps0], None, min_e=pe)
+            if jb is not None and jb[0] <= max(pd + 0.05, 0.25) and (best is None or jb[0] <= best[0]):
+                out[-1] = (joined, ps0, jb[2], jb[0])
+                pointer = jb[2] + 1
+                if debug is not None:
+                    debug.append({"breath": k, "heard": seg, "joined_to_previous": [round(jb[0], 3), ps0, jb[2]]})
+                continue
         if debug is not None:
             debug.append({"breath": k, "heard": seg, "best": best and [round(best[0], 3), best[1], best[2]],
                           "ref": best and ref.slice(best[1], best[2]), "pointer": pointer})
         if best is None or best[0] > 0.55:
             continue  # not part of these Ayahs
         d, s0, e = best
-        out.append((k, s0, e, d))
+        out.append((seg, s0, e, d))
         pointer = e + 1
     return out
 
@@ -350,10 +367,11 @@ def analyse(segs: list[tuple[str, float]], ref: Reference, strict: bool) -> dict
     spans = _align(phon, ref, debug)
     by_word: dict[int, list[dict]] = {}
     covered: set[int] = set()
-    for k, s0, e, _ in spans:
+    seg_conf = float(np.mean(confs)) if confs else 0.0
+    for heard, s0, e, _ in spans:
         alone = ref.alone(s0, e)
         text = ref.text(s0, e)
-        errs = explain_error(uthmani_text=text, ref_ph_text=alone.phonemes, predicted_ph_text=phon[k], mappings=alone.mappings)
+        errs = explain_error(uthmani_text=text, ref_ph_text=alone.phonemes, predicted_ph_text=heard, mappings=alone.mappings)
         found = []
         for er in errs:
             a, b = er.uthmani_pos
@@ -361,7 +379,7 @@ def analyse(segs: list[tuple[str, float]], ref: Reference, strict: bool) -> dict
             w1 = s0 + text[:max(a, b - 1)].count(" ")
             rules = [_rule(r) for r in (er.ref_tajweed_rules or [])]
             wl = max(1, ref.span[w0 + 1] - ref.span[w0]) if w0 < ref.n else 1
-            sev = _severity(er, rules, strict, confs[k], wl)
+            sev = _severity(er, rules, strict, seg_conf, wl)
             if sev is None:
                 continue
             found.append({
