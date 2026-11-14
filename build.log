@@ -1,0 +1,49 @@
+
+added 109 packages in 7s
+
+> fitverse@1.0.0 build
+> node scripts/build.mjs
+
+www/index.html 661 KB build 30
+✔ Adding native android project in android in 27.71ms
+✔ add in 27.99ms
+✔ Copying web assets from www to android/app/src/main/assets/public in 1.88ms
+✔ Creating capacitor.config.json in android/app/src/main/assets in 271.32μs
+✔ copy android in 9.42ms
+✔ Updating Android plugins in 1.06ms
+[info] Found 5 Capacitor plugins for android:
+       @capacitor/app@7.1.2
+       @capacitor/haptics@7.0.5
+       @capacitor/local-notifications@7.0.7
+       @capacitor/share@7.0.4
+       capacitor-health@7.0.0
+✔ update android in 18.35ms
+✔ Syncing Gradle in 128.06μs
+[success] android platform added!
+Follow the Developer Workflow guide to get building:
+https://capacitorjs.com/docs/basics/workflow
+✔ Copying web assets from www to android/app/src/main/assets/public in 4.23ms
+✔ Creating capacitor.config.json in android/app/src/main/assets in 691.53μs
+✔ copy android in 11.95ms
+✔ Updating Android plugins in 1.04ms
+[info] Found 5 Capacitor plugins for android:
+       @capacitor/app@7.1.2
+       @capacitor/haptics@7.0.5
+       @capacitor/local-notifications@7.0.7
+       @capacitor/share@7.0.4
+       capacitor-health@7.0.0
+✔ update android in 25.24ms
+[info] Sync finished in 0.05s
+AGP 8.9.1 -> android/build.gradle
+AGP 8.9.1 -> node_modules/capacitor-health/android/build.gradle
+AGP 8.9.1 -> node_modules/@capacitor/haptics/android/build.gradle
+AGP 8.9.1 -> node_modules/@capacitor/share/android/build.gradle
+AGP 8.9.1 -> node_modules/@capacitor/local-notifications/android/build.gradle
+AGP 8.9.1 -> node_modules/@capacitor/app/android/build.gradle
+patched android, versionCode 130
+Downloading https://services.gradle.org/distributions/gradle-8.11.1-all.zip
+.....................10%......................20%......................30%......................40%......................50%......................60%......................70%......................80%......................90%......................100%
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+Note: /home/runner/work/family-budget/family-budget/node_modules/@capacitor/local-notifications/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotificationsPlugin.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
