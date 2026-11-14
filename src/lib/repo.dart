@@ -745,7 +745,9 @@ class Repo {
         return false; // let the real SMS create the payment
       }
     }
-    final card = await txns.where('source', isEqualTo: 'card').where('member', isEqualTo: member).get();
+    // Card payments confirmed by hand, and quick entries typed after closing
+    // GPay, already stand for this payment.
+    final card = await txns.where('member', isEqualTo: member).where('source', whereIn: ['card', 'quick']).get();
     return card.docs.any((d) {
       final t = Txn.fromDoc(d);
       return (t.amount - amount).abs() < 0.01 && near(t.date);
@@ -979,7 +981,9 @@ class Repo {
       final items = await family.collection('inbox').doc(e.key).collection('items').get();
       for (final d in items.docs) {
         final text = d.data()['text'];
-        if (text is String && text.trim().isNotEmpty) {
+        if (text is String && text.trim().startsWith('QUICK|')) {
+          if (await _addQuick(text.trim(), e.value as String)) added++;
+        } else if (text is String && text.trim().isNotEmpty) {
           // Two automations (e.g. "debited" and "A/c") can forward the same SMS.
           final seen = family.collection('seen').doc('${e.key}_${_hash(text)}');
           if (!(await seen.get()).exists) {
@@ -993,6 +997,44 @@ class Repo {
       }
     }
     return added;
+  }
+
+  /// "QUICK|amount|what|date" from the iPhone Shortcut that runs when GPay is
+  /// closed. Skipped when a bank SMS already recorded the same amount nearby.
+  Future<bool> _addQuick(String text, String member) async {
+    final parts = text.split('|');
+    final amount = double.tryParse(parts.length > 1 ? parts[1].replaceAll(RegExp(r'[^0-9.]'), '') : '');
+    if (amount == null || amount <= 0) return false;
+    var what = parts.length > 2 ? parts[2].trim() : '';
+    if (what.isEmpty) what = 'GPay';
+    final now = DateTime.now();
+    var when = parts.length > 3 ? DateTime.tryParse(parts[3].trim())?.toLocal() : null;
+    if (when == null || when.isAfter(now)) when = now;
+    final near = await txns.where('member', isEqualTo: member).where('month', isEqualTo: monthKey(when)).get();
+    if (near.docs.any((d) {
+      final t = Txn.fromDoc(d);
+      return (t.amount - amount).abs() < 0.01 && t.date.difference(when!).inMinutes.abs() <= 180;
+    })) return false;
+    await _loadCats();
+    final key = Categorizer.payeeKey(what);
+    final rule = (await rules.doc(key).get()).data();
+    final category = rule?['category'] as String? ??
+        CatStore.matchKeywords(what, null) ??
+        Categorizer.guess(what).category;
+    await txns.add({
+      'amount': amount,
+      'payee': what.toUpperCase(),
+      'payeeKey': key,
+      'category': category,
+      'member': member,
+      'date': Timestamp.fromDate(when),
+      'month': monthKey(when),
+      'source': 'quick',
+      'note': 'Typed after closing GPay',
+      'chittiSuggest': false,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    return true;
   }
 
   /// A bank SMS pasted by hand on the iPhone. Returns 1 = payment added,
