@@ -68,6 +68,8 @@ class BankAccount {
   final double? balance;
   final bool exact; // true = printed by the bank / set by you; false = estimated
   final DateTime? balanceAt;
+  final List<String> aliases; // other digits seen for the same account (merged)
+  final bool ignored; // "stop tracking": hidden and never updated
 
   BankAccount.fromDoc(DocumentSnapshot<Map<String, dynamic>> d)
       : id = d.id,
@@ -76,7 +78,17 @@ class BankAccount {
         label = d.data()!['label'] as String?,
         balance = (d.data()!['balance'] as num?)?.toDouble(),
         exact = d.data()!['exact'] as bool? ?? false,
-        balanceAt = (d.data()!['balanceAt'] as Timestamp?)?.toDate();
+        balanceAt = (d.data()!['balanceAt'] as Timestamp?)?.toDate(),
+        aliases = ((d.data()!['aliases'] as List?) ?? const []).map((e) => '$e').toList(),
+        ignored = d.data()!['ignored'] as bool? ?? false;
+
+  /// Same account if the digits match, allowing for banks that show only the
+  /// last 3 digits (XXX475) in some SMS and 4 (XX7475) in others.
+  bool matches(String digits) {
+    bool same(String a, String b) =>
+        a == b || (a.length >= 3 && b.length >= 3 && a.substring(a.length - 3) == b.substring(b.length - 3));
+    return same(account, digits) || aliases.any((a) => same(a, digits));
+  }
 
   String get title => label ?? (account == 'main' ? 'Bank account' : 'A/c ••$account');
 }
@@ -282,7 +294,7 @@ class Repo {
         await ensureClosing(monthKey(DateTime(receivedAt.year, receivedAt.month - 1)), before: receivedAt);
       }
       await updateBalance(body, when: receivedAt, member: member);
-      if (info != null && info.delta > 0) await _addIncomeFromSms(info, receivedAt, member, source);
+      if (info != null && info.delta > 0) await _addIncomeFromSms(info, receivedAt, member, source, body);
     } catch (_) {}
     final p = SmsParser.parse(body);
     if (p == null) {
@@ -510,7 +522,7 @@ class Repo {
       .snapshots()
       .map((q) => q.docs.map(IncomeEntry.fromDoc).toList()..sort((a, b) => b.date.compareTo(a.date)));
 
-  Future<void> _addIncomeFromSms(BalanceInfo info, DateTime when, String member, String source) async {
+  Future<void> _addIncomeFromSms(BalanceInfo info, DateTime when, String member, String source, String body) async {
     final id = 'in_${member.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}'
         '_${when.millisecondsSinceEpoch ~/ 60000}_${(info.delta * 100).round()}';
     final ref = income.doc(id);
@@ -524,7 +536,16 @@ class Repo {
       final first = n.toLowerCase().split(' ').first;
       return first.length >= 3 && fromLower.contains(first);
     });
-    final refund = RegExp(r'refund|reversal|reversed|cashback', caseSensitive: false).hasMatch(from);
+    // Money coming back (refunds, failed payments) is not income, and neither is
+    // money moved between your own accounts.
+    final refund = RegExp(r'refund|reversal|reversed|revers|cashback|failed|returned|chargeback',
+            caseSensitive: false)
+        .hasMatch('$from $body');
+    final myFirst = member.toLowerCase().split(' ').first;
+    final own = myFirst.length >= 3 &&
+        (fromLower.contains(myFirst) ||
+            RegExp(r'self|own a/?c|own account|sweep|fd (?:closure|maturity)|transfer from your', caseSensitive: false)
+                .hasMatch(body));
     await ref.set({
       'amount': info.delta,
       'from': from,
@@ -533,11 +554,13 @@ class Repo {
       'month': monthKey(when),
       'source': source,
       // Interest is not income: it is listed separately to be given away.
-      'counted': !(internal || refund || info.isInterest),
+      'counted': !(internal || refund || own || info.isInterest),
       if (info.isInterest) 'kind': 'interest',
       if (info.isInterest) 'givenAway': false,
       if (info.isInterest) 'note': 'Bank interest — give away to purify savings',
       if (internal) 'note': 'Transfer between you two',
+      if (!internal && own && !info.isInterest) 'note': 'Your own transfer — not income',
+      if (!internal && !own && refund && !info.isInterest) 'note': 'Refund / reversal — not income',
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -759,8 +782,37 @@ class Repo {
 
   CollectionReference<Map<String, dynamic>> get accounts => family.collection('accounts');
 
-  Stream<List<BankAccount>> accountsStream() => accounts.snapshots().map(
-      (q) => q.docs.map(BankAccount.fromDoc).toList()..sort((a, b) => a.member.compareTo(b.member)));
+  Stream<List<BankAccount>> accountsStream() => accounts.snapshots().map((q) =>
+      q.docs.map(BankAccount.fromDoc).where((a) => !a.ignored).toList()..sort((a, b) => a.member.compareTo(b.member)));
+
+  /// Which account a bank SMS is about. Never invents a second account for the
+  /// same number; SMS without an account number go to the person's only
+  /// account, or are skipped when they have several (ambiguous).
+  Future<DocumentReference<Map<String, dynamic>>?> _resolveAccount(String member, String digits) async {
+    final mine = (await accounts.where('member', isEqualTo: member).get()).docs;
+    if (digits != 'main') {
+      for (final d in mine) {
+        final a = BankAccount.fromDoc(d);
+        if (a.account != 'main' && a.matches(digits)) return a.ignored ? null : d.reference;
+      }
+      return accounts.doc(_acctId(member, digits));
+    }
+    final active = mine.map(BankAccount.fromDoc).where((a) => !a.ignored).toList();
+    if (active.length == 1) return accounts.doc(active.first.id);
+    if (active.isEmpty) return accounts.doc(_acctId(member, 'main'));
+    return null;
+  }
+
+  /// "Same account as…": fold [from] into [into] and remove [from].
+  Future<void> mergeAccounts(BankAccount from, BankAccount into) async {
+    await accounts.doc(into.id).update({
+      'aliases': FieldValue.arrayUnion([if (from.account != 'main') from.account, ...from.aliases]),
+    });
+    await accounts.doc(from.id).delete();
+  }
+
+  /// Stop tracking an account: hidden everywhere and never recreated.
+  Future<void> ignoreAccount(BankAccount a) => accounts.doc(a.id).set({'ignored': true}, SetOptions(merge: true));
 
   static String _acctId(String member, String account) =>
       '${member.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}_$account';
@@ -772,7 +824,8 @@ class Repo {
   Future<void> updateBalance(String body, {required DateTime when, required String member}) async {
     final info = SmsParser.parseBalance(body);
     if (info == null) return;
-    final ref = accounts.doc(_acctId(member, info.account));
+    final ref = await _resolveAccount(member, info.account);
+    if (ref == null) return;
     await db.runTransaction((tx) async {
       final snap = await tx.get(ref);
       final d = snap.data();
@@ -794,7 +847,7 @@ class Repo {
           ref,
           {
             'member': member,
-            'account': info.account,
+            if (d == null) 'account': info.account,
             'balance': balance,
             'exact': exact,
             'balanceAt': Timestamp.fromDate(when),
@@ -926,14 +979,31 @@ class Repo {
       final items = await family.collection('inbox').doc(e.key).collection('items').get();
       for (final d in items.docs) {
         final text = d.data()['text'];
-        if (text is String) {
-          final ok = await ingestSms(text,
-              receivedAt: DateTime.now(), member: e.value as String, source: 'iphone');
-          if (ok) added++;
+        if (text is String && text.trim().isNotEmpty) {
+          // Two automations (e.g. "debited" and "A/c") can forward the same SMS.
+          final seen = family.collection('seen').doc('${e.key}_${_hash(text)}');
+          if (!(await seen.get()).exists) {
+            await seen.set({'at': FieldValue.serverTimestamp()});
+            final ok = await ingestSms(text,
+                receivedAt: DateTime.now(), member: e.value as String, source: 'iphone');
+            if (ok) added++;
+          }
         }
         await d.reference.delete();
       }
     }
     return added;
+  }
+
+  /// Short stable hash of an SMS, ignoring spacing. Uses 32-bit maths only, so
+  /// the Android app and the iPhone web app produce the same value.
+  static String _hash(String text) {
+    var a = 0x811c9dc5, b = 5381;
+    for (final c in text.replaceAll(RegExp(r'\s+'), ' ').trim().codeUnits) {
+      a = ((a ^ c) & 0xffffffff);
+      a = ((((a & 0xff) << 24) & 0xffffffff) + a * 0x193) % 0x100000000; // FNV-1a prime = 2^24 + 0x193
+      b = (b * 33 + c) % 0x100000000; // djb2
+    }
+    return '${a.toRadixString(36)}${b.toRadixString(36)}';
   }
 }

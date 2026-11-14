@@ -207,7 +207,7 @@ class SmsParser {
       caseSensitive: false);
 
   static final _account = RegExp(
-      r'(?:a/c|a/c\s*no\.?|ac|acct|account|card)\s*(?:no\.?|number)?\s*[:.]?\s*[x*.\s]*(\d{3,6})\b',
+      r'\b(?:a/c|a/c\s*no\.?|ac|acct|account)\s*(?:no\.?|number)?\s*[:.]?\s*[x*.\s]*(\d{3,6})\b',
       caseSensitive: false);
 
   // Who sent money in a credit SMS. Group 1 = payer.

@@ -117,4 +117,11 @@ void main() {
     final salary = SmsParser.parseBalance('INR 45,000.00 credited to your A/c XX1234 towards SALARY NOV. Avl Bal INR 99,000')!;
     expect(salary.isInterest, isFalse);
   });
+
+  test('card numbers do not become bank accounts', () {
+    final b = SmsParser.parseBalance('Rs.456.00 spent on your SBI Debit Card ending 9645 at SWIGGY. Avl Bal Rs.12,000.00');
+    expect(b?.account == '9645', isFalse);
+    final a = SmsParser.parseBalance('Rs 500 debited from A/c XX7475 on 14Nov. Avl Bal Rs 20,000')!;
+    expect(a.account, '7475');
+  });
 }

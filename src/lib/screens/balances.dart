@@ -67,7 +67,7 @@ class _BalancesCardState extends State<BalancesCard> {
                 for (final a in e.value)
                   InkWell(
                     borderRadius: BorderRadius.circular(8),
-                    onTap: () => _edit(context, a),
+                    onTap: () => _edit(context, a, e.value),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       child: Row(children: [
@@ -101,14 +101,15 @@ class _BalancesCardState extends State<BalancesCard> {
     return a.exact ? 'As per bank · $when' : 'Estimated · last SMS had no balance · $when';
   }
 
-  Future<void> _edit(BuildContext context, BankAccount a) async {
+  Future<void> _edit(BuildContext context, BankAccount a, [List<BankAccount> same = const []]) async {
+    final others = same.where((o) => o.id != a.id).toList();
     final bal = TextEditingController(text: a.balance?.toStringAsFixed(2) ?? '');
     final name = TextEditingController(text: a.label ?? '');
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (ctx) => Padding(
+      builder: (ctx) => SingleChildScrollView(child: Padding(
         padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.of(ctx).viewInsets.bottom),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('${a.member} · ${a.title}', style: Theme.of(ctx).textTheme.titleLarge),
@@ -128,7 +129,33 @@ class _BalancesCardState extends State<BalancesCard> {
             decoration: const InputDecoration(
                 labelText: 'Name (optional)', hintText: 'e.g. SBI salary', border: OutlineInputBorder()),
           ),
-          const SizedBox(height: 12),
+          if (others.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text('Is this the same bank account as another one below? Merge it so it is counted only once.',
+                style: Theme.of(ctx).textTheme.bodySmall),
+            const SizedBox(height: 6),
+            Wrap(spacing: 8, runSpacing: 4, children: [
+              for (final o in others)
+                ActionChip(
+                  avatar: const Icon(Icons.merge_type, size: 18),
+                  label: Text('Same as ${o.title}'),
+                  onPressed: () async {
+                    await widget.repo.mergeAccounts(a, o);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                ),
+            ]),
+          ],
+          const SizedBox(height: 8),
+          TextButton.icon(
+            icon: const Icon(Icons.visibility_off_outlined, size: 18),
+            label: const Text('Not a real account — stop tracking it'),
+            onPressed: () async {
+              await widget.repo.ignoreAccount(a);
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+          ),
+          const SizedBox(height: 4),
           Row(children: [
             TextButton(
               onPressed: () async {
@@ -149,7 +176,7 @@ class _BalancesCardState extends State<BalancesCard> {
             ),
           ]),
         ]),
-      ),
+      )),
     );
   }
 
