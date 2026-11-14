@@ -1,7 +1,7 @@
 name: hifz_academy
 description: Quran Hifz & Recitation Academy — Android and iOS.
 publish_to: none
-version: 0.11.0+14
+version: 0.12.0+15
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -32,6 +32,8 @@ dependencies:
   cross_file: ^0.3.4
   path_provider: ^2.1.4
   share_plus: ^10.1.4
+  geolocator: '>=13.0.0 <15.0.0'
+  flutter_compass: ^0.8.1
   # Later: audio_service (lock-screen playback), record (Phase 9), purchases_flutter (Phase 13)
 
 dev_dependencies:

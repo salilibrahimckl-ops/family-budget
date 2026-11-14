@@ -15,6 +15,8 @@ import '../gamification/achievements_screens.dart';
 import '../gamification/gamification.dart';
 import '../memorisation/progress_controller.dart';
 import '../onboarding/onboarding_store.dart';
+import '../prayer/prayer_screen.dart';
+import '../prayer/prayer_settings.dart';
 import '../share/share_app.dart';
 import '../updates/updates.dart';
 
@@ -137,6 +139,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
                 const SizedBox(height: HSpace.m),
               ],
+              const _NextPrayerCard(),
               if (kids) ...[
                 NoorSays(noorLine),
                 const SizedBox(height: HSpace.m),
@@ -378,6 +381,42 @@ class _Note extends StatelessWidget {
       padding: const EdgeInsets.all(HSpace.m),
       decoration: BoxDecoration(color: s.primaryContainer, borderRadius: const BorderRadius.all(HRadius.m)),
       child: Text(text, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: s.onPrimaryContainer)),
+    );
+  }
+}
+
+
+/// Next Azan (and Iqamah at your mosque) at a glance; opens prayer times, Qibla and mosques.
+class _NextPrayerCard extends ConsumerWidget {
+  const _NextPrayerCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final t = Theme.of(context).textTheme;
+    final s = ref.watch(prayerSettingsProvider);
+    final next = nextPrayer(s);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: HSpace.m),
+      child: Card(
+        child: ListTile(
+          leading: const Icon(Icons.mosque),
+          title: Text(next == null ? l.prTitle : '${prayerName(l, next.$1)} · ${hm(context, next.$2)}', style: t.titleMedium),
+          subtitle: Text(next == null
+              ? l.prSetUp
+              : [
+                  if (next.$3 != null) '${l.prIqamah} ${hm(context, next.$3!)}',
+                  if (s.mosque != null) s.mosque!.name,
+                  untilText(l, next.$2.difference(DateTime.now())),
+                ].join(' · ')),
+          trailing: IconButton(
+            tooltip: l.prQiblaTab,
+            icon: const Icon(Icons.explore),
+            onPressed: () => context.push('/prayer?tab=1'),
+          ),
+          onTap: () => context.push('/prayer'),
+        ),
+      ),
     );
   }
 }

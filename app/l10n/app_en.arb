@@ -959,5 +959,165 @@
   "pageTwoSurahs": "This page has more than one Surah: recite each part in turn.",
   "wholeSurah": "Whole Surah",
   "reciteTileSub": "A whole Surah or page in one go",
-  "challengesTileSub": "Games that test your Hifz"
+  "challengesTileSub": "Games that test your Hifz",
+  "prTitle": "Prayer times & Qibla",
+  "prSetUp": "Set up Azan and Iqamah times for your mosque",
+  "prTimesTab": "Times",
+  "prQiblaTab": "Qibla",
+  "prMosquesTab": "Mosques",
+  "prFajr": "Fajr",
+  "prSunrise": "Sunrise",
+  "prDhuhr": "Dhuhr",
+  "prAsr": "Asr",
+  "prMaghrib": "Maghrib",
+  "prIsha": "Isha",
+  "prAzan": "Azan",
+  "prIqamah": "Iqamah",
+  "prNext": "Next prayer",
+  "prNow": "now",
+  "prInHM": "in {h} h {m} min",
+  "@prInHM": {
+    "placeholders": {
+      "h": {
+        "type": "int"
+      },
+      "m": {
+        "type": "int"
+      }
+    }
+  },
+  "prInM": "in {m} min",
+  "@prInM": {
+    "placeholders": {
+      "m": {
+        "type": "int"
+      }
+    }
+  },
+  "prAzanAt": "Azan {t}",
+  "@prAzanAt": {
+    "placeholders": {
+      "t": {
+        "type": "String"
+      }
+    }
+  },
+  "prAzanIqamah": "Azan {a} · Iqamah {i}",
+  "@prAzanIqamah": {
+    "placeholders": {
+      "a": {
+        "type": "String"
+      },
+      "i": {
+        "type": "String"
+      }
+    }
+  },
+  "prJumuahAt": "Jumu‘ah (Friday) Iqamah: {t}",
+  "@prJumuahAt": {
+    "placeholders": {
+      "t": {
+        "type": "String"
+      }
+    }
+  },
+  "prNeedPlace": "To show prayer times and the Qibla, the app needs to know where you are.",
+  "prUseLocation": "Use my location",
+  "prSearchPlace": "Search for a town",
+  "placeHint": "e.g. Kozhikode",
+  "noPlaces": "No places found",
+  "locOff": "Location is switched off. Turn it on in your phone settings and try again.",
+  "locDenied": "Location permission was refused. You can search for your town instead.",
+  "locError": "Couldn’t find your location. Try again outdoors, or search for your town.",
+  "prCalcSettings": "Calculation settings",
+  "prMethod": "Method",
+  "prHanafi": "Hanafi Asr",
+  "prHanafiOn": "Asr when a shadow is twice its length",
+  "prHanafiOff": "Shafi‘i (most of Kerala): Asr when a shadow equals its length",
+  "prCalcNote": "Azan times are calculated from the sun’s position. Mosques often differ by a few minutes — set your mosque’s own times in the Mosques tab.",
+  "qiblaBearing": "Qibla: {d}° from North",
+  "@qiblaBearing": {
+    "placeholders": {
+      "d": {
+        "type": "int"
+      }
+    }
+  },
+  "qiblaDistance": "{km} km to the Kaaba",
+  "@qiblaDistance": {
+    "placeholders": {
+      "km": {
+        "type": "int"
+      }
+    }
+  },
+  "qiblaStart": "Start compass",
+  "qiblaAligned": "You are facing the Qibla ✓",
+  "qiblaTurnRight": "Turn right {d}°",
+  "@qiblaTurnRight": {
+    "placeholders": {
+      "d": {
+        "type": "int"
+      }
+    }
+  },
+  "qiblaTurnLeft": "Turn left {d}°",
+  "@qiblaTurnLeft": {
+    "placeholders": {
+      "d": {
+        "type": "int"
+      }
+    }
+  },
+  "qiblaNoCompass": "This device has no compass. Face {d}° clockwise from North (use the sun or a map).",
+  "@qiblaNoCompass": {
+    "placeholders": {
+      "d": {
+        "type": "int"
+      }
+    }
+  },
+  "qiblaTips": "Hold the phone flat, away from metal and magnets. If the needle seems wrong, move the phone in a figure-of-eight to calibrate.",
+  "compassLabels": "N,E,S,W",
+  "mosquesIntro": "Add your local mosques and set when each one gives the Azan and holds the Iqamah. Times then show for the mosque you choose.",
+  "myMosques": "My mosques",
+  "kmAway": "{km} km away",
+  "@kmAway": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "mosqueEdit": "Edit timetable",
+  "mosqueRemove": "Remove",
+  "findMosques": "Find mosques near {place}",
+  "@findMosques": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "addMosqueByHand": "Add a mosque by name",
+  "mosqueSearchFailed": "Couldn’t search right now (no internet?). Try again, or add your mosque by name.",
+  "noMosquesFound": "No mosques found nearby on the map. Add yours by name.",
+  "mosquesFound": "{n} mosques nearby — tap one to set its times",
+  "@mosquesFound": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "osmCredit": "Mosque locations © OpenStreetMap contributors",
+  "mosqueTimetable": "Mosque timetable",
+  "mosqueName": "Mosque name",
+  "mosqueEditorHelp": "Check your mosque’s notice board. If its Azan is a few minutes different from the calculated time, adjust it; then set the Iqamah as minutes after the Azan or a fixed time.",
+  "azanAdjust": "Azan: minutes earlier (−) or later (+)",
+  "iqAfter": "After Azan",
+  "iqFixed": "Fixed time",
+  "iqMinutesAfter": "Iqamah: minutes after the Azan",
+  "jumuah": "Jumu‘ah (Friday) Iqamah",
+  "jumuahNotSet": "Not set — tap to choose a time"
 }

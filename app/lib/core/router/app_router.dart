@@ -8,6 +8,7 @@ import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/gamification/achievements_screens.dart';
 import '../../features/gamification/sticker_book.dart';
 import '../../features/demo/guide_screen.dart';
+import '../../features/prayer/prayer_screen.dart';
 import '../../features/recite/recite_home_screen.dart';
 import '../../features/recite/section_recite_screen.dart';
 import '../../features/lesson/lesson_screen.dart';
@@ -65,6 +66,10 @@ GoRouter buildRouter() => GoRouter(
             from: int.tryParse(st.uri.queryParameters['from'] ?? ''),
             to: int.tryParse(st.uri.queryParameters['to'] ?? ''),
           ),
+        ),
+        GoRoute(
+          path: '/prayer',
+          builder: (_, st) => PrayerScreen(initialTab: int.tryParse(st.uri.queryParameters['tab'] ?? '') ?? 0),
         ),
         GoRoute(path: '/guide', builder: (_, __) => const GuideScreen()),
         GoRoute(path: '/stickers', builder: (_, __) => const StickerBookScreen()),

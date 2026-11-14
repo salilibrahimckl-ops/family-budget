@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.12.0",
+    "notes": [
+      "Qibla compass: turn until the needle points to the Kaaba — the phone tells you how far to turn and buzzes when you’re facing the Qibla.",
+      "Prayer times for where you are, with the next prayer and a countdown on the Today screen.",
+      "Your local mosques: find mosques near you on the map (or add yours by name) and set each one’s Azan and Iqamah times, including Jumu‘ah. The app then shows that mosque’s times."
+    ]
+  },
+  {
     "version": "0.11.0",
     "notes": [
       "New Recite tab: recite a whole Surah or a whole Mushaf page without stopping. The AI teacher listens to all of it, then shows every correction Ayah by Ayah. One recitation = one check, however long.",

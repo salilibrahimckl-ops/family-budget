@@ -10,7 +10,9 @@ s = open(man).read()
 s = s.replace('android:label="hifz_academy"', 'android:label="Hifz Academy"')
 perms = ('    <uses-permission android:name="android.permission.INTERNET"/>\n'
          '    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>\n'
-         '    <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n')
+         '    <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n'
+         '    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>\n'
+         '    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>\n')
 if 'REQUEST_INSTALL_PACKAGES' not in s:
     s = re.sub(r'(<manifest[^>]*>\n)', lambda m: m.group(1) + perms, s, count=1)
 provider = '''        <provider
