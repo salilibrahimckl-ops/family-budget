@@ -2,13 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useStore, update, uid, putMedia, processImage, exportData, resetAll, getState, State, Profile as P, hashPw } from '../lib/store';
 import { Header, BackBtn, Card, Btn, Chip, Seg, Icon, Pill, Sheet, Empty, go, back, Avatar, Field, NumIn, Toggle, fmt, Logo, Wordmark } from '../ui';
 import { GOALS, ACTIVITY, Goal, Activity, bmi } from '../lib/calc';
-import { EQUIP, Equip } from '../data/exercises';
+import { EQUIP, Equip, EQUIP_RANK } from '../data/exercises';
 import { toast, ACHIEVEMENTS, share, t } from '../lib/extras';
 import { ask, askText } from '../lib/dialog';
 import { localCoach, cloudCoach, userTargets, dayTotals, weeklyPlanText, recommendProgram, buildSchedule } from '../lib/coach';
 import { cloudReady, isCloud, syncUp, pullFeed, cloudDeleteAccount, signOutCloud, BAKED, changePassword, changeUsername } from '../lib/cloud';
 import { SignInButtons, inPreview, WEB_APP_URL } from './Join';
 import { WatchCard } from './Watch';
+import { weekStats } from '../lib/activity';
 import { useUnits } from './common';
 import { notifyCfg, scheduleAll, requestPermission, remindersSupported, testNotification, DEFAULT_NOTIFY } from '../lib/reminders';
 import { checkForUpdate, smartUpdate, currentBuild, needsNewApk, APK_URL, isNativeApp, UpdateInfo } from '../lib/updater';
@@ -20,9 +21,8 @@ export function Me() {
   const followers = s.social.follows.filter((f) => f.to === p.userId && f.status === 'accepted').length;
   const following = s.social.follows.filter((f) => f.from === p.userId && f.status === 'accepted').length;
   const items: [string, string, string, string?][] = [
-    ['user', 'My public profile', '/user/' + p.userId], ['edit', 'Edit fitness profile', '/edit-profile'], ['scale', 'Body, BMI & measurements', '/body'],
-    ['food', 'Nutrition targets', '/targets'], ['trophy', 'Challenges & badges', '/challenges'], ['bookmark', 'Saved posts', '/bookmarks'],
-    ['share', 'Invite friends (Android & iPhone)', '/invite'], ['spark', 'AI Coach', '/coach'], ['star', s.settings.plan === 'premium' ? 'Premium (active)' : 'Go Premium', '/premium'], ['gear', 'Settings & privacy', '/settings'],
+    ['scale', 'My weight & body', '/body'], ['trophy', 'Challenges', '/challenges'], ['share', 'Invite friends', '/invite'],
+    ['spark', 'Ask the AI coach', '/coach'], ['edit', 'Edit my details', '/edit-profile'], ['gear', 'Settings', '/settings'],
   ];
   if (s.settings.admin) items.push(['shield', 'Admin dashboard', '/admin']);
   return (
@@ -37,9 +37,10 @@ export function Me() {
         <div><small>Goal</small><b>{GOALS[p.goal].emoji} {GOALS[p.goal].label.split(' ')[0]}</b></div><div><small>Weight</small><b>{u.w(p.weight)}</b></div>
         <div><small>BMI</small><b>{bmi(p.weight, p.height).toFixed(1)}</b></div><div><small>Target</small><b>{tg.kcal} kcal</b></div>
       </div>
+      <Card className="list-row" onClick={() => go('/user/' + p.userId)}><Icon n="user" s={20} /><b style={{ flex: 1 }}>My posts & public profile</b><Icon n="chev" s={18} /></Card>
       <div className="row-b sec-h"><h3>Progress</h3></div>
-      <div className="ex-stats"><div><small>Workouts</small><b>{s.workouts.length}</b></div><div><small>PRs</small><b>{Object.keys(s.prs).length}</b></div><div><small>Badges</small><b>{Object.keys(s.achievements).length}/{ACHIEVEMENTS.length}</b></div><div><small>Days logged</small><b>{new Set(s.meals.map((m) => m.date)).size}</b></div></div>
-      {s.settings.plan === 'premium' ? <Analytics s={s} /> : <Card className="pro-teaser" onClick={() => go('/premium')}><Icon n="chart" /><div><b>Advanced analytics</b><small>Volume per muscle, 1RM trends, adherence — Premium</small></div><Icon n="chev" s={18} /></Card>}
+      <div className="ex-stats"><div><small>Workouts</small><b>{s.workouts.length}</b></div><div><small>Streak</small><b>🔥 {weekStats(s).streak}</b></div><div><small>Badges</small><b>{Object.keys(s.achievements).length}/{ACHIEVEMENTS.length}</b></div><div><small>Days logged</small><b>{new Set(s.meals.map((m) => m.date)).size}</b></div></div>
+      {s.settings.plan === 'premium' ? <Analytics s={s} /> : null}{false && <Card className="pro-teaser" onClick={() => go('/premium')}><Icon n="chart" /><div><b>Advanced analytics</b><small>Volume per muscle, 1RM trends, adherence — Premium</small></div><Icon n="chev" s={18} /></Card>}
       {items.map(([ic, l, to]) => <Card key={to} className="list-row" onClick={() => go(to)}><Icon n={ic} s={20} /><b style={{ flex: 1 }}>{l}</b><Icon n="chev" s={18} /></Card>)}
       <Btn full kind="ghost" onClick={async () => { if (s.session?.email === 'guest' && !(await ask('You haven’t added an email and password yet, so you won’t be able to sign back in. Sign out anyway?'))) { go('/settings'); return; } update((d) => { d.session = null; }); location.hash = '#/'; }}>Sign out</Btn>
       <p className="muted small center">Bro’s Fitness 1.0.0 · {isCloud(s) ? 'Cloud sync' : 'On-device mode'}</p>
@@ -143,16 +144,28 @@ export function Settings() {
   const s = useStore((x) => x); const st = s.settings; const p = s.profile!;
   const [url, setUrl] = useState(st.supabaseUrl); const [key, setKey] = useState(st.supabaseAnon); const [syncing, setSyncing] = useState(false);
   const setS = (fn: (d: State) => void) => update(fn);
+  const [more, setMore] = useState(false);
+  const eqRank = EQUIP_RANK[p.equipment];
+  const place = eqRank === 0 ? 'none' : eqRank < 3 ? 'dumbbells' : 'gym';
   return <div className="page"><Header left={<BackBtn />} title="Settings" />
+    <Card><span className="lbl">🏋️ My training</span>
+      <Field label="Where do you work out?"><div className="list-opts">{([['none', '🤸 At home, no equipment', 'Bodyweight workouts only'], ['dumbbells', '🏠 At home with dumbbells or bands', 'Home workouts + light weights'], ['gym', '🏢 At a gym', 'Shows gym programmes, machines and records']] as [Equip, string, string][]).map(([k, l, d]) =>
+        <button key={k} className={place === k ? 'on' : ''} onClick={() => setS((x) => { x.profile!.equipment = k; if (k !== 'gym') x.settings.showGym = false; })}><b>{l}</b><small>{d}</small></button>)}</div></Field>
+      {place !== 'gym' && <Toggle on={!!st.showGym} onChange={(v) => setS((d) => { d.settings.showGym = v; })} label="Also show gym workouts" desc="Off keeps the app simple — only home exercises." />}
+      <Field label="Workouts per week"><div className="chips">{[2, 3, 4, 5, 6].map((n) => <Chip key={n} on={p.days === n} onClick={() => setS((d) => { d.profile!.days = n; })}>{n} days</Chip>)}</div></Field>
+      <Field label="Workout length"><div className="chips">{[10, 20, 30, 45, 60].map((n) => <Chip key={n} on={p.minutes === n} onClick={() => setS((d) => { d.profile!.minutes = n; })}>{n} min</Chip>)}</div></Field>
+    </Card>
     {cloudReady() ? <AccountCard /> : s.session?.email === 'guest' && <SaveAccount />}
+    <RemindersCard />
+    <WatchCard />
+    <UpdatesCard />
+    <button className="more-settings" onClick={() => setMore(!more)}>{more ? '▲ Fewer settings' : '▼ More settings (theme, units, privacy, data)'}</button>
+    {more && <>
     <Card><span className="lbl">Appearance & units</span>
       <Field label="Theme"><Seg value={st.theme} onChange={(v) => setS((d) => { d.settings.theme = v; })} options={[{ v: 'dark', l: '🌙 Dark' }, { v: 'light', l: '☀️ Light' }]} /></Field>
       <Field label="Units"><Seg value={st.units} onChange={(v) => setS((d) => { d.settings.units = v; })} options={[{ v: 'metric', l: 'Metric (kg, cm, ml)' }, { v: 'imperial', l: 'Imperial (lb, in, oz)' }]} /></Field>
       <Field label="Language" hint="Malayalam is partially translated — more coming."><Seg value={st.lang} onChange={(v) => setS((d) => { d.settings.lang = v; })} options={[{ v: 'en', l: 'English' }, { v: 'ml', l: 'മലയാളം (beta)' }]} /></Field>
     </Card>
-    <UpdatesCard />
-    <WatchCard />
-    <RemindersCard />
     <Card><span className="lbl">Privacy</span>
       <Toggle on={p.private} onChange={(v) => setS((d) => { d.profile!.private = v; })} label="Private account" desc="Only followers you approve can see your posts" />
       <Toggle on={p.showStats} onChange={(v) => setS((d) => { d.profile!.showStats = v; })} label="Show body stats on profile" desc="Off by default. Weight, BMI and measurements stay private." />
@@ -181,6 +194,7 @@ export function Settings() {
     <Card><span className="lbl">About</span><div className="row"><Logo s={40} /><div><Wordmark size={16} /><small className="muted"> v1.0.0</small></div></div>
       <p className="muted small">Food data: IFCT 2017 (NIN, Hyderabad) and USDA FoodData Central averages; barcode data from Open Food Facts (ODbL). Formulas: Mifflin-St Jeor (1990), Epley 1RM, WHO & Asian-Indian BMI cut-offs.</p>
       {st.admin && <Toggle on={st.admin} onChange={(v) => setS((d) => { d.settings.admin = v; })} label="Developer / admin tools on this device" desc="Only the app owner has this. Friends who install the app never see it." />}</Card>
+    </>}
   </div>;
 }
 

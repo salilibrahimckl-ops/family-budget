@@ -417,3 +417,18 @@ button.link { background: none; border: 0; color: var(--accent, #C6FF3D); font-w
 .fc-people { display: flex; flex-direction: column; gap: 6px; max-height: 36vh; overflow-y: auto; margin-bottom: 12px; }
 .fc-people button { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; border: 1px solid var(--line); background: transparent; color: var(--text-1); text-align: left; }
 .fc-people button.on { border-color: #C6FF3D; background: rgba(198,255,61,.1); } .fc-people span { flex: 1; } .fc-people small { display: block; color: var(--text-2); } .fc-people i { font-style: normal; font-weight: 800; color: #C6FF3D; width: 20px; text-align: center; }
+/* simple home */
+.today-hero { display: flex; flex-direction: column; gap: 12px; background: linear-gradient(150deg, rgba(198,255,61,.16), rgba(34,227,181,.06) 60%, transparent); border-color: rgba(198,255,61,.35); }
+.today-hero h2 { margin: 2px 0; font-size: 24px; line-height: 1.15; }
+.th-main { display: flex; gap: 14px; align-items: center; } .th-emoji { font-size: 44px; line-height: 1; }
+.today-hero .wo-ex { display: flex; flex-wrap: wrap; gap: 6px; } .today-hero .wo-ex span { font-size: 12px; padding: 4px 9px; border-radius: 999px; background: rgba(255,255,255,.06); color: var(--text-2); }
+.today-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0; }
+.today-tiles button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 6px 12px; border-radius: 20px; background: var(--card); border: 1px solid var(--line); color: var(--text-1); }
+.today-tiles .ring span { font-size: 22px; } .today-tiles b { font-size: 18px; } .today-tiles small { font-size: 11px; color: var(--text-2); text-align: center; line-height: 1.2; }
+.quick.quick3 { grid-template-columns: repeat(3, 1fr); }
+/* home workouts grid */
+.qw-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.qw { display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); color: var(--text-1); text-align: left; }
+.qw span { font-size: 28px; } .qw b { font-size: 15px; line-height: 1.2; } .qw small { color: var(--text-2); font-size: 12px; }
+.more-settings { width: 100%; padding: 14px; border-radius: 16px; border: 1px dashed var(--line); background: none; color: var(--text-2); font-weight: 700; margin: 6px 0 12px; }
+.set-h.simple, .set-row.simple { grid-template-columns: 36px 1fr 56px; }

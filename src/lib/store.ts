@@ -33,7 +33,7 @@ export interface State {
   settings: {
     theme: 'dark' | 'light'; units: 'metric' | 'imperial'; asianBmi: boolean; hotClimate: boolean; lang: 'en' | 'ml';
     reminders: { water: boolean; every: number; from: number; to: number; workout: boolean };
-    supabaseUrl: string; supabaseAnon: string; admin: boolean; plan: 'free' | 'premium'; seenIntro: boolean; photo?: string; hideChecklist?: boolean; watchedDemo?: boolean;
+    supabaseUrl: string; supabaseAnon: string; admin: boolean; plan: 'free' | 'premium'; seenIntro: boolean; photo?: string; hideChecklist?: boolean; watchedDemo?: boolean; showGym?: boolean;
     notify?: { meals: boolean; times: [string, string, string]; workout: boolean; workoutTime: string; nudges: boolean; asked?: boolean };
   };
   custom: { kcal?: number; protein?: number; water?: number };

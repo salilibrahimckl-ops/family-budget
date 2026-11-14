@@ -1,9 +1,4 @@
-Challenge friends: most calories, active minutes or workouts in 3–30 days
-Challenge check-ins (push-ups, plank, steps) now count in calories burnt
-Change your username and password in Settings → Account
-One-tap updates: press Update and the app installs everything itself
-Friends leaderboard on Home — see who burnt the most calories this week
-Status row: friends’ posts from the last 24 h, WhatsApp-style
-Log 18 sports — badminton, football, swimming, running, brisk walking and more — with calorie estimates
-“Burnt today” card adds gym sessions and sports together
-Invite friends for Android and iPhone from Profile or Community
+Simpler app: Home shows today’s workout, calories eaten, burnt and water — that’s it
+Home workouts first: 6 ready-made no-equipment workouts (10–20 min), no weights or kg
+Gym features only appear if you choose “At a gym” (Settings → My training)
+Settings shortened: training, account, reminders, watch and updates — the rest under “More settings”

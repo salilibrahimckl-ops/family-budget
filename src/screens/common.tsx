@@ -1,3 +1,4 @@
+import { EQUIP_RANK } from '../data/exercises';
 import { useStore } from '../lib/store';
 import { kgToLb, lbToKg, mlToOz, cmToFtIn } from '../lib/calc';
 import { EXERCISES, EX_BY_ID, Exercise } from '../data/exercises';
@@ -33,3 +34,6 @@ export function allFoods(s: State): Food[] {
   return [...FOODS.map((f) => (s.foodOverrides[f.id] ? { ...f, ...s.foodOverrides[f.id] } : f)), ...s.customFoods];
 }
 export const LEVEL = ['', 'Beginner', 'Intermediate', 'Advanced'];
+
+/** Gym features (barbells, machines, programmes, PRs) only show for gym users or when switched on. */
+export const isGymMode = (s: State) => !!s.profile && (EQUIP_RANK[s.profile.equipment] >= 3 || !!s.settings.showGym);

@@ -8,9 +8,9 @@ import { recommendProgram, buildSchedule } from '../lib/coach';
 import { toast } from '../lib/extras';
 
 const PLACES: { k: Equip; e: string; l: string; d: string }[] = [
+  { k: 'none', e: '🤸', l: 'At home, no equipment', d: 'Bodyweight only — easiest to start' },
+  { k: 'dumbbells', e: '🏠', l: 'At home with dumbbells or bands', d: 'A few weights' },
   { k: 'gym', e: '🏢', l: 'At a gym', d: 'Machines, cables, barbells' },
-  { k: 'dumbbells', e: '🏠', l: 'At home with dumbbells', d: 'Or a few weights' },
-  { k: 'none', e: '🤸', l: 'At home, no equipment', d: 'Bodyweight only' },
 ];
 const QUICK_GOALS: Goal[] = ['fatloss', 'muscle', 'general', 'recomp', 'strength', 'maintain'];
 
@@ -19,7 +19,7 @@ export function Onboarding() {
   const [step, setStep] = useState(0);
   const [p, setP] = useState<Profile>({
     userId: session.userId, name: '', username: '', age: 25, sex: 'male', height: 170, weight: 70, targetWeight: 65,
-    experience: 'beginner', activity: 'light', days: 3, minutes: 45, goal: 'fatloss', equipment: 'gym', diet: 'nonveg', allergies: [],
+    experience: 'beginner', activity: 'light', days: 3, minutes: 20, goal: 'fatloss', equipment: 'none', diet: 'nonveg', allergies: [],
     photos: [], bio: '', private: false, showStats: false, leaderboard: true, createdAt: Date.now(),
   });
   const set = <K extends keyof Profile>(k: K, v: Profile[K]) => setP((x) => ({ ...x, [k]: v }));

@@ -21,6 +21,7 @@ export function LogActivity() {
     <div className="page">
       <Header left={<BackBtn />} title={sp ? sp.name : 'Log a sport or activity'} />
       {!sp ? <>
+        <BurnCard />
         <p className="muted small">Pick what you did. Calories are estimated from your weight and the activity’s intensity (MET values).</p>
         <div className="sport-grid">{SPORTS.map((x) => <button key={x.key} onClick={() => setSport(x.key)}><span>{x.emoji}</span><small>{x.name}</small></button>)}</div>
       </> : <>

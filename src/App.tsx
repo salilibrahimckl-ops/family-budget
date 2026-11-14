@@ -58,7 +58,7 @@ function Routes() {
     case 'bookmarks': return <Bookmarks />;
     case 'search-users': return <SearchUsers />;
     case 'invite': return <Invite />;
-    case 'activity': return <LogActivity />;
+    case 'activity': return <LogActivity key={location.hash} />;
     case 'fchallenge': return <FriendChallengeDetail key={b} id={b} />;
     case 'messages': return <Messages />;
     case 'chat': return <ChatThread key={b} other={b} />;

@@ -3,7 +3,9 @@ import { useStore, update, uid, today, getState, State, notify } from '../lib/st
 import { MUSCLES, EQUIP, EQUIP_RANK, Equip, Exercise, alternativeFor, Muscle } from '../data/exercises';
 import { PROGRAMS, Program } from '../data/programs';
 import { Header, BackBtn, Card, Btn, Chip, Seg, Icon, Pill, Sheet, Empty, go, back, useRoute, useTicker, fmt, NumIn, Field } from '../ui';
-import { allExercises, exById, LEVEL, useUnits } from './common';
+import { allExercises, exById, LEVEL, useUnits, isGymMode } from './common';
+import { QUICK } from '../data/homeWorkouts';
+import { workoutKcal } from '../lib/activity';
 import { Muscle3D } from './Muscle3D';
 import { DemoVideo } from './DemoVideo';
 import { YT } from '../data/videos';
@@ -12,6 +14,7 @@ import { e1rm } from '../lib/calc';
 import { toast, haptic, checkAchievements, share } from '../lib/extras';
 import { ask, askText } from '../lib/dialog';
 
+const timed = (e: Exercise) => /\d\s*s\b|sec/i.test(e.reps);
 const short = (n: string) => (/^Day [A-Z0-9]/.test(n) ? 'D' + n.slice(4, 5) : n.split(/[ &/]/)[0].slice(0, 5));
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const EQ_NAME = Object.fromEntries(EQUIP.map((e) => [e.key, e.name])) as Record<Equip, string>;
@@ -24,7 +27,7 @@ export function Train() {
   return (
     <div className="page">
       <Header big title="Train" right={<button className="icon-btn" onClick={() => go('/train?tab=library')} aria-label="Search exercises"><Icon n="search" /></button>} />
-      <Seg value={tab} onChange={(v) => go('/train?tab=' + v)} options={[{ v: 'plan', l: 'Plan' }, { v: 'library', l: 'Exercises' }, { v: 'history', l: 'History' }]} />
+      <Seg value={tab} onChange={(v) => go('/train?tab=' + v)} options={[{ v: 'plan', l: 'Workouts' }, { v: 'library', l: 'Exercises' }, { v: 'history', l: 'History' }]} />
       {tab === 'plan' && <PlanTab s={s} />}
       {tab === 'library' && <Library />}
       {tab === 'history' && <History s={s} />}
@@ -37,8 +40,23 @@ function PlanTab({ s }: { s: State }) {
   const rec = recommendProgram(s);
   const todayIdx = new Date().getDay();
   const prs = Object.entries(s.prs).sort((a, b) => b[1].e1rm - a[1].e1rm).slice(0, 6);
+  const gym = isGymMode(s); const homeEq = EQUIP_RANK[s.profile!.equipment] < 3;
+  const homeBlock = <>
+    <div className="row-b sec-h"><h3>🏠 Home workouts</h3><small className="muted">no equipment</small></div>
+    <div className="qw-grid">{QUICK.map((q) => <button key={q.id} className="qw" onClick={() => startWorkout(q.name, q.items)}><span>{q.emoji}</span><b>{q.name}</b><small>{q.minutes} min · {q.focus} · {q.level}</small></button>)}</div>
+  </>;
+  if (!gym) return <>
+    {s.active && <Card className="resume" onClick={() => go('/workout')}><Icon n="timer" /><div><b>Resume workout</b><small>{s.active.name} · started {fmt.ago(s.active.start)} ago</small></div><Icon n="chev" /></Card>}
+    {homeBlock}
+    <div className="row-b sec-h"><h3>Home programme</h3></div>
+    {PROGRAMS.filter((p) => p.home).map((p) => <Card key={p.id} className="list-row" onClick={() => go('/program/' + p.id)}><span style={{ fontSize: 26 }}>📅</span><div style={{ flex: 1 }}><b>{p.name}</b><small>{p.perWeek}×/week plan · {p.goal}</small></div><Icon n="chev" /></Card>)}
+    {s.routines.length > 0 && <><div className="row-b sec-h"><h3>My routines</h3><button className="link" onClick={() => go('/routine/new')}>+ New</button></div>
+      {s.routines.map((r) => <Card key={r.id} className="list-row"><div onClick={() => go('/routine/' + r.id)} style={{ flex: 1 }}><b>{r.name}</b><small>{r.items.length} exercises</small></div><Btn small icon="play" onClick={() => go('/workout/start/routine/' + r.id)}>Start</Btn></Card>)}</>}
+    <button className="more-settings" onClick={() => { update((d) => { d.settings.showGym = true; }); toast('Gym workouts on — switch off any time in Settings'); }}>🏢 I also go to a gym — show gym workouts</button>
+  </>;
   return <>
     {s.active && <Card className="resume" onClick={() => go('/workout')}><Icon n="timer" /><div><b>Resume workout</b><small>{s.active.name} · started {fmt.ago(s.active.start)} ago</small></div><Icon n="chev" /></Card>}
+    {homeEq && homeBlock}
     <Card>
       <div className="row-b"><span className="lbl"><Icon n="calendar" s={16} /> Weekly calendar</span>{prog && <button className="link" onClick={() => go('/program/' + prog.id)}>Edit</button>}</div>
       <div className="week">
@@ -74,21 +92,23 @@ function PlanTab({ s }: { s: State }) {
 export function Library({ pick }: { pick?: (e: Exercise) => void }) {
   const s = useStore((x) => x);
   const [q, setQ] = useState(''); const [muscle, setMuscle] = useState<Muscle | ''>(''); const [eq, setEq] = useState<Equip | ''>('');
-  const [lvl, setLvl] = useState(0); const [mech, setMech] = useState(''); const [where, setWhere] = useState<'' | 'gym' | 'home'>(''); const [type, setType] = useState('');
+  const gymMode = isGymMode(s);
+  const [lvl, setLvl] = useState(0); const [mech, setMech] = useState(''); const [where, setWhere] = useState<'' | 'gym' | 'home'>(gymMode ? '' : 'home'); const [type, setType] = useState('');
   const list = useMemo(() => allExercises(s).filter((e) =>
     (!q || (e.name + ' ' + e.secondary.join(' ') + ' ' + e.muscle).toLowerCase().includes(q.toLowerCase())) && (!muscle || e.muscle === muscle) && (!eq || e.equip === eq) && (!lvl || e.level === lvl)
     && (!mech || e.mech === mech) && (!type || e.type === type) && (!where || (where === 'home' ? EQUIP_RANK[e.equip] <= 2 : EQUIP_RANK[e.equip] >= 3))), [s, q, muscle, eq, lvl, mech, where, type]);
-  const filtering = q || muscle || eq || lvl || mech || where || type;
+  const filtering = q || muscle || eq || lvl || mech || (gymMode && where) || type;
   return <>
-    <div className="search"><Icon n="search" s={18} /><input placeholder="Search 100 exercises" value={q} onChange={(e) => setQ(e.target.value)} />{q && <button onClick={() => setQ('')}><Icon n="x" s={16} /></button>}</div>
+    <div className="search"><Icon n="search" s={18} /><input placeholder={where === 'home' ? 'Search home exercises' : 'Search exercises'} value={q} onChange={(e) => setQ(e.target.value)} />{q && <button onClick={() => setQ('')}><Icon n="x" s={16} /></button>}</div>
     <div className="chips scroll">
-      <Chip on={where === 'gym'} onClick={() => setWhere(where === 'gym' ? '' : 'gym')}>🏢 Gym</Chip><Chip on={where === 'home'} onClick={() => setWhere(where === 'home' ? '' : 'home')}>🏠 Home</Chip>
+      {gymMode ? <><Chip on={where === 'gym'} onClick={() => setWhere(where === 'gym' ? '' : 'gym')}>🏢 Gym</Chip><Chip on={where === 'home'} onClick={() => setWhere(where === 'home' ? '' : 'home')}>🏠 Home</Chip></>
+        : <Chip on={where !== 'home'} onClick={() => setWhere(where === 'home' ? '' : 'home')}>{where === 'home' ? '+ Show gym exercises' : '🏠 Home only'}</Chip>}
       <Chip on={mech === 'compound'} onClick={() => setMech(mech === 'compound' ? '' : 'compound')}>Compound</Chip><Chip on={mech === 'isolation'} onClick={() => setMech(mech === 'isolation' ? '' : 'isolation')}>Isolation</Chip>
       {[1, 2, 3].map((l) => <Chip key={l} on={lvl === l} onClick={() => setLvl(lvl === l ? 0 : l)}>{LEVEL[l]}</Chip>)}
     </div>
-    <div className="chips scroll">{EQUIP.map((e) => <Chip key={e.key} on={eq === e.key} onClick={() => setEq(eq === e.key ? '' : e.key)}>{e.name}</Chip>)}
+    <div className="chips scroll">{gymMode && EQUIP.map((e) => <Chip key={e.key} on={eq === e.key} onClick={() => setEq(eq === e.key ? '' : e.key)}>{e.name}</Chip>)}
       {['strength', 'bodyweight', 'core', 'cardio', 'plyometric'].map((t) => <Chip key={t} on={type === t} onClick={() => setType(type === t ? '' : t)}>{t[0].toUpperCase() + t.slice(1)}</Chip>)}</div>
-    {!filtering && <div className="muscle-grid">{MUSCLES.map((m) => <button key={m.key} onClick={() => setMuscle(m.key)}><span>{m.emoji}</span><b>{m.name}</b><small>{allExercises(s).filter((e) => e.muscle === m.key).length}</small></button>)}</div>}
+    {!filtering && <div className="muscle-grid">{MUSCLES.map((m) => <button key={m.key} onClick={() => setMuscle(m.key)}><span>{m.emoji}</span><b>{m.name}</b><small>{allExercises(s).filter((e) => e.muscle === m.key && (where !== 'home' || EQUIP_RANK[e.equip] <= 2)).length}</small></button>)}</div>}
     {filtering && <>
       {muscle && <div className="row-b"><h3 className="sec-h">{MUSCLES.find((m) => m.key === muscle)?.name}</h3><button className="link" onClick={() => setMuscle('')}>All muscles</button></div>}
       <p className="muted small">{list.length} exercise{list.length === 1 ? '' : 's'}</p>
@@ -252,6 +272,7 @@ export function WorkoutStart({ parts }: { parts: string[] }) {
 export function ActiveWorkout() {
   useTicker(1000);
   const s = useStore((x) => x); const a = s.active; const u = useUnits();
+  const simple = !isGymMode(s);
   const [rest, setRest] = useState<{ until: number; total: number } | null>(null);
   const [picking, setPicking] = useState(false);
   const [restDefault, setRestDefault] = useState(90);
@@ -286,23 +307,24 @@ export function ActiveWorkout() {
     <div className="page wo-page">
       <Header left={<button className="icon-btn" onClick={() => go('/train')} aria-label="Minimise"><Icon n="back" /></button>} title={<input className="wo-name" value={a.name} onChange={(e) => mod((x) => { x.name = e.target.value; })} />} right={<Btn small onClick={finish}>Finish</Btn>} />
       <div className="wo-bar">
-        <div><small>Time</small><b>{fmt.dur(Date.now() - a.start)}</b></div><div><small>Sets</small><b>{doneSets}/{totalSets}</b></div><div><small>Volume</small><b>{fmt.n(volume)} kg</b></div>
-        <button className={'homebtn' + (a.home ? ' on' : '')} onClick={() => mod((x) => {
+        <div><small>Time</small><b>{fmt.dur(Date.now() - a.start)}</b></div><div><small>Sets</small><b>{doneSets}/{totalSets}</b></div>
+        {simple ? <div><small>Burnt</small><b>~{workoutKcal(s, { start: a.start, end: Date.now(), entries: a.entries })} kcal</b></div> : <div><small>Volume</small><b>{fmt.n(volume)} kg</b></div>}
+        {!simple && <button className={'homebtn' + (a.home ? ' on' : '')} onClick={() => mod((x) => {
           x.home = !x.home;
           x.entries.forEach((en) => { const e = exById(getState(), en.exId); if (!e) return; if (x.home) { const alt = alternativeFor(e, EQUIP_RANK[eqLevel] >= 3 ? 'none' : eqLevel); if (alt) en.exId = alt.id; } });
-        })}>{a.home ? '🏠 Home' : '🏢 Gym'}</button>
+        })}>{a.home ? '🏠 Home' : '🏢 Gym'}</button>}
       </div>
       {a.entries.map((en, ei) => { const e = exById(s, en.exId); if (!e) return null; const pr = s.prs[e.id]; const alt = alternativeFor(e, EQUIP_RANK[eqLevel] >= 3 ? 'none' : eqLevel);
         return (
           <Card key={ei} className="wo-ex-card">
-            <div className="row-b"><div onClick={() => go('/exercise/' + e.id)}><b>{e.name}</b><small className="muted">{e.rest} rest · {pr ? `PR ${pr.w}×${pr.r}` : 'no PR yet'}</small></div>
+            <div className="row-b"><div onClick={() => go('/exercise/' + e.id)}><b>{e.name}</b><small className="muted">{e.rest} rest{simple ? (timed(e) ? ' · hold/time in seconds' : '') : ' · ' + (pr ? `PR ${pr.w}×${pr.r}` : 'no PR yet')}</small></div>
               <div className="row">{YT[e.id] && <button className="icon-btn" title="Watch demo" aria-label="Watch demo" onClick={() => setDemo(e.id)}><Icon n="play" s={16} fill /></button>}{alt && <button className="icon-btn" title={`Swap to ${alt.name}`} onClick={() => mod((x) => { x.entries[ei].exId = alt.id; })}><Icon n="swap" s={18} /></button>}
                 <button className="icon-btn" onClick={() => mod((x) => { x.entries.splice(ei, 1); })} aria-label="Remove exercise"><Icon n="trash" s={18} /></button></div></div>
-            <div className="set-h"><span>Set</span><span>{u.wU}</span><span>Reps</span><span>✓</span></div>
+            <div className={'set-h' + (simple ? ' simple' : '')}><span>Set</span>{!simple && <span>{u.wU}</span>}<span>{timed(e) ? 'Seconds' : 'Reps'}</span><span>✓</span></div>
             {en.sets.map((st, si) => (
-              <div key={si} className={'set-row' + (st.done ? ' done' : '')}>
+              <div key={si} className={'set-row' + (simple ? ' simple' : '') + (st.done ? ' done' : '')}>
                 <span>{si + 1}</span>
-                <input inputMode="decimal" value={st.w ? u.wNum(st.w) : ''} placeholder={e.type === 'bodyweight' || e.type === 'core' ? 'BW' : '0'} onChange={(ev) => mod((x) => { x.entries[ei].sets[si].w = +u.wIn(parseFloat(ev.target.value) || 0).toFixed(2); })} />
+                {!simple && <input inputMode="decimal" value={st.w ? u.wNum(st.w) : ''} placeholder={e.type === 'bodyweight' || e.type === 'core' ? 'BW' : '0'} onChange={(ev) => mod((x) => { x.entries[ei].sets[si].w = +u.wIn(parseFloat(ev.target.value) || 0).toFixed(2); })} />}
                 <input inputMode="numeric" value={st.r || ''} onChange={(ev) => mod((x) => { x.entries[ei].sets[si].r = parseInt(ev.target.value) || 0; })} />
                 <button className="tick" onClick={() => { haptic(); mod((x) => { x.entries[ei].sets[si].done = !st.done; }); if (!st.done) { const sec = parseInt(e.rest) ? (e.rest.includes('min') ? parseFloat(e.rest) * 60 : parseInt(e.rest)) : restDefault; setRest({ until: Date.now() + sec * 1000, total: sec }); } }}><Icon n="check" s={18} /></button>
               </div>
