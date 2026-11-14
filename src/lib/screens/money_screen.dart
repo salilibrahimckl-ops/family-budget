@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../repo.dart';
 import 'charts.dart';
 import 'common.dart';
+import 'goals.dart';
 import 'month_summary.dart';
 import 'zakat_screen.dart';
 
@@ -256,6 +257,10 @@ class _MoneyScreenState extends State<MoneyScreen> {
             ],
           ]),
           const SizedBox(height: 20),
+
+          // ---- Goals ----
+          GoalsSection(repo: widget.repo, members: members),
+          const SizedBox(height: 16),
 
           // ---- Zakat & interest ----
           Card(

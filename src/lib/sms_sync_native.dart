@@ -5,6 +5,7 @@ import 'package:another_telephony/telephony.dart';
 import 'package:flutter/widgets.dart';
 
 import 'config.dart';
+import 'notifier.dart';
 import 'repo.dart';
 import 'sms_parser.dart';
 
@@ -24,6 +25,7 @@ Future<void> onBackgroundSms(SmsMessage msg) async {
         receivedAt: DateTime.fromMillisecondsSinceEpoch(msg.date ?? DateTime.now().millisecondsSinceEpoch),
         member: s.myName,
         source: 'sms');
+    await BudgetNotifier.check(repo);
   } catch (_) {
     // Missed here? The catch-up scan picks it up next time the app opens.
   }
@@ -42,7 +44,9 @@ class SmsSync {
     if (!supported) return 0;
     final granted = await _telephony.requestSmsPermissions ?? false;
     if (!granted) return 0;
+    await BudgetNotifier.requestPermission();
     final added = await scan();
+    await BudgetNotifier.check(repo);
     _telephony.listenIncomingSms(
       onNewMessage: (m) async {
         if (!SmsParser.looksLikeBankSender(m.address)) return;
@@ -50,6 +54,7 @@ class SmsSync {
             receivedAt: DateTime.fromMillisecondsSinceEpoch(m.date ?? DateTime.now().millisecondsSinceEpoch),
             member: repo.myName,
             source: 'sms');
+        await BudgetNotifier.check(repo);
       },
       onBackgroundMessage: onBackgroundSms,
       listenInBackground: true,

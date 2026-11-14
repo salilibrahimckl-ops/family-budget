@@ -7,6 +7,7 @@ import 'balances.dart';
 import 'charts.dart';
 import 'pending_cards.dart';
 import 'common.dart';
+import 'insights_cards.dart';
 import '../updater.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -179,7 +180,11 @@ class _Body extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
+          AlertsCard(budget: budget, txns: txns, month: month),
+          const SizedBox(height: 12),
           BalancesCard(repo: repo),
+          const SizedBox(height: 12),
+          MoneyStoryCard(repo: repo, month: month, txns: txns),
           const SizedBox(height: 12),
           _BudgetRing(
             title: 'Family',

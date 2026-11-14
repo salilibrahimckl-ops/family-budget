@@ -20,6 +20,19 @@ class Txn {
   final String? note;
   final String? paidFrom; // manual payments: bank account id or 'cash'
 
+  Txn.of({
+    required this.amount,
+    required this.payee,
+    required this.category,
+    required this.member,
+    required this.date,
+    this.id = '',
+    this.source = 'manual',
+    this.note,
+  })  : payeeKey = payee.toLowerCase(),
+        chittiSuggest = false,
+        paidFrom = null;
+
   Txn.fromDoc(DocumentSnapshot<Map<String, dynamic>> d)
       : id = d.id,
         amount = (d.data()!['amount'] as num).toDouble(),
@@ -130,6 +143,27 @@ class MoneyItem {
 
   /// Value in rupees; gold uses today's rate per gram for its purity.
   double value(Map<int, double> goldRates) => isGold ? grams * (goldRates[purity] ?? 0) : amount;
+}
+
+/// A savings goal (Hajj, house, car…). `saved` is money already earmarked.
+class Goal {
+  final String id;
+  final String title;
+  final double target;
+  final double saved;
+  final DateTime? due;
+  final String member; // a name, or 'Family'
+  final String iconKey;
+  Goal.fromDoc(DocumentSnapshot<Map<String, dynamic>> d)
+      : id = d.id,
+        title = d.data()!['title'] as String? ?? 'Goal',
+        target = (d.data()!['target'] as num?)?.toDouble() ?? 0,
+        saved = (d.data()!['saved'] as num?)?.toDouble() ?? 0,
+        due = (d.data()!['due'] as Timestamp?)?.toDate(),
+        member = d.data()!['member'] as String? ?? 'Family',
+        iconKey = d.data()!['icon'] as String? ?? 'flag';
+  double get progress => target <= 0 ? 0 : (saved / target).clamp(0, 1).toDouble();
+  bool get done => target > 0 && saved >= target;
 }
 
 /// Monthly budget: amount per category + optional personal limit per member.
@@ -998,6 +1032,51 @@ class Repo {
     }
     return added;
   }
+
+  // ---------- goals ----------
+
+  CollectionReference<Map<String, dynamic>> get goals => family.collection('goals');
+
+  Stream<List<Goal>> goalsStream() => goals.snapshots().map((q) => q.docs.map(Goal.fromDoc).toList()
+    ..sort((a, b) {
+      if (a.done != b.done) return a.done ? 1 : -1;
+      final ad = a.due ?? DateTime(9999), bd = b.due ?? DateTime(9999);
+      return ad.compareTo(bd);
+    }));
+
+  Future<void> saveGoal({
+    String? id,
+    required String title,
+    required double target,
+    required double saved,
+    DateTime? due,
+    required String member,
+    required String iconKey,
+  }) async {
+    final data = {
+      'title': title,
+      'target': target,
+      'saved': saved,
+      'due': due == null ? null : Timestamp.fromDate(due),
+      'member': member,
+      'icon': iconKey,
+      if (id == null) 'createdAt': FieldValue.serverTimestamp(),
+    };
+    if (id == null) {
+      await goals.add(data);
+    } else {
+      await goals.doc(id).set(data, SetOptions(merge: true));
+    }
+  }
+
+  Future<void> addToGoal(Goal g, double delta) => goals.doc(g.id).update({
+        'saved': FieldValue.increment(delta),
+        'log': FieldValue.arrayUnion([
+          {'amount': delta, 'by': myName, 'at': Timestamp.now()}
+        ]),
+      });
+
+  Future<void> deleteGoal(Goal g) => goals.doc(g.id).delete();
 
   /// "QUICK|amount|what|date" from the iPhone Shortcut that runs when GPay is
   /// closed. Skipped when a bank SMS already recorded the same amount nearby.

@@ -14,7 +14,7 @@ fi
 cd "$APP"
 
 echo "==> Adding packages"
-flutter pub add firebase_core firebase_auth cloud_firestore another_telephony shared_preferences intl http package_info_plus 'ota_update:^7.1.0'
+flutter pub add firebase_core firebase_auth cloud_firestore another_telephony shared_preferences intl http package_info_plus 'ota_update:^7.1.0' 'flutter_local_notifications:^19.4.0'
 
 echo "==> Copying app code"
 rm -f test/widget_test.dart
