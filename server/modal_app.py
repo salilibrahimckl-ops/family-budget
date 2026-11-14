@@ -24,7 +24,7 @@ def _download():
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("ffmpeg", "libsndfile1")
-    .pip_install("torch>=2.7.0", index_url="https://download.pytorch.org/whl/cpu")
+    .pip_install("torch>=2.7.0", "torchaudio>=2.7.0", index_url="https://download.pytorch.org/whl/cpu")
     .pip_install(
         "quran-muaalem>=0.3.0",
         "quran-transcript>=0.6.4",
@@ -33,21 +33,51 @@ image = (
         "numba>=0.61.2",
         "fastapi>=0.116.1",
         "python-multipart>=0.0.20",
+        "silero-vad>=5.1",
     )
     .run_function(_download)  # the model is baked into the image: quick wake-ups
-    .add_local_file(HERE / "app.py", "/root/app.py")
+    .add_local_dir(HERE, "/root/server", ignore=["test_*", "__pycache__", "Dockerfile", "README.md", "*.txt"])
 )
 
 app = modal.App("hifz-teacher")
 
 
-@app.function(image=image, cpu=4.0, memory=6144, timeout=300, scaledown_window=180, max_containers=2)
-@modal.concurrent(max_inputs=4)
-@modal.asgi_app()
-def web():
-    import sys
+@app.cls(
+    image=image,
+    cpu=8.0,
+    memory=8192,
+    timeout=900,
+    scaledown_window=300,
+    max_containers=1,  # streaming sessions must reach the same container
+    enable_memory_snapshot=True,  # wake up with the model already in memory
+)
+@modal.concurrent(max_inputs=32)
+class Teacher:
+    @modal.enter(snap=True)
+    def load(self):
+        import sys
 
-    sys.path.insert(0, "/root")
-    from app import app as fastapi_app
+        sys.path.insert(0, "/root/server")
+        import engine
 
-    return fastapi_app
+        engine.M.load()
+        from silero_vad import load_silero_vad
+
+        load_silero_vad()  # warm the voice detector too
+
+    @modal.enter(snap=False)
+    def threads(self):
+        import os
+
+        import torch
+
+        torch.set_num_threads(max(1, os.cpu_count() or 1))
+
+    @modal.asgi_app()
+    def web(self):
+        import sys
+
+        sys.path.insert(0, "/root/server")
+        from app import app as fastapi_app
+
+        return fastapi_app

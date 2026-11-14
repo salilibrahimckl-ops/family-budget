@@ -1,15 +1,13 @@
-"""Hifz Academy recitation teacher.
+"""Hifz Academy recitation teacher (web API).
 
-Listens to one recited Ayah and reports, word by word:
-  - missed, extra or wrong words and letters,
-  - wrong harakat (short vowels),
-  - Tajweed: every Madd type (with the counts held), Ghunnah, Qalqalah, Idgham.
+Listens to a recitation of one Ayah or a whole section of Ayahs and reports, word by
+word: missed, extra or wrong words; wrong letters and harakat; and Tajweed (every Madd
+with the counts held, Ghunnah, Qalqalah, Idgham). Differences are sorted into real
+mistakes and gentle tips; lenient mode (the default) allows for non-Arab accents.
 
-It runs the open-source Quran Muaalem model (obadx/muaalem-model-v3_2, Quran Muaalem
-License): the recitation is turned into Quran phonetic script, then compared with the
-phonetic script of the verified Uthmani text of that Ayah (Tanzil Uthmani 1.1, via
-quran-transcript). Nothing is generated: the Quran text comes from the verified source
-and every finding is a comparison against it.
+Built on the open-source Quran Muaalem model (obadx/muaalem-model-v3_2, Quran Muaalem
+License). The Quran text comes from the verified source (Tanzil Uthmani 1.1 via
+quran-transcript); every finding is a comparison against it. Nothing is generated.
 
 AI advisory notice (required by the Quran Muaalem License, section 2.1):
   This Quranic Teacher is an artificial-intelligence model that may make mistakes. It is
@@ -17,7 +15,13 @@ AI advisory notice (required by the Quran Muaalem License, section 2.1):
   a proficient, authorized teacher, because the Quran is only received through oral
   transmission (mushafahah).
 
-Audio is processed in memory and deleted after the check; nothing is stored.
+Two ways to send audio:
+  - Streaming (fast): POST /session, then POST /session/{id}/audio with raw 16 kHz
+    16-bit mono PCM every few seconds while reciting, then POST /session/{id}/finish.
+    Breaths are analysed while the learner is still reciting.
+  - One file: POST /check.
+One session or one check counts as one use, however many Ayahs it covers.
+Audio is processed in memory and discarded; nothing is stored.
 """
 from __future__ import annotations
 
@@ -27,23 +31,19 @@ import subprocess
 import tempfile
 import threading
 import time
+import uuid
 
 import librosa
 import numpy as np
 import torch
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-import Levenshtein as lv
-from quran_transcript import Aya, MoshafAttributes, explain_error, quran_phonetizer
-from transformers import AutoFeatureExtractor
+from quran_transcript import Aya, MoshafAttributes
 
-from quran_muaalem.modeling.modeling_multi_level_ctc import Wav2Vec2BertForMultilevelCTC
-from quran_muaalem.modeling.multi_level_tokenizer import MultiLevelTokenizer
+import engine
+from engine import SR, M, Recording, analyse, build_reference
+from fairuse import admit, is_family
 
-MODEL = os.environ.get("MUAALEM_MODEL", "obadx/muaalem-model-v3_2")
-SR = 16000
-CHUNK_SECONDS = 14.0  # the model was trained on segments up to ~15 s
-MAX_SECONDS = 180.0
 NOTICE = {
     "en": "This Quranic Teacher is an artificial-intelligence model that may make mistakes. "
     "It is intended for assistance only and must not be relied upon. It is not a replacement "
@@ -52,6 +52,7 @@ NOTICE = {
     "ar": "هذا المعلّم القرآني نموذج ذكاء اصطناعي قد يخطئ؛ فهو للإعانة فقط ولا يُعتمد عليه، "
     "وليس بديلاً عن معلّمٍ مُتقِنٍ مُجاز؛ لأنّ القرآن لا يُؤخذ إلا بالمشافهة.",
 }
+MAX_AYAHS = 60  # per session
 
 torch.set_num_threads(max(1, os.cpu_count() or 1))
 
@@ -59,42 +60,78 @@ app = FastAPI(title="Hifz Academy recitation teacher")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
-class _Model:
-    def __init__(self) -> None:
-        self.ready = False
-        self.error: str | None = None
-        self.lock = threading.Lock()  # one recitation at a time on a small CPU
-
-    def load(self) -> None:
-        try:
-            self.processor = AutoFeatureExtractor.from_pretrained(MODEL)
-            self.tokenizer = MultiLevelTokenizer(MODEL)
-            self.model = Wav2Vec2BertForMultilevelCTC.from_pretrained(MODEL)
-            self.model.to("cpu", dtype=torch.float32).eval()
-            self.ready = True
-        except Exception as e:  # reported by /health
-            self.error = f"{type(e).__name__}: {e}"
-
-    def phonemes(self, wave: np.ndarray) -> tuple[str, float]:
-        """Phonetic transcription of one segment, and the mean confidence of the
-        phonemes the model emitted (0-1)."""
-        feats = self.processor(wave, sampling_rate=SR, return_tensors="pt")
-        with torch.inference_mode():
-            out = self.model(feats["input_features"], feats.get("attention_mask"), return_dict=False)[0]
-        probs = torch.softmax(out["phonemes"][0].float(), dim=-1)
-        top_p, top_id = probs.max(dim=-1)
-        vocab = self.tokenizer.id_to_vocab["phonemes"]
-        text, confs, prev = [], [], 0
-        for p, i in zip(top_p.tolist(), top_id.tolist()):
-            if i != 0 and i != prev:
-                text.append(vocab[int(i)])
-                confs.append(p)
-            prev = i
-        return "".join(text), (float(np.mean(confs)) if confs else 0.0)
+@app.on_event("startup")
+def _startup():
+    if not M.ready:  # on Modal the model is already loaded (memory snapshot)
+        threading.Thread(target=M.load, daemon=True).start()
 
 
-M = _Model()
-threading.Thread(target=M.load, daemon=True).start()
+async def _wait_ready():
+    for _ in range(180):
+        if M.ready or M.error:
+            break
+        await asyncio.sleep(0.5)
+    if not M.ready:
+        raise HTTPException(503, M.error or "The teacher is waking up. Try again in a minute.")
+
+
+def _moshaf(monfasel: int, mottasel: int, aared: int) -> MoshafAttributes:
+    return MoshafAttributes(
+        rewaya="hafs",
+        madd_monfasel_len=monfasel,
+        madd_mottasel_len=mottasel,
+        madd_mottasel_waqf=mottasel,
+        madd_aared_len=aared,
+    )
+
+
+def _range(sura: int, aya_from: int, aya_to: int | None) -> tuple[int, int]:
+    aya_to = aya_to or aya_from
+    if aya_to < aya_from or aya_to - aya_from + 1 > MAX_AYAHS:
+        raise HTTPException(400, "Choose up to 60 Ayahs at a time.")
+    try:
+        Aya(sura, aya_from).get()
+        Aya(sura, aya_to).get()
+    except Exception:
+        raise HTTPException(400, "Unknown Surah or Ayah.")
+    return aya_from, aya_to
+
+
+def _result(rec: Recording, sura: int, aya_from: int, aya_to: int, strict: bool, moshaf, usage: dict, t0: float) -> dict:
+    segs = rec.finish()
+    t1 = time.time()
+    ref = build_reference(sura, aya_from, aya_to, moshaf)
+    out = analyse(segs, ref, strict)
+    out.update({
+        "sura": sura, "aya_from": aya_from, "aya_to": aya_to, "strict": strict,
+        "notice": NOTICE, "model": engine.MODEL, "usage": usage,
+        "seconds_audio": round(rec.seconds, 1),
+        "seconds": round(time.time() - t0, 2),
+        "seconds_compare": round(time.time() - t1, 2),
+    })
+    # Fields the 0.8/0.9 apps (one Ayah at a time) read.
+    first = out["ayahs"][0]
+    out["words"] = first["words"]
+    out["errors"] = [dict(e, type={"word": "normal", "harakah": "tashkeel"}.get(e["type"], e["type"]))
+                     for e in first["errors"] if e["severity"] == "mistake"]
+    return out
+
+
+# ------------------------------------------------------------------- routes --
+@app.get("/")
+def root():
+    return {"service": "Hifz Academy recitation teacher", "model": engine.MODEL, "notice": NOTICE}
+
+
+@app.get("/health")
+def health():
+    return {"ready": M.ready, "error": M.error, "model": engine.MODEL}
+
+
+@app.get("/family")
+def family(x_hifz_family: str | None = Header(None)):
+    """Lets the app confirm a family code without using a check."""
+    return {"family": is_family(x_hifz_family)}
 
 
 def _decode(data: bytes, filename: str) -> np.ndarray:
@@ -112,270 +149,14 @@ def _decode(data: bytes, filename: str) -> np.ndarray:
     return wave
 
 
-def _segments(wave: np.ndarray) -> list[np.ndarray]:
-    """Splits the recitation into breaths: every pause of about a third of a second or
-    more is treated as a stop (waqf), because that's how the next word must then be
-    pronounced. Very long breaths are cut evenly to fit the model."""
-    intervals = librosa.effects.split(wave, top_db=35, frame_length=1024, hop_length=256)
-    if len(intervals) == 0:
-        return []
-    merged: list[list[int]] = []
-    for s, e in intervals:
-        if merged and (s - merged[-1][1]) / SR < 0.3:
-            merged[-1][1] = e  # a tiny gap inside a word or between letters
-        else:
-            merged.append([s, e])
-    pad = int(0.12 * SR)
-    out = []
-    for s, e in merged:
-        s, e = max(0, s - pad), min(len(wave), e + pad)
-        n = int(np.ceil((e - s) / SR / CHUNK_SECONDS))
-        step = int(np.ceil((e - s) / n))
-        out += [wave[s + k * step: min(e, s + (k + 1) * step)] for k in range(n)]
-    return [w for w in out if len(w) > 0.25 * SR]
-
-
-# Accepted lengths (in counts) where scholars of Hafs allow a choice. A Madd held for any
-# of these is not reported as a mistake.
-_ALLOWED = {
-    "Aared Madd": {2, 4, 6},
-    "Leen Madd": {2, 4, 6},
-    "Monfasel Madd": {2, 3, 4, 5},
-    "Mottasel Madd": {4, 5, 6},
-    "Mottasel Madd at Pause": {4, 5, 6},
-}
-
-
-_ALLOWED_KIND = {
-    "AaredMaddRule": {2, 4, 6},
-    "LeenMaddRule": {2, 4, 6},
-    "MonfaselMaddRule": {2, 3, 4, 5},
-    "MottaselMaddRule": {4, 5, 6},
-    "MottaselMaddPauseRule": {4, 5, 6},
-}
-
-
-def _rule(r) -> dict:
-    name = getattr(r, "name", None)
-    return {
-        "kind": type(r).__name__,  # e.g. LazemMaddRule, Qalqalah, Ghonnah
-        "tag": getattr(r, "tag", None),
-        "ar": getattr(name, "ar", "") or "",
-        "en": getattr(name, "en", "") or "",
-        "golden_len": getattr(r, "golden_len", None),
-        "type": getattr(r, "correctness_type", None),
-    }
-
-
-def _reference(sura: int, aya: int) -> tuple[list[str], int, list[int]]:
-    """Words the learner may recite: optional Isti'adha and (for the first Ayah) Basmala,
-    then the Ayah. Returns (all words, index of the Ayah's first word, allowed start words)."""
-    a = Aya(sura, aya).get()
-    ayah_words = a.uthmani.split(" ")
-    prefix: list[str] = []
-    starts = []
-    if a.istiaatha_uthmani:
-        starts.append(len(prefix))
-        prefix += a.istiaatha_uthmani.split(" ")
-    if aya == 1 and a.bismillah_uthmani:
-        starts.append(len(prefix))
-        prefix += a.bismillah_uthmani.split(" ")
-    starts.append(len(prefix))
-    return prefix + ayah_words, len(prefix), starts
-
-
-class _Phon:
-    """Cached phonetic script of word ranges. A range is phonetized on its own, so its
-    last word is read as a stop (waqf) and its first word as a fresh start, exactly as
-    a learner who pauses mid-Ayah pronounces them."""
-
-    def __init__(self, words: list[str], moshaf: MoshafAttributes, sura: int):
-        self.words, self.moshaf, self.sura, self.cache = words, moshaf, sura, {}
-        self.word_len = [max(1, len(self.get(i, i).phonemes)) for i in range(len(words))]
-
-    def text(self, s: int, e: int) -> str:
-        return " ".join(self.words[s:e + 1])
-
-    def get(self, s: int, e: int):
-        k = (s, e)
-        if k not in self.cache:
-            self.cache[k] = quran_phonetizer(self.text(s, e), self.moshaf, remove_spaces=True, sura_idx=self.sura)
-        return self.cache[k]
-
-
-def _align(segs_ph: list[str], ph: _Phon, ayah_start: int, starts: list[int]) -> list[tuple[int, int, int, float]]:
-    """Finds which words each breath (segment) covers. Learners may repeat a word or two
-    when they resume after a pause, so a segment may start slightly before where the last
-    one ended. Returns (segment index, first word, last word, distance 0-1)."""
-    n = len(ph.words)
-    out, pointer = [], None
-    for k, seg in enumerate(segs_ph):
-        if not seg:
-            continue
-        L = len(seg)
-        if pointer is None:
-            cand_s = sorted(set(starts))
-        else:
-            # resume where they stopped, repeat a few words, or start the Ayah again
-            # resume where they stopped, repeat a few words, skip ahead, or restart the Ayah
-            cand_s = sorted(set(range(max(0, pointer - 3), min(n, pointer + 12))) | {ayah_start})
-        best = None
-        for s0 in cand_s:
-            acc = 0
-            for e in range(s0, n):
-                acc += ph.word_len[e]
-                if acc < 0.5 * L:
-                    continue
-                if acc > 1.7 * L + 4:
-                    break
-                ref = ph.get(s0, e).phonemes
-                d = lv.distance(seg, ref) / max(len(seg), len(ref))
-                if pointer is not None and s0 > pointer:
-                    d += 0.01 * (s0 - pointer)  # prefer not skipping, all else equal
-                if best is None or d < best[0] - 1e-9 or (abs(d - best[0]) < 1e-9 and e > best[2]):
-                    best = (d, s0, e)
-        if best is None:  # very short or unusual: give it the next word
-            s0 = cand_s[0] if pointer is None else min(n - 1, pointer)
-            best = (1.0, s0, s0)
-        d, s0, e = best
-        out.append((k, s0, e, d))
-        pointer = e + 1
-    return out
-
-
-def _explain(ph: _Phon, s: int, e: int, predicted: str, ayah_start: int, n_ayah: int) -> tuple[list[dict], int]:
-    ref = ph.get(s, e)
-    text = ph.text(s, e)
-    errors = explain_error(uthmani_text=text, ref_ph_text=ref.phonemes, predicted_ph_text=predicted, mappings=ref.mappings)
-    found, wrong = [], 0
-    for er in errors:
-        a, b = er.uthmani_pos
-        w0 = s + text[:a].count(" ") - ayah_start
-        w1 = s + text[:max(a, b - 1)].count(" ") - ayah_start
-        if w1 < 0 or w0 >= n_ayah:
-            continue  # inside the Isti'adha/Basmala
-        w0, w1 = max(0, w0), min(w1, n_ayah - 1)
-        rules = [_rule(r) for r in (er.ref_tajweed_rules or [])]
-        if er.error_type == "tajweed" and er.predicted_len is not None:
-            allowed = set()
-            for r in rules:
-                allowed |= _ALLOWED.get(r["en"], set()) | _ALLOWED_KIND.get(r["kind"], set())
-            if er.predicted_len in allowed:
-                continue
-        if er.error_type == "normal":
-            wrong += max(len(er.expected_ph), len(er.preditected_ph), 1)
-        found.append({
-            "word_start": w0,
-            "word_end": w1,
-            "type": er.error_type,  # 'normal' (letters/words) | 'tashkeel' | 'tajweed'
-            "speech": er.speech_error_type,  # insert | delete | replace
-            "expected": er.expected_ph,
-            "heard": er.preditected_ph,
-            "expected_len": er.expected_len,
-            "heard_len": er.predicted_len,
-            "rules": rules,
-            "missing_rules": [_rule(r) for r in (er.missing_tajweed_rules or [])],
-            "extra_rules": [_rule(r) for r in (er.inserted_tajweed_rules or [])],
-        })
-    return found, wrong
-
-
-# ---------------------------------------------------------------- fair use --
-# The teacher runs on the owner's free monthly cloud credit, so:
-#  1. only the Hifz Academy app may call it (light check: app header);
-#  2. each phone gets a daily allowance;
-#  3. the owner's family (who enter the family code in the app) always come first:
-#     everyone else together shares a monthly allowance, so the family's share is kept.
-# Counts live in a Modal Dict when running on Modal (they survive the container
-# sleeping), or in memory otherwise.
-import datetime
-import hashlib
-
-APP_HEADER = "hifz-academy-app-v1"
-FAMILY_HASHES = {"9a310d70b470072e0f529991fd9858a730a702168fde6e712d565b6135764c27"}  # sha256 of the family code
-DAILY_LIMIT = int(os.environ.get("HIFZ_DAILY_LIMIT", "20"))
-FAMILY_DAILY_LIMIT = int(os.environ.get("HIFZ_FAMILY_DAILY_LIMIT", "300"))
-SHARED_MONTHLY_LIMIT = int(os.environ.get("HIFZ_SHARED_MONTHLY_LIMIT", "1500"))
-
-_mem: dict[str, int] = {}
-_dict = None
-if os.environ.get("MODAL_TASK_ID"):
-    try:
-        import modal
-
-        _dict = modal.Dict.from_name("hifz-teacher-usage", create_if_missing=True)
-    except Exception:
-        _dict = None
-
-
-async def _get(key: str) -> int:
-    if _dict is not None:
-        try:
-            return int(await _dict.get.aio(key, 0))
-        except Exception:
-            pass
-    return _mem.get(key, 0)
-
-
-async def _put(key: str, value: int) -> None:
-    _mem[key] = value
-    if _dict is not None:
-        try:
-            await _dict.put.aio(key, value)
-        except Exception:
-            pass
-
-
-def is_family(code: str | None) -> bool:
-    return bool(code) and hashlib.sha256(code.strip().upper().encode()).hexdigest() in FAMILY_HASHES
-
-
-async def admit(app_header: str | None, device: str | None, family_code: str | None) -> dict:
-    """Raises 401/429 when the request isn't allowed; returns the usage after counting it."""
-    if app_header != APP_HEADER:
-        raise HTTPException(401, {"reason": "app_only"})
-    device = (device or "")[:64]
-    if len(device) < 8:
-        raise HTTPException(400, {"reason": "no_device"})
-    now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=5, minutes=30)  # India time
-    day, month = now.strftime("%Y-%m-%d"), now.strftime("%Y-%m")
-    family = is_family(family_code)
-    dkey = f"d:{day}:{device}"
-    used_today = await _get(dkey)
-    limit = FAMILY_DAILY_LIMIT if family else DAILY_LIMIT
-    if used_today >= limit:
-        raise HTTPException(429, {"reason": "daily_limit", "limit": limit})
-    if not family:
-        mkey = f"m:{month}:shared"
-        used_month = await _get(mkey)
-        if used_month >= SHARED_MONTHLY_LIMIT:
-            raise HTTPException(429, {"reason": "shared_limit"})
-        await _put(mkey, used_month + 1)
-    await _put(dkey, used_today + 1)
-    return {"family": family, "used_today": used_today + 1, "daily_limit": limit}
-
-
-@app.get("/")
-def root():
-    return {"service": "Hifz Academy recitation teacher", "model": MODEL, "notice": NOTICE}
-
-
-@app.get("/health")
-def health():
-    return {"ready": M.ready, "error": M.error, "model": MODEL}
-
-
-@app.get("/family")
-def family(x_hifz_family: str | None = Header(None)):
-    """Lets the app confirm a family code without using a check."""
-    return {"family": is_family(x_hifz_family)}
-
-
 @app.post("/check")
 async def check(
     file: UploadFile = File(...),
     sura: int = Form(...),
-    aya: int = Form(...),
+    aya: int | None = Form(None),
+    aya_from: int | None = Form(None),
+    aya_to: int | None = Form(None),
+    strict: bool = Form(False),
     madd_monfasel_len: int = Form(4),
     madd_mottasel_len: int = Form(4),
     madd_aared_len: int = Form(4),
@@ -383,100 +164,105 @@ async def check(
     x_hifz_device: str | None = Header(None),
     x_hifz_family: str | None = Header(None),
 ):
-    # Just woke up: wait for the model rather than turning the learner away.
-    for _ in range(120):
-        if M.ready or M.error:
-            break
-        await asyncio.sleep(1)
-    if not M.ready:
-        raise HTTPException(503, M.error or "The teacher is waking up. Try again in a minute.")
+    """The whole recording in one file (also used when streaming isn't possible)."""
     usage = await admit(x_hifz_app, x_hifz_device, x_hifz_family)
     t0 = time.time()
-    try:
-        words = Aya(sura, aya).get().uthmani.split(" ")
-    except Exception:
-        raise HTTPException(400, "Unknown Surah or Ayah.")
+    a0, a1 = _range(sura, aya_from or aya or 0, aya_to)
+    await _wait_ready()
     wave = _decode(await file.read(), file.filename or "audio.webm")
-    if len(wave) > MAX_SECONDS * SR:
-        raise HTTPException(413, "Recording is too long. Please recite one Ayah at a time.")
-    segs = _segments(wave)
+    if len(wave) > engine.MAX_SECONDS * SR:
+        raise HTTPException(413, "Recording is too long (10 minutes at most).")
+    rec = Recording()
+    await asyncio.to_thread(rec.feed, wave)
+    moshaf = _moshaf(madd_monfasel_len, madd_mottasel_len, madd_aared_len)
+    return await asyncio.to_thread(_result, rec, sura, a0, a1, strict, moshaf, usage, t0)
 
-    base = {"sura": sura, "aya": aya, "words": words, "notice": NOTICE, "model": MODEL, "usage": usage}
-    if not segs:
-        return {**base, "status": "silent", "errors": [], "heard_ratio": 0.0, "confidence": 0.0}
 
-    with M.lock:
-        parts = [M.phonemes(s) for s in segs]
-    predicted = "".join(p for p, _ in parts)
-    lens = [max(1, len(p)) for p, _ in parts]
-    confidence = float(np.average([c for _, c in parts], weights=lens))
+# Streaming sessions live in this container's memory (the app runs on a single
+# container, so every piece of a session reaches the same one).
+class _Session:
+    def __init__(self, sura, a0, a1, strict, moshaf, usage):
+        self.sura, self.a0, self.a1, self.strict, self.moshaf, self.usage = sura, a0, a1, strict, moshaf, usage
+        self.rec = Recording()
+        self.next_seq = 0
+        self.pending: dict[int, bytes] = {}
+        self.created = time.time()
+        self.lock = asyncio.Lock()
+        self.result: dict | None = None
 
-    moshaf = MoshafAttributes(
-        rewaya="hafs",
-        madd_monfasel_len=madd_monfasel_len,
-        madd_mottasel_len=madd_mottasel_len,
-        madd_mottasel_waqf=madd_mottasel_len,
-        madd_aared_len=madd_aared_len,
-    )
-    words_all, ayah_start, starts = _reference(sura, aya)
-    n_ayah = len(words_all) - ayah_start
-    ph = _Phon(words_all, moshaf, sura)
-    segs_ph = [p for p, _ in parts]
-    spans = _align(segs_ph, ph, ayah_start, starts)
 
-    # Errors per word: a word recited more than once (repeated after a pause) is judged
-    # by its last recitation.
-    by_word: dict[int, list[dict]] = {}
-    covered: set[int] = set()
-    wrong = 0
-    for k, s0, e, _ in spans:
-        found, w = _explain(ph, s0, e, segs_ph[k], ayah_start, n_ayah)
-        wrong += w
-        span_words = {i - ayah_start for i in range(s0, e + 1) if i >= ayah_start}
-        for i in span_words:
-            by_word[i] = [f for f in found if f["word_start"] <= i <= f["word_end"]]
-        covered |= span_words
-    for i in range(n_ayah):
-        if i not in covered:
-            by_word[i] = [{
-                "word_start": i, "word_end": i, "type": "normal", "speech": "delete",
-                "expected": ph.get(ayah_start + i, ayah_start + i).phonemes, "heard": "",
-                "expected_len": None, "heard_len": None, "rules": [], "missing_rules": [], "extra_rules": [],
-            }]
-    seen, found = set(), []
-    for i in sorted(by_word):
-        for f in by_word[i]:
-            key = (f["word_start"], f["word_end"], f["type"], f["expected"], f["heard"])
-            if key not in seen:
-                seen.add(key)
-                found.append(f)
+_sessions: dict[str, _Session] = {}
 
-    ref_len = sum(ph.word_len[ayah_start:])
-    seg_w = [max(1, len(segs_ph[k])) for k, *_ in spans]
-    match_dist = float(np.average([d for *_, d in spans], weights=seg_w)) if spans else 1.0
-    heard_ratio = len(covered) / max(1, n_ayah)
-    missing = n_ayah - len(covered)
-    if heard_ratio < 0.4 and match_dist > 0.5 and confidence > 0.8:
-        status = "different_ayah"  # clearly recited, but not this Ayah
-    elif heard_ratio < 0.4:
-        status = "too_little"  # recited only part of it, or the microphone didn't catch it
-    elif match_dist > 0.5 or (wrong + sum(ph.word_len[ayah_start + i] for i in range(n_ayah) if i not in covered)) / max(1, ref_len) > 0.6:
-        status = "different_ayah"  # mostly doesn't match: probably another Ayah
-    elif confidence < 0.55:
-        status = "unclear"  # noisy or unclear audio: findings are unreliable
-    else:
-        status = "ok"
-    ref_ph = ph.get(ayah_start, len(words_all) - 1).phonemes
-    return {
-        **base,
-        "status": status,
-        "errors": found if status in ("ok", "unclear") else [],
-        "heard_ratio": round(heard_ratio, 3),
-        "confidence": round(confidence, 3),
-        "predicted_phonemes": predicted,
-        "reference_phonemes": ref_ph,
-        "segments": [{"words": [s0 - ayah_start, e - ayah_start], "distance": round(d, 3)} for k, s0, e, d in spans],
-        "match_distance": round(match_dist, 3),
-        "missing_words": missing,
-        "seconds": round(time.time() - t0, 2),
-    }
+
+def _sweep():
+    now = time.time()
+    for k in [k for k, s in _sessions.items() if now - s.created > 1800]:
+        _sessions.pop(k, None)
+
+
+@app.post("/session")
+async def session_start(
+    sura: int = Form(...),
+    aya_from: int = Form(...),
+    aya_to: int | None = Form(None),
+    strict: bool = Form(False),
+    madd_monfasel_len: int = Form(4),
+    madd_mottasel_len: int = Form(4),
+    madd_aared_len: int = Form(4),
+    x_hifz_app: str | None = Header(None),
+    x_hifz_device: str | None = Header(None),
+    x_hifz_family: str | None = Header(None),
+):
+    usage = await admit(x_hifz_app, x_hifz_device, x_hifz_family)
+    a0, a1 = _range(sura, aya_from, aya_to)
+    _sweep()
+    sid = uuid.uuid4().hex
+    _sessions[sid] = _Session(sura, a0, a1, strict, _moshaf(madd_monfasel_len, madd_mottasel_len, madd_aared_len), usage)
+    return {"id": sid, "usage": usage, "ready": M.ready}
+
+
+def _pcm(data: bytes) -> np.ndarray:
+    if len(data) % 2:
+        data = data[:-1]
+    return np.frombuffer(data, dtype="<i2").astype(np.float32) / 32768.0
+
+
+async def _drain(s: _Session) -> None:
+    while s.next_seq in s.pending:
+        chunk = s.pending.pop(s.next_seq)
+        s.next_seq += 1
+        if s.rec.seconds > engine.MAX_SECONDS:
+            continue  # past 10 minutes: ignore the rest
+        await asyncio.to_thread(s.rec.feed, _pcm(chunk))
+
+
+@app.post("/session/{sid}/audio")
+async def session_audio(sid: str, request: Request, seq: int = Query(...)):
+    s = _sessions.get(sid)
+    if s is None:
+        raise HTTPException(404, "Session not found.")
+    data = await request.body()
+    async with s.lock:
+        s.pending[seq] = data
+        if M.ready:  # while the model is still waking up, just keep the pieces
+            await _drain(s)
+    return {"ok": True, "seconds": round(s.rec.seconds, 1)}
+
+
+@app.post("/session/{sid}/finish")
+async def session_finish(sid: str, last_seq: int = Query(...)):
+    s = _sessions.get(sid)
+    if s is None:
+        raise HTTPException(404, "Session not found.")
+    t0 = time.time()
+    await _wait_ready()
+    for _ in range(100):  # wait up to 10 s for any late pieces
+        if all(i in s.pending or i < s.next_seq for i in range(last_seq + 1)):
+            break
+        await asyncio.sleep(0.1)
+    async with s.lock:
+        if s.result is None:
+            await _drain(s)
+            s.result = await asyncio.to_thread(_result, s.rec, s.sura, s.a0, s.a1, s.strict, s.moshaf, s.usage, t0)
+    _sessions.pop(sid, None)
+    return s.result

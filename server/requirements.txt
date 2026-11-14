@@ -8,3 +8,5 @@ numba>=0.61.2
 fastapi>=0.116.1
 uvicorn>=0.35.0
 python-multipart>=0.0.20
+silero-vad>=5.1
+torchaudio>=2.7.0
