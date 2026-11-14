@@ -24,6 +24,8 @@ jobs:
         run: python3 -I tools/fetch_translations.py app/assets/translations 2>&1 | tee translations.log
       - name: Fetch explanations (QuranEnc.com) and plain spelling for recitation checks (Tanzil.net)
         run: python3 -I tools/fetch_tafsir.py app/assets 2>&1 | tee tafsir.log
+      - name: Fetch Mushaf page starts (Tanzil.net)
+        run: python3 -I tools/fetch_pages.py app/assets/quran/pages.json || echo "pages not fetched"
       - name: Test and build web app
         shell: bash
         run: |
@@ -90,6 +92,8 @@ jobs:
         run: python3 -I tools/fetch_translations.py app/assets/translations
       - name: Fetch explanations and plain spelling
         run: python3 -I tools/fetch_tafsir.py app/assets
+      - name: Fetch Mushaf page starts
+        run: python3 -I tools/fetch_pages.py app/assets/quran/pages.json || echo "pages not fetched"
       - name: Build APK
         shell: bash
         run: |

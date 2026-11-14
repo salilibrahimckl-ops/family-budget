@@ -8,6 +8,7 @@ import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/gamification/achievements_screens.dart';
 import '../../features/gamification/sticker_book.dart';
 import '../../features/demo/guide_screen.dart';
+import '../../features/recite/recite_home_screen.dart';
 import '../../features/recite/section_recite_screen.dart';
 import '../../features/lesson/lesson_screen.dart';
 import '../../features/onboarding/onboarding_flow.dart';
@@ -39,12 +40,13 @@ GoRouter buildRouter() => GoRouter(
               ),
             ]),
             StatefulShellBranch(routes: [GoRoute(path: '/revise', builder: (_, __) => const RevisionQueueScreen())]), // 11
-            StatefulShellBranch(routes: [GoRoute(path: '/challenges', builder: (_, __) => const ChallengesScreen())]), // 12
+            StatefulShellBranch(routes: [GoRoute(path: '/recite', builder: (_, __) => const ReciteHomeScreen())]),
             StatefulShellBranch(routes: [GoRoute(path: '/me', builder: (_, __) => const ProfileSettingsScreen())]), // 16
           ],
         ),
         GoRoute(path: '/lesson/:ayahId', builder: (_, s) => LessonScreen(ayahId: int.parse(s.pathParameters['ayahId']!))), // 7
         GoRoute(path: '/review', builder: (_, __) => const ReviewSessionScreen()),
+        GoRoute(path: '/challenges', builder: (_, __) => const ChallengesScreen()), // 12
         GoRoute(
           path: '/challenge/:kind',
           builder: (_, s) => ChallengeSessionScreen(kind: ChallengeKind.values.byName(s.pathParameters['kind']!)),
@@ -89,7 +91,7 @@ class _Shell extends StatelessWidget {
           NavigationDestination(icon: const Icon(Icons.wb_sunny_outlined), selectedIcon: const Icon(Icons.wb_sunny), label: l.navToday),
           NavigationDestination(icon: const Icon(Icons.menu_book_outlined), selectedIcon: const Icon(Icons.menu_book), label: l.navQuran),
           NavigationDestination(icon: const Icon(Icons.replay_outlined), selectedIcon: const Icon(Icons.replay), label: l.navRevise),
-          NavigationDestination(icon: const Icon(Icons.emoji_events_outlined), selectedIcon: const Icon(Icons.emoji_events), label: l.navChallenges),
+          NavigationDestination(icon: const Icon(Icons.mic_none), selectedIcon: const Icon(Icons.mic), label: l.navRecite),
           NavigationDestination(icon: const Icon(Icons.person_outline), selectedIcon: const Icon(Icons.person), label: l.navMe),
         ],
       ),

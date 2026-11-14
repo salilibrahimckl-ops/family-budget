@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.11.0",
+    "notes": [
+      "New Recite tab: recite a whole Surah or a whole Mushaf page without stopping. The AI teacher listens to all of it, then shows every correction Ayah by Ayah. One recitation = one check, however long.",
+      "Up to a whole Surah (even Al-Baqarah) and up to an hour in one recitation.",
+      "Challenges moved to the Today screen."
+    ]
+  },
+  {
     "version": "0.10.0",
     "notes": [
       "Recite a whole section to the AI teacher — as many Ayahs as you like (up to 60) in one go, pausing as you normally would. It counts as just one check. Find it in the Revise tab and on every Surah page.",

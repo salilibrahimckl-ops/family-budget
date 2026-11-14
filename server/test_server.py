@@ -98,6 +98,11 @@ part = np.concatenate(sum([[pcm(mp3(f"0010{a:02d}")), gap] for a in range(1, 5)]
 j = check(wav(part), 1, 1, 7, "part.wav"); show(j, "Al-Fatiha, stopped after 4")
 ok &= [a["status"] for a in j["ayahs"]] == ["recited"] * 4 + ["not_recited"] * 3
 
+# A whole Surah in one go: Al-A'la (87), 19 Ayahs.
+ala = np.concatenate(sum([[pcm(mp3(f"087{a:03d}")), gap] for a in range(1, 20)], []))
+j = check(wav(ala), 87, 1, 19, "ala.wav"); m = show(j, "Surah Al-A'la (19 Ayahs) in one go")
+ok &= j["status"] == "ok" and all(a["status"] == "recited" for a in j["ayahs"]) and len(m) <= 4
+
 # Streaming: send 2-second pieces as if live, then time how quickly the result comes.
 r = c.post("/session", data={"sura": 1, "aya_from": 1, "aya_to": 7})
 sid = r.json()["id"]

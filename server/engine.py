@@ -25,7 +25,7 @@ from quran_transcript import Aya, MoshafAttributes, explain_error, quran_phoneti
 MODEL = os.environ.get("MUAALEM_MODEL", "obadx/muaalem-model-v3_2")
 SR = 16000
 MAX_BREATH_SECONDS = 14.0  # the model was trained on segments up to ~15 s
-MAX_SECONDS = 600.0  # one session: up to 10 minutes of recitation
+MAX_SECONDS = 3600.0  # one session: up to an hour of recitation
 
 
 # --------------------------------------------------------------------- model --
@@ -335,7 +335,8 @@ def _align(segs: list[str], ref: Reference, debug: list | None = None) -> list[t
             cand = sorted(set(ref.first_starts))
         else:
             window = set(range(max(0, pointer - 3), min(n, pointer + 12)))
-            window |= {s for s in ref.ayah_start.values() if s <= pointer + 12}  # repeating an Ayah
+            # repeating a recent Ayah from its start
+            window |= {s for s in ref.ayah_start.values() if pointer - 80 <= s <= pointer + 12}
             cand = sorted(window)
         best = _best(seg, ref, cand, pointer)
         if out and (best is None or best[0] > 0.3 or len(seg) < 10):

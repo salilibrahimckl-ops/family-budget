@@ -211,7 +211,6 @@ class _SectionReciteScreenState extends ConsumerState<SectionReciteScreen> {
               onChanged: (v) => setState(() {
                 _from = v!;
                 if (_to < _from) _to = _from;
-                if (_to - _from >= 60) _to = _from + 59;
               }),
             ),
           ),
@@ -222,7 +221,7 @@ class _SectionReciteScreenState extends ConsumerState<SectionReciteScreen> {
               initialValue: _to,
               decoration: InputDecoration(labelText: l.toAyah, border: const OutlineInputBorder()),
               items: [
-                for (var i = _from; i <= count && i < _from + 60; i++) DropdownMenuItem(value: i, child: Text('$i')),
+                for (var i = _from; i <= count; i++) DropdownMenuItem(value: i, child: Text('$i')),
               ],
               onChanged: (v) => setState(() => _to = v!),
             ),
@@ -240,6 +239,18 @@ class _SectionReciteScreenState extends ConsumerState<SectionReciteScreen> {
         const SizedBox(height: HSpace.m),
         if (_phase == _Phase.idle || _phase == _Phase.result) ...[
           picker(),
+          if (_from != 1 || _to != count)
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: TextButton.icon(
+                icon: const Icon(Icons.select_all),
+                label: Text(l.wholeSurah),
+                onPressed: () => setState(() {
+                  _from = 1;
+                  _to = count;
+                }),
+              ),
+            ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(l.showTextWhileReciting),
@@ -287,8 +298,9 @@ class _SectionReciteScreenState extends ConsumerState<SectionReciteScreen> {
           _Phase.result => _summary(context, r!),
         },
         const SizedBox(height: HSpace.m),
-        if (_showText || _phase == _Phase.result)
-          for (final va in ayahs) _ayahCard(context, va, r),
+        for (final va in ayahs)
+          if (_showText || (_phase == _Phase.result && ((_items[va.ayah]?.isNotEmpty ?? false) || ayahs.length <= 10)))
+            _ayahCard(context, va, r),
         if (_phase == _Phase.result && r != null && r.assessed) ...[
           const SizedBox(height: HSpace.m),
           FilledButton.icon(

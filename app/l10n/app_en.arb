@@ -920,5 +920,44 @@
   "notAMistake": "Not a mistake",
   "strictTajweedLabel": "Strict Tajweed checking",
   "strictTajweedOff": "Off (recommended): allows for non-Arab accents; small points are shown as tips and never cost you a revision",
-  "strictTajweedOn": "On: every difference the teacher hears is shown as a mistake"
+  "strictTajweedOn": "On: every difference the teacher hears is shown as a mistake",
+  "navRecite": "Recite",
+  "reciteTabTitle": "Recite to the teacher",
+  "reciteTabIntro": "Recite a whole Surah or a Mushaf page without stopping. The AI teacher listens to all of it, then shows every correction, Ayah by Ayah. One recitation counts as one check, however long it is.",
+  "reciteContinue": "Revise what’s due",
+  "reciteBySurah": "Whole Surah",
+  "reciteByPage": "Mushaf page",
+  "searchSurah": "Search Surah name or number",
+  "reciteSurahSub": "{n} Ayahs · {done} memorised",
+  "@reciteSurahSub": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "pagesMissing": "Page numbers are not included in this build.",
+  "pageN": "Page {n}",
+  "@pageN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ayahCount": "{n} Ayahs",
+  "@ayahCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pageTwoSurahs": "This page has more than one Surah: recite each part in turn.",
+  "wholeSurah": "Whole Surah",
+  "reciteTileSub": "A whole Surah or page in one go",
+  "challengesTileSub": "Games that test your Hifz"
 }

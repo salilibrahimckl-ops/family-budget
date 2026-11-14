@@ -50,7 +50,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
         _Page(Icons.auto_stories, l.g2Title, l.g2Body, [l.g2p1, l.g2p2, l.g2p3, l.g2p4], tryRoute: '/lesson/1', push: true),
         _Page(Icons.mic, l.g3Title, l.g3Body, [l.g3p1, l.g3p2, l.g3p3]),
         _Page(Icons.replay_circle_filled, l.g4Title, l.g4Body, [l.g4p1, l.g4p2, l.g4p3], tryRoute: '/revise'),
-        _Page(Icons.emoji_events, l.g5Title, l.g5Body, [l.g5p1, l.g5p2], tryRoute: '/challenges'),
+        _Page(Icons.emoji_events, l.g5Title, l.g5Body, [l.g5p1, l.g5p2], tryRoute: '/challenges', push: true),
         _Page(Icons.menu_book, l.g6Title, l.g6Body, [l.g6p1, l.g6p2, l.g6p3], tryRoute: '/quran'),
         _Page(Icons.military_tech, l.g7Title, l.g7Body, [l.g7p1, l.g7p2, l.g7p3], tryRoute: '/achievements', push: true),
         _Page(Icons.tune, l.g8Title, l.g8Body, [l.g8p1, l.g8p2, l.g8p3], tryRoute: '/me'),

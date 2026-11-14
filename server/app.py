@@ -52,7 +52,7 @@ NOTICE = {
     "ar": "هذا المعلّم القرآني نموذج ذكاء اصطناعي قد يخطئ؛ فهو للإعانة فقط ولا يُعتمد عليه، "
     "وليس بديلاً عن معلّمٍ مُتقِنٍ مُجاز؛ لأنّ القرآن لا يُؤخذ إلا بالمشافهة.",
 }
-MAX_AYAHS = 60  # per session
+MAX_AYAHS = 286  # per session: up to a whole Surah (Al-Baqarah has 286)
 
 torch.set_num_threads(max(1, os.cpu_count() or 1))
 
@@ -88,7 +88,7 @@ def _moshaf(monfasel: int, mottasel: int, aared: int) -> MoshafAttributes:
 def _range(sura: int, aya_from: int, aya_to: int | None) -> tuple[int, int]:
     aya_to = aya_to or aya_from
     if aya_to < aya_from or aya_to - aya_from + 1 > MAX_AYAHS:
-        raise HTTPException(400, "Choose up to 60 Ayahs at a time.")
+        raise HTTPException(400, "Choose up to one whole Surah at a time.")
     try:
         Aya(sura, aya_from).get()
         Aya(sura, aya_to).get()
@@ -171,7 +171,7 @@ async def check(
     await _wait_ready()
     wave = _decode(await file.read(), file.filename or "audio.webm")
     if len(wave) > engine.MAX_SECONDS * SR:
-        raise HTTPException(413, "Recording is too long (10 minutes at most).")
+        raise HTTPException(413, "Recording is too long (one hour at most).")
     rec = Recording()
     await asyncio.to_thread(rec.feed, wave)
     moshaf = _moshaf(madd_monfasel_len, madd_mottasel_len, madd_aared_len)

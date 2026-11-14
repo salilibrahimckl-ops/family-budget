@@ -252,6 +252,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               Row(children: [
                 Expanded(
                   child: _Tile(
+                    icon: Icons.record_voice_over,
+                    title: l.reciteTabTitle,
+                    subtitle: l.reciteTileSub,
+                    onTap: () => context.go('/recite'),
+                  ),
+                ),
+                const SizedBox(width: HSpace.s),
+                Expanded(
+                  child: _Tile(
+                    icon: Icons.emoji_events,
+                    title: l.screenChallenges,
+                    subtitle: l.challengesTileSub,
+                    onTap: () => context.push('/challenges'),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: HSpace.s),
+              Row(children: [
+                Expanded(
+                  child: _Tile(
                     icon: Icons.auto_awesome,
                     title: l.stickerBook,
                     subtitle: l.stickersCount(p.memorisedCount),
