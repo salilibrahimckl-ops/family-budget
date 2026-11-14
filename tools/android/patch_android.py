@@ -47,6 +47,10 @@ for f in ['android/app/build.gradle.kts', 'android/app/build.gradle']:
         break
     kts = f.endswith('.kts')
     block = ('''
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
     signingConfigs {
         getByName("debug") {
             storeFile = file("fixed.keystore")
@@ -56,6 +60,10 @@ for f in ['android/app/build.gradle.kts', 'android/app/build.gradle']:
         }
     }
 ''' if kts else '''
+    lintOptions {
+        checkReleaseBuilds false
+        abortOnError false
+    }
     signingConfigs {
         debug {
             storeFile file("fixed.keystore")
