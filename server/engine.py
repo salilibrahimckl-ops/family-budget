@@ -53,16 +53,19 @@ class Model:
                     model = torch.ao.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
                 self.model = model
                 self.vocab = self.tokenizer.id_to_vocab["phonemes"]
+                self.char_to_id = {str(v): int(k) for k, v in self.vocab.items() if int(k) != 0 and len(str(v)) == 1}
                 self.ready = True
             except Exception as e:  # reported by /health
                 self.error = f"{type(e).__name__}: {e}"
 
-    def phonemes(self, wave: np.ndarray) -> tuple[str, float]:
-        """Phonetic script of one breath, and the model's mean confidence (0-1)."""
+    def phonemes(self, wave: np.ndarray) -> tuple[str, float, np.ndarray]:
+        """Phonetic script of one breath, the model's mean confidence (0-1), and its
+        per-frame log-probabilities (kept to double-check findings later)."""
         feats = self.processor(wave, sampling_rate=SR, return_tensors="pt")
         with torch.inference_mode():
             out = self.model(feats["input_features"], feats.get("attention_mask"), return_dict=False)[0]
-        probs = torch.softmax(out["phonemes"][0].float(), dim=-1)
+        logp = torch.log_softmax(out["phonemes"][0].float(), dim=-1)
+        probs = logp.exp()
         top_p, top_id = probs.max(dim=-1)
         text, confs, prev = [], [], 0
         for p, i in zip(top_p.tolist(), top_id.tolist()):
@@ -70,7 +73,7 @@ class Model:
                 text.append(self.vocab[int(i)])
                 confs.append(p)
             prev = i
-        return "".join(text), (float(np.mean(confs)) if confs else 0.0)
+        return "".join(text), (float(np.mean(confs)) if confs else 0.0), logp.numpy().astype(np.float32)
 
 
 M = Model()
@@ -141,7 +144,7 @@ class Recording:
         wave = self.buf[s:e].copy()
         self.breaths.append(Breath(s, e, _EXEC.submit(M.phonemes, wave)))
 
-    def finish(self) -> list[tuple[str, float]]:
+    def finish(self) -> list[tuple[str, float, np.ndarray]]:
         with self.lock:
             if self.cur is not None:
                 self._close(self.cur, len(self.buf))
@@ -230,6 +233,72 @@ def build_reference(sura: int, aya_from: int, aya_to: int, moshaf: MoshafAttribu
     return ref
 
 
+# ------------------------------------------------------------- double-check --
+def ctc_support(logp: np.ndarray, ids: list[int], blank: int = 0) -> np.ndarray | None:
+    """How well the audio supports each expected sound. Finds the best way to line the
+    expected sounds up with the audio (CTC forced alignment) and returns, for each
+    expected sound, the model's highest probability for it in the frames it was given.
+    A sound the model *also* found plausible (even if its first guess was different) is
+    likely right; one with no support was really missed or said differently."""
+    T, L = logp.shape[0], len(ids)
+    if L == 0:
+        return np.zeros(0, dtype=np.float32)
+    ext = [blank]
+    for i in ids:
+        ext += [i, blank]
+    S = len(ext)
+    if T < L:
+        return None
+    ext = np.array(ext)
+    skip = np.zeros(S, dtype=bool)
+    for s_ in range(2, S):
+        skip[s_] = ext[s_] != blank and ext[s_] != ext[s_ - 2]
+    NEG = -1e30
+    emit = logp[:, ext]  # T x S
+    dp = np.full(S, NEG)
+    dp[0], dp[1] = emit[0, 0], emit[0, 1]
+    back = np.zeros((T, S), dtype=np.int8)
+    for t in range(1, T):
+        b = np.concatenate(([NEG], dp[:-1]))
+        c = np.where(skip, np.concatenate(([NEG, NEG], dp[:-2])), NEG)
+        stack = np.stack([dp, b, c])
+        arg = stack.argmax(axis=0)
+        dp = stack[arg, np.arange(S)] + emit[t]
+        back[t] = arg
+    end = S - 1 if dp[S - 1] >= dp[S - 2] else S - 2
+    if dp[end] <= NEG / 2:
+        return None
+    sup = np.zeros(L, dtype=np.float32)
+    s_ = end
+    for t in range(T - 1, -1, -1):
+        if s_ % 2 == 1:
+            j = (s_ - 1) // 2
+            sup[j] = max(sup[j], float(np.exp(emit[t, s_])))
+        s_ -= int(back[t, s_])
+        if s_ < 0:
+            break
+    return sup
+
+
+def _support_by_char(ref_ph: str, logp: np.ndarray) -> list[float | None]:
+    ids, where = [], []
+    for i, ch in enumerate(ref_ph):
+        tid = M.char_to_id.get(ch) if M.ready else None
+        if tid is not None:
+            ids.append(tid)
+            where.append(i)
+    out: list[float | None] = [None] * len(ref_ph)
+    try:
+        sup = ctc_support(logp, ids)
+    except Exception:
+        sup = None
+    if sup is None:
+        return out
+    for j, i in enumerate(where):
+        out[i] = float(sup[j])
+    return out
+
+
 # ------------------------------------------------------------------ analysis --
 _ALLOWED_KIND = {  # lengths (counts) scholars of Hafs accept as a choice
     "AaredMaddRule": {2, 4, 6},
@@ -257,6 +326,21 @@ def _rule(r) -> dict:
     }
 
 
+# Lenient mode follows the lengths taught in general Tajweed classes, with a little room
+# for how a learner (and the model) counts.
+_LENIENT_RANGE = {
+    "NormalMaddRule": (2, 4),  # Madd Tabee'i: 2 counts (up to 4 accepted)
+    "MonfaselMaddRule": (2, 6),  # Munfasil: 2, 4 or 5 in Hafs
+    "MottaselMaddRule": (4, 6),  # Muttasil: 4-5 (6 when stopping)
+    "MottaselMaddPauseRule": (4, 6),
+    "LazemMaddRule": (5, 7),  # Lazim: 6
+    "AaredMaddRule": (2, 6),  # 'Aarid lis-sukun: 2, 4 or 6
+    "LeenMaddRule": (1, 6),  # Leen when stopping: 2, 4 or 6
+    "Ghonnah": (2, 3),  # Ghunnah: 2 counts
+    "MoshaddadOrModghamNoonRule": (2, 3),
+}
+
+
 def _length_ok(rules: list[dict], expected: int | None, heard: int, strict: bool) -> bool:
     allowed = set()
     for r in rules:
@@ -265,12 +349,19 @@ def _length_ok(rules: list[dict], expected: int | None, heard: int, strict: bool
         return True
     if strict or expected is None:
         return heard == expected
-    # Lenient: a count either way is fine; Madd Lazim needs at least 4.
-    if any(r["kind"] == "LazemMaddRule" for r in rules):
-        return heard >= 4
-    if expected <= 2:
-        return 1 <= heard <= 3
-    return expected - 2 <= heard <= expected + 1
+    for r in rules:
+        rng = _LENIENT_RANGE.get(r["kind"])
+        if rng:
+            return rng[0] <= heard <= rng[1]
+    return abs(heard - expected) <= 1
+
+
+def _near_range(rules: list[dict], heard: int) -> bool:
+    for r in rules:
+        rng = _LENIENT_RANGE.get(r["kind"])
+        if rng:
+            return rng[0] - 1 <= heard <= rng[1] + 1
+    return False
 
 
 def _severity(e, rules: list[dict], strict: bool, seg_conf: float, word_phonemes: int) -> str | None:
@@ -298,7 +389,11 @@ def _severity(e, rules: list[dict], strict: bool, seg_conf: float, word_phonemes
         return "mistake" if strict else "tip"
     # tajweed
     if e.predicted_len is not None and e.expected_len is not None:
-        return None if _length_ok(rules, e.expected_len, e.predicted_len, strict) else "mistake"
+        if _length_ok(rules, e.expected_len, e.predicted_len, strict):
+            return None
+        if not strict and _near_range(rules, e.predicted_len):
+            return "tip"  # one count out: worth a gentle note, not a mistake
+        return "mistake"
     return "mistake" if strict else "tip"
 
 
@@ -322,7 +417,7 @@ def _best(seg: str, ref: Reference, cand: list[int], pointer: int | None, min_e:
     return best
 
 
-def _align(segs: list[str], ref: Reference, debug: list | None = None) -> list[tuple[str, int, int, float]]:
+def _align(segs: list[str], ref: Reference, debug: list | None = None) -> list[tuple[str, int, int, float, list[int]]]:
     """Finds the words each breath covers. Returns (phonemes, first word, last word,
     distance). A short piece that only makes sense together with the breath before it
     (the voice detector sometimes splits a long Madd) is joined to it. Breaths that match
@@ -341,11 +436,11 @@ def _align(segs: list[str], ref: Reference, debug: list | None = None) -> list[t
         best = _best(seg, ref, cand, pointer)
         if out and (best is None or best[0] > 0.3 or len(seg) < 10):
             # Try it as the end of the previous breath.
-            pseg, ps0, pe, pd = out[-1]
+            pseg, ps0, pe, pd, pks = out[-1]
             joined = pseg + seg
             jb = _best(joined, ref, [ps0], None, min_e=pe)
             if jb is not None and jb[0] <= max(pd + 0.05, 0.25) and (best is None or jb[0] <= best[0]):
-                out[-1] = (joined, ps0, jb[2], jb[0])
+                out[-1] = (joined, ps0, jb[2], jb[0], pks + [k])
                 pointer = jb[2] + 1
                 if debug is not None:
                     debug.append({"breath": k, "heard": seg, "joined_to_previous": [round(jb[0], 3), ps0, jb[2]]})
@@ -356,25 +451,40 @@ def _align(segs: list[str], ref: Reference, debug: list | None = None) -> list[t
         if best is None or best[0] > 0.55:
             continue  # not part of these Ayahs
         d, s0, e = best
-        out.append((seg, s0, e, d))
+        out.append((seg, s0, e, d, [k]))
         pointer = e + 1
     return out
 
 
-def analyse(segs: list[tuple[str, float]], ref: Reference, strict: bool) -> dict:
-    phon = [p for p, _ in segs]
-    confs = [c for _, c in segs]
+def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
+    phon = [x[0] for x in segs]
+    confs = [x[1] for x in segs]
+    logps = [x[2] if len(x) > 2 else None for x in segs]
     debug: list = []
     spans = _align(phon, ref, debug)
     by_word: dict[int, list[dict]] = {}
     covered: set[int] = set()
     seg_conf = float(np.mean(confs)) if confs else 0.0
-    for heard, s0, e, _ in spans:
+    dropped = 0
+    for heard, s0, e, _, ks in spans:
         alone = ref.alone(s0, e)
         text = ref.text(s0, e)
         errs = explain_error(uthmani_text=text, ref_ph_text=alone.phonemes, predicted_ph_text=heard, mappings=alone.mappings)
+        lp = [logps[k] for k in ks]
+        support = _support_by_char(alone.phonemes, np.concatenate(lp)) if errs and all(x is not None for x in lp) else None
         found = []
         for er in errs:
+            sup = None
+            if support is not None:
+                a0, b0 = er.ph_pos
+                vals = [support[i] for i in range(a0, min(b0, len(support))) if support[i] is not None]
+                sup = float(np.mean(vals)) if vals else None
+            # Lenient: if the audio also clearly supports the correct sounds (the model's
+            # first guess was just a near miss), it isn't a mistake.
+            if (not strict and sup is not None and sup >= 0.35 and er.speech_error_type != "insert"
+                    and er.error_type in ("normal", "tashkeel")):
+                dropped += 1
+                continue
             a, b = er.uthmani_pos
             w0 = s0 + text[:a].count(" ")
             w1 = s0 + text[:max(a, b - 1)].count(" ")
@@ -395,6 +505,7 @@ def analyse(segs: list[tuple[str, float]], ref: Reference, strict: bool) -> dict
                 "rules": rules,
                 "missing_rules": [_rule(r) for r in (er.missing_tajweed_rules or [])],
                 "extra_rules": [_rule(r) for r in (er.inserted_tajweed_rules or [])],
+                "support": None if sup is None else round(sup, 3),
             })
         span_words = set(range(s0, e + 1))
         for i in span_words:  # a word recited again later is judged by its last recitation
@@ -451,5 +562,6 @@ def analyse(segs: list[tuple[str, float]], ref: Reference, strict: bool) -> dict
         "confidence": round(confidence, 3),
         "breaths": len(phon),
         "breaths_used": len(spans),
+        "double_checked_away": dropped,
         "debug": debug if os.environ.get("HIFZ_DEBUG") == "1" else None,
     }
