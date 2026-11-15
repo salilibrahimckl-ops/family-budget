@@ -150,6 +150,17 @@ ok &= len(m) <= 3
 j = check(wav(phone(pcm(mp3("112002")))), 112, 1, name="phone3.wav"); m = show(j, "112:2 checked as 112:1, phone quality")
 ok &= not (j["status"] == "ok" and not m)
 
+# Information only: a very poor line (telephone band, 10 dB noise), with and without the double-check.
+def tel(x):
+    f = np.fft.rfft(x); fr = np.fft.rfftfreq(len(x), 1 / SR); f[(fr < 300) | (fr > 3400)] = 0
+    y = np.fft.irfft(f, len(x)).astype(np.float32) * 0.4
+    r = np.random.default_rng(1).normal(0, 1, len(y)); r *= np.sqrt(np.mean(y ** 2) / np.mean(r ** 2)) * 10 ** (-10 / 20)
+    return (y + r).astype(np.float32)
+for nm, au, su, a0, a1 in [("Al-Fatiha", fatiha, 1, 1, 7), ("2:255", pcm(mp3("002255")), 2, 255, None)]:
+    j = check(wav(tel(au)), su, a0, a1, "tel.wav")
+    mm = sum(1 for a in j["ayahs"] for e in a["errors"] if e["severity"] == "mistake")
+    print(f"POOR LINE {nm}: mistakes shown={mm}, removed by double-check={j.get('double_checked_away')}")
+
 # A skipped phrase: drop the middle breath of 1:7; its words must be reported missing.
 from silero_vad import get_speech_timestamps, load_silero_vad
 import torch
