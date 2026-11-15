@@ -280,23 +280,46 @@ def ctc_support(logp: np.ndarray, ids: list[int], blank: int = 0) -> np.ndarray 
     return sup
 
 
-def _support_by_char(ref_ph: str, logp: np.ndarray) -> list[float | None]:
-    ids, where = [], []
-    for i, ch in enumerate(ref_ph):
-        tid = M.char_to_id.get(ch) if M.ready else None
-        if tid is not None:
-            ids.append(tid)
-            where.append(i)
-    out: list[float | None] = [None] * len(ref_ph)
-    try:
-        sup = ctc_support(logp, ids)
-    except Exception:
-        sup = None
-    if sup is None:
-        return out
-    for j, i in enumerate(where):
-        out[i] = float(sup[j])
-    return out
+def ctc_score(logp: np.ndarray, ids: list[int], blank: int = 0) -> float:
+    """Log-likelihood of the best way the audio could have said exactly these sounds."""
+    T = logp.shape[0]
+    ext = [blank]
+    for i in ids:
+        ext += [i, blank]
+    S = len(ext)
+    ext = np.array(ext)
+    skip = np.zeros(S, dtype=bool)
+    for s_ in range(2, S):
+        skip[s_] = ext[s_] != blank and ext[s_] != ext[s_ - 2]
+    NEG = -1e30
+    emit = logp[:, ext]
+    dp = np.full(S, NEG)
+    dp[0] = emit[0, 0]
+    if S > 1:
+        dp[1] = emit[0, 1]
+    for t in range(1, T):
+        b = np.concatenate(([NEG], dp[:-1]))
+        c = np.where(skip, np.concatenate(([NEG, NEG], dp[:-2])), NEG)
+        dp = np.maximum(np.maximum(dp, b), c) + emit[t]
+    best = max(dp[-1], dp[-2] if S > 1 else NEG)
+    return float(best) if best > NEG / 2 else float("-inf")
+
+
+def _ids(text: str) -> list[int]:
+    return [M.char_to_id[ch] for ch in text if ch in M.char_to_id]
+
+
+def model_prefers_reference(logp: np.ndarray, ref_ph: str, a: int, b: int, heard: str, ref_score: float,
+                            margin: float = 2.0) -> bool:
+    """Goodness-of-pronunciation check for one finding. Compares how well the audio fits
+    the correct sounds against how well it fits what the model first wrote down, with
+    everything else the same. If the correct version fits (nearly) as well, the model was
+    only unsure and the finding is dropped; a real mistake fits clearly worse."""
+    alt = ref_ph[:a] + heard + ref_ph[b:]
+    alt_score = ctc_score(logp, _ids(alt))
+    if ref_score == float("-inf"):
+        return False
+    return ref_score >= alt_score - margin
 
 
 # ------------------------------------------------------------------ analysis --
@@ -471,20 +494,21 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
         text = ref.text(s0, e)
         errs = explain_error(uthmani_text=text, ref_ph_text=alone.phonemes, predicted_ph_text=heard, mappings=alone.mappings)
         lp = [logps[k] for k in ks]
-        support = _support_by_char(alone.phonemes, np.concatenate(lp)) if errs and all(x is not None for x in lp) else None
+        joined_lp = np.concatenate(lp) if errs and all(x is not None for x in lp) and M.ready else None
+        ref_score = ctc_score(joined_lp, _ids(alone.phonemes)) if joined_lp is not None else None
         found = []
         for er in errs:
             sup = None
-            if support is not None:
+            # Lenient: double-check word and harakah findings against the audio itself.
+            if (not strict and joined_lp is not None and er.error_type in ("normal", "tashkeel")
+                    and er.speech_error_type != "insert"):
                 a0, b0 = er.ph_pos
-                vals = [support[i] for i in range(a0, min(b0, len(support))) if support[i] is not None]
-                sup = float(np.mean(vals)) if vals else None
-            # Lenient: if the audio also clearly supports the correct sounds (the model's
-            # first guess was just a near miss), it isn't a mistake.
-            if (not strict and sup is not None and sup >= 0.35 and er.speech_error_type != "insert"
-                    and er.error_type in ("normal", "tashkeel")):
-                dropped += 1
-                continue
+                try:
+                    if model_prefers_reference(joined_lp, alone.phonemes, a0, b0, er.preditected_ph or "", ref_score):
+                        dropped += 1
+                        continue
+                except Exception:
+                    pass
             a, b = er.uthmani_pos
             w0 = s0 + text[:a].count(" ")
             w1 = s0 + text[:max(a, b - 1)].count(" ")
@@ -505,7 +529,6 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
                 "rules": rules,
                 "missing_rules": [_rule(r) for r in (er.missing_tajweed_rules or [])],
                 "extra_rules": [_rule(r) for r in (er.inserted_tajweed_rules or [])],
-                "support": None if sup is None else round(sup, 3),
             })
         span_words = set(range(s0, e + 1))
         for i in span_words:  # a word recited again later is judged by its last recitation
