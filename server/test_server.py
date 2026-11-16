@@ -132,6 +132,32 @@ noisy = np.concatenate([pad, x + noise, pad])
 j = check(wav(noisy), 112, 1, name="noisy.wav"); m = show(j, "112:1 with background noise")
 ok &= j["status"] in ("ok", "unclear") and not m
 
+# Word boundaries for playback: each word's phonemes, taken from the mappings, must
+# together give the whole Ayah (so a clip of a word covers all of it).
+from quran_transcript import Aya as _Aya, quran_phonetizer as _qp
+for su, ay in [(63, 1), (1, 7), (2, 255)]:
+    tx = _Aya(su, ay).get().uthmani
+    ph = _qp(tx, server._moshaf(4, 4, 4), remove_spaces=True, sura_idx=su)
+    spans_, cur = [], [10 ** 9, -1]
+    for ci, ch in enumerate(tx):
+        if ch == " ":
+            spans_.append(tuple(cur)); cur = [10 ** 9, -1]; continue
+        mp = ph.mappings[ci]
+        if mp.pos[1] > mp.pos[0]:
+            cur = [min(cur[0], mp.pos[0]), max(cur[1], mp.pos[1])]
+    spans_.append(tuple(cur))
+    good = len(tx) == len(ph.mappings) and spans_[0][0] == 0 and spans_[-1][1] == len(ph.phonemes) and all(
+        spans_[k][1] <= spans_[k + 1][0] for k in range(len(spans_) - 1))
+    print(f"word spans {su}:{ay}:", "ok" if good else ("BAD", len(tx), len(ph.mappings), spans_[:4]))
+    ok &= good
+
+# Playback clips of a real mistake: the wrong Ayah. Each clip must be a sensible length
+# inside the recording.
+j = check(mp3("112002"), 112, 1)
+clips = [e.get("at") for a in j["ayahs"] for e in a["errors"]]
+print("clips for 112:2 read as 112:1:", clips, "audio", j["seconds_audio"])
+ok &= bool(clips) and all(c and 0.6 <= c[1] - c[0] <= 6 and c[0] < j["seconds_audio"] for c in clips)
+
 # A cheap-phone recording: 100-7000 Hz, room noise 15 dB below the voice, quieter voice.
 def phone(x, snr_db=15, seed=1):
     f = np.fft.rfft(x); fr = np.fft.rfftfreq(len(x), 1 / SR)

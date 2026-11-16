@@ -563,16 +563,43 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
             except Exception:
                 tok_frames = None
 
-        def at(a0: int, b0: int):
-            """The stretch of the recording where this finding is (with a little either side)."""
-            if not tok_frames:
+        # Where each word of this span lies in the phonetic script.
+        word_ph: list[tuple[int, int]] = []
+        if tok_frames:
+            wi, cur = 0, [10 ** 9, -1]
+            for ci, ch in enumerate(text):
+                if ch == " ":
+                    word_ph.append((cur[0], cur[1])); wi += 1; cur = [10 ** 9, -1]
+                    continue
+                mp = alone.mappings[ci] if ci < len(alone.mappings) else None
+                if mp is not None and mp.pos[1] > mp.pos[0]:
+                    cur[0] = min(cur[0], mp.pos[0]); cur[1] = max(cur[1], mp.pos[1])
+            word_ph.append((cur[0], cur[1]))
+        span_t0, span_t1 = (bounds[ks[0]][0], bounds[ks[-1]][1]) if frame_t is not None else (0.0, 0.0)
+
+        def at(w0: int, w1: int):
+            """The stretch of the recording holding words w0..w1: from the end of the word
+            before to the start of the word after, so nothing of the words is cut off."""
+            if not tok_frames or not word_ph:
+                return None
+            lw0, lw1 = w0 - s0, w1 - s0
+            if not (0 <= lw0 <= lw1 < len(word_ph)):
+                return None
+            a0 = word_ph[lw0][0]
+            b0 = max(word_ph[k][1] for k in range(lw0, lw1 + 1))
+            if b0 < 0 or a0 >= 10 ** 9:
                 return None
             n = len(tok_frames)
-            j0 = min(n - 1, char_tok[min(a0, len(char_tok) - 1)] if char_tok else 0)
-            j1 = min(n - 1, max(j0, (char_tok[min(b0, len(char_tok)) - 1] if b0 > a0 else j0)))
-            t0 = float(frame_t[tok_frames[max(0, j0 - 1)][0]]) - 0.35
-            t1 = float(frame_t[tok_frames[min(n - 1, j1 + 1)][1]]) + 0.35
-            return [round(max(0.0, t0), 2), round(max(t0 + 0.6, t1), 2)]
+            total = char_tok[-1] + (1 if alone.phonemes[-1] in M.char_to_id else 0)
+            j0 = char_tok[a0] if a0 < len(char_tok) else total
+            j1 = (char_tok[b0] if b0 < len(char_tok) else total) - 1
+            t0 = float(frame_t[tok_frames[j0 - 1][1]]) + 0.02 if 0 < j0 <= n else span_t0
+            t1 = float(frame_t[tok_frames[j1 + 1][0]]) if 0 <= j1 + 1 < n else span_t1
+            t0, t1 = max(0.0, t0 - 0.15), t1 + 0.15
+            if t1 - t0 < 0.6:
+                mid = (t0 + t1) / 2
+                t0, t1 = max(0.0, mid - 0.3), mid + 0.3
+            return [round(t0, 2), round(t1, 2)]
 
         found = []
         for er in errs:
@@ -596,7 +623,7 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
             if sev is None:
                 continue
             try:
-                where = at(*er.ph_pos)
+                where = at(w0, w1)
             except Exception:
                 where = None
             found.append({

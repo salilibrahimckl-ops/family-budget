@@ -336,7 +336,13 @@ class TeacherClient {
     int byte(double sec) => ((sec * 16000).round() * 2).clamp(0, all.length);
     final a = byte(at[0]), b = byte(at[1]);
     if (b - a < 3200) return null;
-    return _wav(Uint8List.sublistView(all, a, b));
+    // A little silence either side, so the player never clips the first or last sound.
+    final pad = Uint8List(16000 * 2 * 3 ~/ 10);
+    return _wav((BytesBuilder(copy: false)
+          ..add(pad)
+          ..add(Uint8List.sublistView(all, a, b))
+          ..add(pad))
+        .toBytes());
   }
 
   Future<void> cancel() async {
