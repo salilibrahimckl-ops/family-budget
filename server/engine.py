@@ -597,8 +597,8 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
             t1 = float(frame_t[tok_frames[j1 + 1][0]]) if 0 <= j1 + 1 < n else span_t1
             t0, t1 = max(0.0, t0 - 0.15), t1 + 0.15
             if t1 - t0 < 0.6:
-                mid = (t0 + t1) / 2
-                t0, t1 = max(0.0, mid - 0.3), mid + 0.3
+                t0 = max(0.0, (t0 + t1) / 2 - 0.3)
+                t1 = t0 + 0.6
             return [round(t0, 2), round(t1, 2)]
 
         found = []
