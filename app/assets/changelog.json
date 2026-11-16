@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.13.1",
+    "notes": [
+      "Compare your voice with the Qari: every correction now has a “You” button that plays exactly what you recited at that spot, next to the “Qari” button with the correct word.",
+      "More accurate AI teacher: it double-checks each finding against your voice before marking it, and uses standard Tajweed counts (natural Madd 2–4, Muttasil 4–6, Lazim 6, Ghunnah 2).",
+      "“Left out” now shows the missed word in Quran script."
+    ]
+  },
+  {
     "version": "0.13.0",
     "notes": [
       "Azan reminders: a notification at the Azan for the prayers you choose (Prayer times → Reminders).",

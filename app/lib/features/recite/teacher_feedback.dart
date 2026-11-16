@@ -40,7 +40,7 @@ class FeedbackLine {
   final String arabicRule;
 }
 
-FeedbackLine describe(AppLocalizations l, TeacherError e) {
+FeedbackLine describe(AppLocalizations l, TeacherError e, {String? word}) {
   final rule = e.rules.firstOrNull ?? e.missingRules.firstOrNull ?? e.extraRules.firstOrNull;
   switch (e.type) {
     case TeacherErrorType.tajweed:
@@ -60,7 +60,7 @@ FeedbackLine describe(AppLocalizations l, TeacherError e) {
       return FeedbackLine(l.harakahTitle, l.saidInstead(e.heard.isEmpty ? '—' : e.heard, e.expected), l.harakahHow, '');
     case TeacherErrorType.word:
       final detail = switch (e.speech) {
-        'delete' => l.leftOut(e.expected),
+        'delete' => l.leftOut(word ?? e.expected),
         'insert' => l.addedExtra(e.heard),
         _ => l.saidInstead(e.heard, e.expected),
       };

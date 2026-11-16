@@ -54,7 +54,7 @@ def show(j, label):
         for d in j["debug"]:
             print("       ~", json.dumps(d, ensure_ascii=False))
     for a, e in mistakes[:10]:
-        print("    ", a, json.dumps({k: e[k] for k in ("word_start", "word_end", "type", "speech", "expected", "heard", "expected_len", "heard_len")}, ensure_ascii=False),
+        print("    ", a, json.dumps({k: e[k] for k in ("word_start", "word_end", "type", "speech", "expected", "heard", "expected_len", "heard_len", "at")}, ensure_ascii=False),
               [r["kind"] for r in e["rules"]])
     return mistakes
 
@@ -172,6 +172,8 @@ if len(ts) >= 3:
     audio = np.concatenate(sum([[k, gap] for k in keep], []))
     j = check(wav(audio), 1, 7, name="skip.wav"); m = show(j, "1:7 with a phrase skipped")
     ok &= any(e["type"] == "word" and e["speech"] == "delete" for _, e in m)
+    print("   where in the recording:", [e.get("at") for _, e in m])
+    ok &= all(e.get("at") for _, e in m)
 
 # Silence.
 j = check(wav(np.zeros(2 * SR, dtype=np.float32)), 112, 1, name="s.wav"); show(j, "silence")

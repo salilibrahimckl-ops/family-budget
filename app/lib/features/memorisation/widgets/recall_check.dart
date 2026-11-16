@@ -427,6 +427,7 @@ class _RecallCheckState extends ConsumerState<RecallCheck> {
             items: _corrections,
             onDismiss: _method == 'ai_phoneme' ? _dismiss : null,
             onRetry: _retry,
+            myVoice: _teacher != null ? _client?.clip : null,
             footer: _usedPhoneCheck && _teacher == null
                 ? Text(l.tajweedNotOnYet, style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant), textAlign: TextAlign.center)
                 : null,

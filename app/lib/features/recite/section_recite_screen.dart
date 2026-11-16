@@ -368,6 +368,7 @@ class _SectionReciteScreenState extends ConsumerState<SectionReciteScreen> {
               ayah: va,
               items: items,
               onDismiss: _saved ? null : (c) => setState(() => _items[va.ayah] = [...items]..remove(c)),
+              myVoice: _client?.clip,
             ),
           ],
         ]),

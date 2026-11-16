@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -141,6 +142,22 @@ class AudioController extends Notifier<PlaybackState> {
     }
   }
 
+  /// Plays a short WAV clip held in memory (the learner's own recitation).
+  Future<void> playClip(Uint8List wav) async {
+    await stop();
+    try {
+      try {
+        await _player.setAudioSource(_BytesSource(wav));
+      } catch (_) {
+        await _player.setUrl('data:audio/wav;base64,${base64Encode(wav)}');
+      }
+      await _player.setSpeed(1.0);
+      unawaited(_player.play());
+    } catch (_) {
+      state = const PlaybackState(error: true);
+    }
+  }
+
   Future<void> pause() => _player.pause();
 
   Future<void> resume() async => unawaited(_player.play());
@@ -160,3 +177,21 @@ class AudioController extends Notifier<PlaybackState> {
 }
 
 final audioProvider = NotifierProvider<AudioController, PlaybackState>(AudioController.new);
+
+class _BytesSource extends StreamAudioSource {
+  _BytesSource(this.bytes);
+  final Uint8List bytes;
+
+  @override
+  Future<StreamAudioResponse> request([int? start, int? end]) async {
+    start ??= 0;
+    end ??= bytes.length;
+    return StreamAudioResponse(
+      sourceLength: bytes.length,
+      contentLength: end - start,
+      offset: start,
+      stream: Stream.value(bytes.sublist(start, end)),
+      contentType: 'audio/wav',
+    );
+  }
+}

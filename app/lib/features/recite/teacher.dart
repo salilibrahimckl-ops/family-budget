@@ -69,7 +69,11 @@ class TeacherError {
     this.rules = const [],
     this.missingRules = const [],
     this.extraRules = const [],
+    this.at,
   });
+
+  /// Where in the learner's own recording this is, in seconds [from, to].
+  final List<double>? at;
   final int wordStart; // 0-based, in the Ayah's Uthmani words
   final int wordEnd;
   final TeacherErrorType type;
@@ -105,6 +109,9 @@ class TeacherError {
       rules: rules('rules'),
       missingRules: rules('missing_rules'),
       extraRules: rules('extra_rules'),
+      at: (j['at'] is List && (j['at'] as List).length == 2)
+          ? [for (final x in j['at'] as List) (x as num).toDouble()]
+          : null,
     );
   }
 }
@@ -320,6 +327,16 @@ class TeacherClient {
     }
     // Fall back: send everything at once.
     return _checkWhole(onStatus: onStatus);
+  }
+
+  /// The learner's own recitation between [at] (seconds), as a WAV file, to play back
+  /// next to the Qari. null if that part isn't in this recording.
+  Uint8List? clip(List<double> at) {
+    final all = _all.toBytes();
+    int byte(double sec) => ((sec * 16000).round() * 2).clamp(0, all.length);
+    final a = byte(at[0]), b = byte(at[1]);
+    if (b - a < 3200) return null;
+    return _wav(Uint8List.sublistView(all, a, b));
   }
 
   Future<void> cancel() async {

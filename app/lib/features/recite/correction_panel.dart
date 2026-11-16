@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,7 +16,7 @@ import 'teacher_feedback.dart';
 /// One word to correct: its position in the Ayah and what went wrong.
 class Correction {
   const Correction(this.position, this.problem,
-      {this.color, this.how = '', this.arabicRule = '', this.tip = false, this.type});
+      {this.color, this.how = '', this.arabicRule = '', this.tip = false, this.type, this.at});
   final int position; // 1-based word position in the verified Ayah
   final String problem;
   final Color? color;
@@ -24,6 +26,9 @@ class Correction {
   /// A tip: worth listening to, but not counted as a mistake.
   final bool tip;
   final TeacherErrorType? type;
+
+  /// Where this is in the learner's recording (seconds), to play it back.
+  final List<double>? at;
 }
 
 /// Turns the teacher's findings for one Ayah into correction cards.
@@ -32,7 +37,9 @@ List<Correction> correctionsFor(AppLocalizations l, AyahReport a, int wordCount,
   return [
     for (final e in [...a.mistakes, ...a.tips])
       () {
-        final f = describe(l, e);
+        final whole = e.wordEnd == e.wordStart || e.speech == 'delete';
+        final f = describe(l, e,
+            word: whole && e.wordStart < a.words.length ? a.words.sublist(e.wordStart, (e.wordEnd + 1).clamp(e.wordStart + 1, a.words.length)).join(' ') : null);
         return Correction(
           pos(e.wordStart),
           '${f.title}: ${f.detail}',
@@ -41,6 +48,7 @@ List<Correction> correctionsFor(AppLocalizations l, AyahReport a, int wordCount,
           arabicRule: f.arabicRule,
           tip: !e.mistake,
           type: e.type,
+          at: e.at,
         );
       }(),
   ];
@@ -50,7 +58,8 @@ List<Correction> correctionsFor(AppLocalizations l, AyahReport a, int wordCount,
 /// a button to hear that word recited correctly, the whole Ayah from your Qari, and
 /// Try again.
 class CorrectionPanel extends ConsumerWidget {
-  const CorrectionPanel({super.key, required this.ayah, required this.items, this.onRetry, this.onDismiss, this.footer});
+  const CorrectionPanel(
+      {super.key, required this.ayah, required this.items, this.onRetry, this.onDismiss, this.footer, this.myVoice});
   final VerifiedAyah ayah;
   final List<Correction> items;
   final VoidCallback? onRetry;
@@ -58,6 +67,9 @@ class CorrectionPanel extends ConsumerWidget {
   /// "Not a mistake": the learner disagrees with a finding; it's removed and not counted.
   final ValueChanged<Correction>? onDismiss;
   final Widget? footer;
+
+  /// The learner's own recitation at a spot (WAV), to compare with the Qari.
+  final Uint8List? Function(List<double> at)? myVoice;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -99,11 +111,26 @@ class CorrectionPanel extends ConsumerWidget {
                 ]),
               ),
               const SizedBox(width: HSpace.s),
-              IconButton.filledTonal(
-                tooltip: l.hearWord,
-                icon: const Icon(Icons.volume_up),
-                onPressed: () => ref.read(audioProvider.notifier).playWord(ayah.surah, ayah.ayah, c.position),
-              ),
+              Column(mainAxisSize: MainAxisSize.min, children: [
+                if (c.at != null && myVoice != null) ...[
+                  IconButton.filled(
+                    tooltip: l.hearMyVoice,
+                    icon: const Icon(Icons.record_voice_over),
+                    onPressed: () {
+                      final wav = myVoice!(c.at!);
+                      if (wav != null) ref.read(audioProvider.notifier).playClip(wav);
+                    },
+                  ),
+                  Text(l.compareYou, style: t.labelSmall),
+                  const SizedBox(height: HSpace.xs),
+                ],
+                IconButton.filledTonal(
+                  tooltip: l.hearWord,
+                  icon: const Icon(Icons.volume_up),
+                  onPressed: () => ref.read(audioProvider.notifier).playWord(ayah.surah, ayah.ayah, c.position),
+                ),
+                Text(l.compareQari, style: t.labelSmall),
+              ]),
             ]),
           ),
         );
@@ -126,6 +153,11 @@ class CorrectionPanel extends ConsumerWidget {
           ),
         ),
       const SizedBox(height: HSpace.s),
+      if (myVoice != null && items.any((c) => c.at != null))
+        Padding(
+          padding: const EdgeInsets.only(bottom: HSpace.xs),
+          child: Text(l.compareHint, style: t.bodySmall, textAlign: TextAlign.center),
+        ),
       Text(l.correctHint, style: t.bodySmall, textAlign: TextAlign.center),
       const SizedBox(height: HSpace.s),
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [

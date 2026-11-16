@@ -1156,5 +1156,9 @@
         "type": "int"
       }
     }
-  }
+  },
+  "compareQari": "Qari",
+  "compareYou": "You",
+  "hearMyVoice": "Hear what you recited here",
+  "compareHint": "Tap “You” to hear yourself at this spot, then “Qari” to hear it said correctly."
 }

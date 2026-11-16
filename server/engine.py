@@ -144,13 +144,13 @@ class Recording:
         wave = self.buf[s:e].copy()
         self.breaths.append(Breath(s, e, _EXEC.submit(M.phonemes, wave)))
 
-    def finish(self) -> list[tuple[str, float, np.ndarray]]:
+    def finish(self) -> list[tuple[str, float, np.ndarray, int, int]]:
         with self.lock:
             if self.cur is not None:
                 self._close(self.cur, len(self.buf))
                 self.cur = None
             breaths = list(self.breaths)
-        return [b.future.result() for b in breaths]
+        return [(*b.future.result(), b.start, b.end) for b in breaths]
 
 
 # ----------------------------------------------------------------- reference --
@@ -303,6 +303,51 @@ def ctc_score(logp: np.ndarray, ids: list[int], blank: int = 0) -> float:
         dp = np.maximum(np.maximum(dp, b), c) + emit[t]
     best = max(dp[-1], dp[-2] if S > 1 else NEG)
     return float(best) if best > NEG / 2 else float("-inf")
+
+
+def ctc_frames(logp: np.ndarray, ids: list[int], blank: int = 0) -> list[tuple[int, int]] | None:
+    """For each expected sound, the first and last audio frame the best alignment gives it."""
+    T, L = logp.shape[0], len(ids)
+    if L == 0 or T < L:
+        return None
+    ext = [blank]
+    for i in ids:
+        ext += [i, blank]
+    S = len(ext)
+    ext = np.array(ext)
+    skip = np.zeros(S, dtype=bool)
+    for s_ in range(2, S):
+        skip[s_] = ext[s_] != blank and ext[s_] != ext[s_ - 2]
+    NEG = -1e30
+    emit = logp[:, ext]
+    dp = np.full(S, NEG)
+    dp[0], dp[1] = emit[0, 0], emit[0, 1]
+    back = np.zeros((T, S), dtype=np.int8)
+    for t in range(1, T):
+        b = np.concatenate(([NEG], dp[:-1]))
+        c = np.where(skip, np.concatenate(([NEG, NEG], dp[:-2])), NEG)
+        stack = np.stack([dp, b, c])
+        arg = stack.argmax(axis=0)
+        dp = stack[arg, np.arange(S)] + emit[t]
+        back[t] = arg
+    s_ = S - 1 if dp[S - 1] >= dp[S - 2] else S - 2
+    if dp[s_] <= NEG / 2:
+        return None
+    first = [T] * L
+    last = [-1] * L
+    for t in range(T - 1, -1, -1):
+        if s_ % 2 == 1:
+            j = (s_ - 1) // 2
+            first[j] = min(first[j], t)
+            last[j] = max(last[j], t)
+        s_ -= int(back[t, s_])
+        if s_ < 0:
+            break
+    # A sound squeezed out of the path borrows its neighbours' place.
+    for j in range(L):
+        if last[j] < 0:
+            first[j] = last[j] = last[j - 1] if j > 0 and last[j - 1] >= 0 else 0
+    return list(zip(first, last))
 
 
 def _ids(text: str) -> list[int]:
@@ -483,10 +528,12 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
     phon = [x[0] for x in segs]
     confs = [x[1] for x in segs]
     logps = [x[2] if len(x) > 2 else None for x in segs]
+    bounds = [(x[3] / SR, x[4] / SR) if len(x) > 4 else None for x in segs]
     debug: list = []
     spans = _align(phon, ref, debug)
     by_word: dict[int, list[dict]] = {}
     covered: set[int] = set()
+    span_time: list[tuple[int, int, float, float]] = []  # (first word, last word, start s, end s)
     seg_conf = float(np.mean(confs)) if confs else 0.0
     dropped = 0
     for heard, s0, e, _, ks in spans:
@@ -494,8 +541,39 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
         text = ref.text(s0, e)
         errs = explain_error(uthmani_text=text, ref_ph_text=alone.phonemes, predicted_ph_text=heard, mappings=alone.mappings)
         lp = [logps[k] for k in ks]
-        joined_lp = np.concatenate(lp) if errs and all(x is not None for x in lp) and M.ready else None
-        ref_score = ctc_score(joined_lp, _ids(alone.phonemes)) if joined_lp is not None else None
+        have_lp = all(x is not None for x in lp) and M.ready
+        joined_lp = np.concatenate(lp) if have_lp else None
+        # Where in the recording each audio frame of this span lies (seconds).
+        frame_t = None
+        if have_lp and all(bounds[k] for k in ks):
+            frame_t = np.concatenate([
+                bounds[k][0] + (np.arange(logps[k].shape[0]) + 0.5) * (bounds[k][1] - bounds[k][0]) / max(1, logps[k].shape[0])
+                for k in ks])
+            span_time.append((s0, e, bounds[ks[0]][0], bounds[ks[-1]][1]))
+        ref_score = ctc_score(joined_lp, _ids(alone.phonemes)) if (joined_lp is not None and errs) else None
+        tok_frames, char_tok = None, []
+        if errs and joined_lp is not None and frame_t is not None:
+            n = 0
+            for ch in alone.phonemes:
+                char_tok.append(n)
+                if ch in M.char_to_id:
+                    n += 1
+            try:
+                tok_frames = ctc_frames(joined_lp, _ids(alone.phonemes))
+            except Exception:
+                tok_frames = None
+
+        def at(a0: int, b0: int):
+            """The stretch of the recording where this finding is (with a little either side)."""
+            if not tok_frames:
+                return None
+            n = len(tok_frames)
+            j0 = min(n - 1, char_tok[min(a0, len(char_tok) - 1)] if char_tok else 0)
+            j1 = min(n - 1, max(j0, (char_tok[min(b0, len(char_tok)) - 1] if b0 > a0 else j0)))
+            t0 = float(frame_t[tok_frames[max(0, j0 - 1)][0]]) - 0.35
+            t1 = float(frame_t[tok_frames[min(n - 1, j1 + 1)][1]]) + 0.35
+            return [round(max(0.0, t0), 2), round(max(t0 + 0.6, t1), 2)]
+
         found = []
         for er in errs:
             sup = None
@@ -517,8 +595,12 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
             sev = _severity(er, rules, strict, seg_conf, wl)
             if sev is None:
                 continue
+            try:
+                where = at(*er.ph_pos)
+            except Exception:
+                where = None
             found.append({
-                "w0": w0, "w1": w1,
+                "w0": w0, "w1": w1, "at": where,
                 "type": {"normal": "word", "tashkeel": "harakah"}.get(er.error_type, "tajweed"),
                 "severity": sev,
                 "speech": er.speech_error_type,
@@ -546,7 +628,15 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
         if recited:
             for i in idx:
                 if i not in covered:
-                    errors.append({"w0": i, "w1": i, "type": "word", "severity": "mistake", "speech": "delete",
+                    before = [t1 for (a_, b_, t0, t1) in span_time if b_ < i]
+                    after = [t0 for (a_, b_, t0, t1) in span_time if a_ > i]
+                    where = None
+                    if before or after:
+                        t0 = (max(before) if before else min(after) - 3.0) - 0.3
+                        t1 = (min(after) if after else max(before) + 3.0) + 0.3
+                        t0 = max(0.0, max(t0, t1 - 8.0))
+                        where = [round(t0, 2), round(t1, 2)]
+                    errors.append({"w0": i, "w1": i, "at": where, "type": "word", "severity": "mistake", "speech": "delete",
                                    "expected": ref.slice(i, i), "heard": "", "expected_len": None, "heard_len": None,
                                    "rules": [], "missing_rules": [], "extra_rules": []})
                 for f in by_word.get(i, []):
