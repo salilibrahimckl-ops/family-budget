@@ -155,7 +155,8 @@ for su, ay in [(63, 1), (1, 7), (2, 255)]:
 # inside the recording.
 j = check(mp3("112002"), 112, 1)
 clips = [e.get("at") for a in j["ayahs"] for e in a["errors"]]
-print("clips for 112:2 read as 112:1:", clips, "audio", j["seconds_audio"])
+print("clips for 112:2 read as 112:1:", clips, "audio", j["seconds_audio"], "from heard:", j.get("clips_from_heard"))
+ok &= (j.get("clips_from_heard") or 0) > 0
 ok &= bool(clips) and all(c and 0.6 <= c[1] - c[0] <= 6 and c[0] < j["seconds_audio"] for c in clips)
 
 # A cheap-phone recording: 100-7000 Hz, room noise 15 dB below the voice, quieter voice.

@@ -536,6 +536,7 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
     span_time: list[tuple[int, int, float, float]] = []  # (first word, last word, start s, end s)
     seg_conf = float(np.mean(confs)) if confs else 0.0
     dropped = 0
+    clip_stats = [0]
     for heard, s0, e, _, ks in spans:
         alone = ref.alone(s0, e)
         text = ref.text(s0, e)
@@ -565,7 +566,7 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
 
         # Where each word of this span lies in the phonetic script.
         word_ph: list[tuple[int, int]] = []
-        if tok_frames:
+        if True:
             wi, cur = 0, [10 ** 9, -1]
             for ci, ch in enumerate(text):
                 if ch == " ":
@@ -577,7 +578,67 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
             word_ph.append((cur[0], cur[1]))
         span_t0, span_t1 = (bounds[ks[0]][0], bounds[ks[-1]][1]) if frame_t is not None else (0.0, 0.0)
 
+        # What the model actually wrote down, and the audio frame of each sound. Clips are
+        # cut from this, so "You" plays exactly the stretch the teacher compared.
+        emit_t: list[float] = []
+        if frame_t is not None:
+            chars, off = [], 0
+            for k in ks:
+                ids = logps[k].argmax(axis=1)
+                prev = 0
+                for t, i in enumerate(ids.tolist()):
+                    if i != 0 and i != prev:
+                        chars.append(M.vocab[int(i)])
+                        emit_t.append(float(frame_t[off + t]))
+                    prev = i
+                off += logps[k].shape[0]
+            if "".join(chars) != heard:
+                emit_t = []
+        ref2h: list[int] = []
+        missing: set[int] = set()
+        if emit_t:
+            ref2h = [0] * (len(alone.phonemes) + 1)
+            for tag, i1, i2, j1, j2 in lv.opcodes(alone.phonemes, heard):
+                for i in range(i1, i2):
+                    if tag == "delete":
+                        ref2h[i] = j1
+                        missing.add(i)
+                    else:
+                        ref2h[i] = j1 + min(i - i1, max(0, j2 - j1 - 1))
+            ref2h[-1] = len(heard)
+
+        def heard_at(w0: int, w1: int):
+            lw0, lw1 = w0 - s0, w1 - s0
+            if not emit_t or not (0 <= lw0 <= lw1 < len(word_ph)):
+                return None
+            a0 = word_ph[lw0][0]
+            b0 = max(word_ph[k][1] for k in range(lw0, lw1 + 1))
+            if b0 < 0 or a0 >= 10 ** 9:
+                return None
+            hs = [ref2h[i] for i in range(a0, b0) if i not in missing]
+            nh = len(emit_t)
+            sp = lambda j: span_t0 if j < 0 else (span_t1 if j >= nh else emit_t[j])
+            if hs:
+                ha, hb = min(hs), max(hs) + 1
+                t0 = (sp(ha - 1) + sp(ha)) / 2 if ha > 0 else span_t0
+                t1 = sp(hb) if hb < nh else span_t1
+            else:  # nothing of it was heard: the moment where it should have been
+                ha = ref2h[a0]
+                t0, t1 = sp(ha - 1) - 0.3, sp(ha) + 0.3
+            t0, t1 = max(0.0, t0 - 0.12), t1 + 0.12
+            if t1 - t0 < 0.6:
+                t0 = max(0.0, (t0 + t1) / 2 - 0.3)
+                t1 = t0 + 0.6
+            return [round(t0, 2), round(t1, 2)]
+
         def at(w0: int, w1: int):
+            got = heard_at(w0, w1)
+            if got is not None:
+                clip_stats[0] += 1
+                return got
+            return ctc_at(w0, w1)
+
+        def ctc_at(w0: int, w1: int):
             """The stretch of the recording holding words w0..w1: from the end of the word
             before to the start of the word after, so nothing of the words is cut off."""
             if not tok_frames or not word_ph:
@@ -626,8 +687,12 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
                 where = at(w0, w1)
             except Exception:
                 where = None
+            whole = False
+            if er.speech_error_type == "delete" and er.error_type == "normal":
+                lws = [k for k in range(w0 - s0, w1 - s0 + 1) if 0 <= k < len(word_ph)]
+                whole = bool(lws) and er.ph_pos[0] <= word_ph[lws[0]][0] and er.ph_pos[1] >= word_ph[lws[-1]][1]
             found.append({
-                "w0": w0, "w1": w1, "at": where,
+                "w0": w0, "w1": w1, "at": where, "whole": whole,
                 "type": {"normal": "word", "tashkeel": "harakah"}.get(er.error_type, "tajweed"),
                 "severity": sev,
                 "speech": er.speech_error_type,
@@ -663,7 +728,7 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
                         t1 = (min(after) if after else max(before) + 3.0) + 0.3
                         t0 = max(0.0, max(t0, t1 - 8.0))
                         where = [round(t0, 2), round(t1, 2)]
-                    errors.append({"w0": i, "w1": i, "at": where, "type": "word", "severity": "mistake", "speech": "delete",
+                    errors.append({"w0": i, "w1": i, "at": where, "whole": True, "type": "word", "severity": "mistake", "speech": "delete",
                                    "expected": ref.slice(i, i), "heard": "", "expected_len": None, "heard_len": None,
                                    "rules": [], "missing_rules": [], "extra_rules": []})
                 for f in by_word.get(i, []):
@@ -703,5 +768,6 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
         "breaths": len(phon),
         "breaths_used": len(spans),
         "double_checked_away": dropped,
+        "clips_from_heard": clip_stats[0],
         "debug": debug if os.environ.get("HIFZ_DEBUG") == "1" else None,
     }

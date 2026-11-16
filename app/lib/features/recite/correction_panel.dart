@@ -34,24 +34,47 @@ class Correction {
 /// Turns the teacher's findings for one Ayah into correction cards.
 List<Correction> correctionsFor(AppLocalizations l, AyahReport a, int wordCount, ColorScheme scheme) {
   int pos(int i) => mapPosition(i + 1, a.words.length, wordCount);
-  return [
-    for (final e in [...a.mistakes, ...a.tips])
-      () {
-        final whole = e.wordEnd == e.wordStart || e.speech == 'delete';
-        final f = describe(l, e,
-            word: whole && e.wordStart < a.words.length ? a.words.sublist(e.wordStart, (e.wordEnd + 1).clamp(e.wordStart + 1, a.words.length)).join(' ') : null);
-        return Correction(
-          pos(e.wordStart),
-          '${f.title}: ${f.detail}',
-          color: e.mistake ? colorFor(e.type, scheme) : scheme.outline,
-          how: f.how,
-          arabicRule: f.arabicRule,
-          tip: !e.mistake,
-          type: e.type,
-          at: e.at,
-        );
-      }(),
-  ];
+  // One card per word: every finding on the same word goes together, with one "You"
+  // clip and one "Qari" button, so it's easy to compare.
+  final groups = <(int, bool), List<TeacherError>>{};
+  for (final e in [...a.mistakes, ...a.tips]) {
+    groups.putIfAbsent((pos(e.wordStart), !e.mistake), () => []).add(e);
+  }
+  final out = <Correction>[];
+  groups.forEach((key, errs) {
+    final lines = <String>[], hows = <String>[], rules = <String>[];
+    for (final e in errs) {
+      String? word;
+      if (e.speech == 'delete' && e.whole && e.wordStart < a.words.length) {
+        word = a.words.sublist(e.wordStart, (e.wordEnd + 1).clamp(e.wordStart + 1, a.words.length)).join(' ');
+      }
+      final f = describe(l, e, word: word);
+      final line = '${f.title}: ${f.detail}';
+      if (!lines.contains(line)) lines.add(line);
+      if (f.how.isNotEmpty && !hows.contains(f.how)) hows.add(f.how);
+      if (f.arabicRule.isNotEmpty && !rules.contains(f.arabicRule)) rules.add(f.arabicRule);
+    }
+    // The clip: where this word is in the recording (all findings on it together).
+    final ats = [for (final e in errs) if (e.at != null) e.at!];
+    List<double>? at;
+    if (ats.isNotEmpty) {
+      final from = ats.map((x) => x[0]).reduce((x, y) => x < y ? x : y);
+      final to = ats.map((x) => x[1]).reduce((x, y) => x > y ? x : y);
+      at = to - from <= 6 ? [from, to] : ats.first;
+    }
+    final main = errs.firstWhere((e) => e.type == TeacherErrorType.word, orElse: () => errs.first);
+    out.add(Correction(
+      key.$1,
+      lines.join('\n'),
+      color: main.mistake ? colorFor(main.type, scheme) : scheme.outline,
+      how: hows.join('\n'),
+      arabicRule: rules.join(' · '),
+      tip: key.$2,
+      type: main.type,
+      at: at,
+    ));
+  });
+  return out;
 }
 
 /// "Correct it with the reciter": every word that went wrong, what exactly was wrong,
@@ -90,7 +113,7 @@ class CorrectionPanel extends ConsumerWidget {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Row(children: [
-                    Expanded(child: Text(c.problem, style: t.bodyMedium?.copyWith(color: c.color ?? s.error, fontWeight: FontWeight.w600))),
+                    Expanded(child: Text(c.problem, style: t.bodyMedium?.copyWith(color: c.tip ? s.onSurfaceVariant : s.onSurface, fontWeight: FontWeight.w600))),
                     if (c.arabicRule.isNotEmpty) Text(c.arabicRule, textDirection: TextDirection.rtl, style: t.bodySmall),
                   ]),
                   Text(ayah.word(c.position),

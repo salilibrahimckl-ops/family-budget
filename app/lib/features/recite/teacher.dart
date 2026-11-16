@@ -70,7 +70,11 @@ class TeacherError {
     this.missingRules = const [],
     this.extraRules = const [],
     this.at,
+    this.whole = false,
   });
+
+  /// The whole word (not just a sound of it) was left out.
+  final bool whole;
 
   /// Where in the learner's own recording this is, in seconds [from, to].
   final List<double>? at;
@@ -109,6 +113,7 @@ class TeacherError {
       rules: rules('rules'),
       missingRules: rules('missing_rules'),
       extraRules: rules('extra_rules'),
+      whole: j['whole'] == true,
       at: (j['at'] is List && (j['at'] as List).length == 2)
           ? [for (final x in j['at'] as List) (x as num).toDouble()]
           : null,
