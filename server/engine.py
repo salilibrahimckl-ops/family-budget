@@ -483,7 +483,7 @@ def _best(seg: str, ref: Reference, cand: list[int], pointer: int | None, min_e:
             acc += max(1, lens[e])
             if e < min_e or acc < 0.5 * L:
                 continue
-            if acc > 1.7 * L + 4 and e > s0:  # always try at least one word (الٓمٓ is long)
+            if acc > 1.7 * L + 4 and best is not None:  # always try at least one span
                 break
             r = ref.slice(s0, e)
             d = lv.distance(seg, r) / max(len(seg), len(r), 1)
@@ -736,8 +736,12 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
         for er in errs:
             sup = None
             # Lenient: double-check word and harakah findings against the audio itself.
-            if (not strict and joined_lp is not None and er.error_type in ("normal", "tashkeel")
-                    and er.speech_error_type != "insert"):
+            # Lengths too: the model sometimes writes a long Madd with fewer marks than it
+            # heard; if the correct length fits the audio as well, it's not a mistake.
+            if (not strict and joined_lp is not None and er.speech_error_type != "insert"
+                    and (er.error_type in ("normal", "tashkeel")
+                         or (er.expected_len is not None and er.predicted_len is not None
+                             and er.predicted_len < er.expected_len))):
                 a0, b0 = er.ph_pos
                 try:
                     if model_prefers_reference(joined_lp, alone.phonemes, a0, b0, er.preditected_ph or "", ref_score):
