@@ -58,6 +58,9 @@ if [ -n "$SKIP_APK" ]; then echo "Project ready in $APP"; exit 0; fi
 echo "==> Running parser tests"
 flutter test || echo "!! Some tests failed - the app still builds, but tell Claude which ones."
 
+echo "==> Code check"
+flutter analyze --no-fatal-infos --no-fatal-warnings lib 2>&1 | grep -E "(warning|error) •" | sed 's/^/ANALYZE /' || true
+
 echo "==> Building Android APK"
 # Always sign with the same key so new versions install as updates.
 cp "$HERE/android-signing/debug.keystore" android/app/fixed.keystore

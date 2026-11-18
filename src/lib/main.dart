@@ -196,6 +196,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         onMonth: (m) => setState(() => _month = m),
         onRefresh: _sync,
         onOpenTxns: _openTxns,
+        onOpenBudget: () => setState(() => _tab = 3),
         updateAvailable: _updateBuild != null,
       ),
       TransactionsScreen(
@@ -206,7 +207,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         initialMember: _txnMemberFilter,
       ),
       MoneyScreen(repo: widget.repo),
-      BudgetScreen(repo: widget.repo, month: _month),
+      BudgetScreen(repo: widget.repo, month: _month, onMonth: (m) => setState(() => _month = m)),
       SettingsScreen(repo: widget.repo, sms: _sms, onLeft: widget.onLeft),
     ];
     return Scaffold(

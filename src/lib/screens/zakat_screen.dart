@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -78,8 +79,15 @@ class _ZakatScreenState extends State<ZakatScreen> {
       ..sort();
 
     final manual = widget.repo.goldRatesFrom(famData);
-    final r22 = _rates?.rate22 ?? manual[22] ?? (famData['autoGold22'] as num?)?.toDouble() ?? 0;
-    final r24 = _rates?.rate24 ?? manual[24] ?? (r22 > 0 ? r22 / 0.916 : 0);
+    final manualAt = (famData['goldRatesAt'] as Timestamp?)?.toDate();
+    final useManual = manual.isNotEmpty &&
+        (_rates == null || (manualAt != null && manualAt.isAfter(_rates!.at ?? DateTime(2000))));
+    final r22 = (useManual ? manual[22] : null) ??
+        _rates?.rate22 ??
+        manual[22] ??
+        (famData['autoGold22'] as num?)?.toDouble() ??
+        0;
+    final r24 = (useManual ? manual[24] : null) ?? (useManual ? null : _rates?.rate24) ?? (r22 > 0 ? r22 / 0.916 : 0);
     final silver = _rates?.silver ?? (z['silverRate'] as num?)?.toDouble() ?? 0;
     final nisab = basis == 'gold' ? _nisabGoldGrams * r24 : _nisabSilverGrams * silver;
 

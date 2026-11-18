@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -24,12 +26,12 @@ class GoldRate {
     try {
       final r = await http
           .get(Uri.parse('https://raw.githubusercontent.com/salilibrahimckl-ops/family-budget/data/gold.json'
-              '?t=${DateTime.now().millisecondsSinceEpoch ~/ 600000}'))
+              '?t=${DateTime.now().millisecondsSinceEpoch ~/ 60000}'))
           .timeout(const Duration(seconds: 15));
       if (r.statusCode != 200) return null;
       final j = jsonDecode(r.body) as Map<String, dynamic>;
       return GoldRate((j['rate22'] as num).toDouble(), (j['rate24'] as num).toDouble(),
-          DateTime.tryParse(j['at'] as String? ?? ''), j['source'] as String? ?? '', j['approx'] == true,
+          DateTime.tryParse(j['at'] as String? ?? '')?.toLocal(), j['source'] as String? ?? '', j['approx'] == true,
           (j['silver'] as num?)?.toDouble());
     } catch (_) {
       return null;
@@ -95,7 +97,7 @@ class MoneyScreen extends StatefulWidget {
   State<MoneyScreen> createState() => _MoneyScreenState();
 }
 
-class _MoneyScreenState extends State<MoneyScreen> {
+class _MoneyScreenState extends State<MoneyScreen> with WidgetsBindingObserver {
   late final _accounts = widget.repo.accountsStream();
   late final _money = widget.repo.moneyStream();
   late final _family = widget.repo.familyStream();
@@ -103,14 +105,43 @@ class _MoneyScreenState extends State<MoneyScreen> {
   GoldRate? _auto;
   bool _showReceived = false;
 
+  Timer? _goldTimer;
+  bool _useManual = false;
+  DateTime? _manualAt;
+  bool _goldLoading = false;
+
+  /// Fetch the latest Kerala rate. Called on open, whenever the app comes back
+  /// to the front, every 30 minutes while open, and from the refresh button.
+  Future<void> _refreshGold() async {
+    if (_goldLoading) return;
+    if (mounted) setState(() => _goldLoading = true);
+    final g = await GoldRate.fetch();
+    if (!mounted) return;
+    setState(() {
+      _goldLoading = false;
+      if (g != null) _auto = g;
+    });
+    if (g != null) widget.repo.rememberGoldRate(g.rate22);
+  }
+
   @override
   void initState() {
     super.initState();
-    GoldRate.fetch().then((g) {
-      if (!mounted) return;
-      setState(() => _auto = g);
-      if (g != null) widget.repo.rememberGoldRate(g.rate22);
-    });
+    WidgetsBinding.instance.addObserver(this);
+    _refreshGold();
+    _goldTimer = Timer.periodic(const Duration(minutes: 30), (_) => _refreshGold());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshGold();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _goldTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -131,10 +162,15 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   .toList()
                 ..sort();
               final manual = widget.repo.goldRatesFrom(fam);
-              // Automatic rate first; your own rate only if the automatic one isn't available.
+              // Your own rate (e.g. your jeweller's) wins until a newer automatic rate is published.
+              final manualAt = (fam?['goldRatesAt'] as Timestamp?)?.toDate();
+              _useManual = manual.isNotEmpty &&
+                  (_auto == null || (manualAt != null && manualAt.isAfter(_auto!.at ?? DateTime(2000))));
+              _manualAt = manualAt;
               final rates = <int, double>{
-                22: _auto?.rate22 ?? manual[22] ?? 0,
-                24: _auto?.rate24 ?? manual[24] ?? 0,
+                22: (_useManual ? manual[22] : null) ?? _auto?.rate22 ?? manual[22] ?? 0,
+                24: (_useManual ? manual[24] : null) ?? _auto?.rate24 ?? manual[24] ??
+                    ((_useManual ? manual[22] : null) ?? _auto?.rate22 ?? 0) / 0.916,
               };
               return _body(context, members, accSnap.data ?? const [], monSnap.data ?? const [],
                   saSnap.data ?? const SetAside({}, {}), rates, manual);
@@ -400,10 +436,12 @@ class _MoneyScreenState extends State<MoneyScreen> {
   Widget _goldRateCard(BuildContext context, Map<int, double> rates, Map<int, double> manual) {
     final tt = Theme.of(context).textTheme;
     final a = _auto;
-    final status = a != null
-        ? '${a.approx ? 'Approx. from international price' : 'Kerala rate'} · '
-            '${a.at != null ? DateFormat('d MMM, h:mm a').format(a.at!) : ''}'
-        : (manual.isNotEmpty ? 'Your rate (automatic rate not available)' : 'Automatic rate not available yet');
+    final status = _useManual
+        ? 'Your rate${_manualAt != null ? ' · set ${DateFormat('d MMM, h:mm a').format(_manualAt!)}' : ''}'
+        : a != null
+            ? '${a.approx ? 'Approx. from international price' : 'Kerala rate'} · '
+                'updated ${a.at != null ? DateFormat('d MMM, h:mm a').format(a.at!) : ''}'
+            : 'Automatic rate not available yet';
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
@@ -413,7 +451,14 @@ class _MoneyScreenState extends State<MoneyScreen> {
         ),
         subtitle: Text('24K ${rates[24]! > 0 ? '${money(rates[24]!)}/g' : '—'}\n$status'),
         isThreeLine: true,
-        trailing: TextButton(onPressed: () => _setRate(context, manual), child: const Text('Set rate')),
+        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          _goldLoading
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
+              : IconButton(tooltip: 'Check for today\'s rate', icon: const Icon(Icons.refresh), onPressed: _refreshGold),
+          TextButton(onPressed: () => _setRate(context, manual), child: const Text('Set rate')),
+        ]),
       ),
     );
   }
@@ -715,7 +760,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Gold rate per gram'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Used only when the automatic Kerala rate is not available.'),
+          const Text('Enter your jeweller\'s rate for today. It is used until a newer Kerala rate is published.'),
           const SizedBox(height: 12),
           TextField(
             controller: r22,

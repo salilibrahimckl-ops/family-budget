@@ -6,6 +6,7 @@ import '../repo.dart';
 import 'balances.dart';
 import 'charts.dart';
 import 'pending_cards.dart';
+import 'budget_screen.dart';
 import 'common.dart';
 import 'insights_cards.dart';
 import '../updater.dart';
@@ -18,6 +19,7 @@ class HomeScreen extends StatefulWidget {
     required this.onMonth,
     required this.onRefresh,
     required this.onOpenTxns,
+    this.onOpenBudget,
     this.updateAvailable = false,
   });
   final Repo repo;
@@ -25,6 +27,7 @@ class HomeScreen extends StatefulWidget {
   final ValueChanged<DateTime> onMonth;
   final Future<void> Function() onRefresh;
   final void Function({String? member}) onOpenTxns;
+  final VoidCallback? onOpenBudget;
   final bool updateAvailable;
 
   @override
@@ -64,6 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onMonth: widget.onMonth,
             onRefresh: widget.onRefresh,
             onOpenTxns: widget.onOpenTxns,
+            onOpenBudget: widget.onOpenBudget,
             updateAvailable: widget.updateAvailable,
             budget: bSnap.data!,
             txns: tSnap.data!.where((t) => t.category != kIgnored).toList(),
@@ -83,8 +87,10 @@ class _Body extends StatelessWidget {
     required this.onOpenTxns,
     required this.budget,
     required this.txns,
+    this.onOpenBudget,
     this.updateAvailable = false,
   });
+  final VoidCallback? onOpenBudget;
   final bool updateAvailable;
   final Repo repo;
   final DateTime month;
@@ -260,15 +266,34 @@ class _Body extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 20),
-          Text('Spending', style: tt.titleMedium),
-          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: Text('Spending', style: tt.titleMedium)),
+            if (onOpenBudget != null)
+              TextButton.icon(
+                icon: const Icon(Icons.tune, size: 18),
+                label: const Text('Reshuffle budget'),
+                onPressed: onOpenBudget,
+              ),
+          ]),
+          Text('Tap a category to change its budget.', style: tt.bodySmall),
+          const SizedBox(height: 4),
           for (final c in spendCats)
-            _CatRow(cat: c, budget: budget.categories[c.id] ?? 0, spent: spentBy[c.id] ?? 0),
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => showCategoryBudgetSheet(
+                  context, repo, month, c, budget.categories[c.id] ?? 0, spentBy[c.id] ?? 0),
+              child: _CatRow(cat: c, budget: budget.categories[c.id] ?? 0, spent: spentBy[c.id] ?? 0),
+            ),
           const SizedBox(height: 16),
           Text('Set aside', style: tt.titleMedium),
           const SizedBox(height: 8),
           for (final c in goalCats)
-            _CatRow(cat: c, budget: budget.categories[c.id] ?? 0, spent: spentBy[c.id] ?? 0),
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => showCategoryBudgetSheet(
+                  context, repo, month, c, budget.categories[c.id] ?? 0, spentBy[c.id] ?? 0),
+              child: _CatRow(cat: c, budget: budget.categories[c.id] ?? 0, spent: spentBy[c.id] ?? 0),
+            ),
           const SizedBox(height: 16),
           Text('Each of us', style: tt.titleMedium),
           const SizedBox(height: 8),

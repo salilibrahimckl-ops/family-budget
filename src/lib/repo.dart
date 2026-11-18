@@ -303,9 +303,34 @@ class Repo {
     });
   }
 
+  /// [asDefault] = also use these figures for the coming months.
   Future<void> saveBudget(String month, Budget b, {bool asDefault = true}) async {
+    if (asDefault) {
+      // Months that never saved their own budget follow the default. Freeze
+      // the old figures into the months before this one (up to a year back)
+      // so changing the default doesn't rewrite their history.
+      final old = (await family.get()).data()?['defaultBudget'] as Map<String, dynamic>?;
+      if (old != null && month.length >= 7) {
+        final y = int.parse(month.substring(0, 4)), m = int.parse(month.substring(5, 7));
+        for (var i = 1; i <= 12; i++) {
+          final mk = monthKey(DateTime(y, m - i));
+          final doc = budgets.doc(mk);
+          if ((await doc.get()).exists) break;
+          final used = await txns.where('month', isEqualTo: mk).limit(1).get();
+          if (used.docs.isEmpty) break;
+          await doc.set(old);
+        }
+      }
+    }
     await budgets.doc(month).set(b.toMap());
     if (asDefault) await family.update({'defaultBudget': b.toMap()});
+  }
+
+  /// Change one category's budget for [month], keeping everything else.
+  Future<void> setCategoryBudget(String month, String catId, double amount, {required bool asDefault}) async {
+    final b = await budgetStream(month).first;
+    final cats = Map<String, double>.from(b.categories)..[catId] = amount;
+    await saveBudget(month, Budget(cats, b.members, b.income), asDefault: asDefault);
   }
 
   // ---------- transactions ----------

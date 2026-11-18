@@ -1,7 +1,7 @@
 name: Gold rate (Kerala 22K / 24K)
 on:
   schedule:
-    - cron: "37 0,4,8,12 * * *"   # about 6:07 AM, 10:07 AM, 2:07 PM and 6:07 PM IST
+    - cron: "17 1-16 * * *"   # every hour, about 6:47 AM to 9:47 PM IST
   workflow_dispatch: {}
   push:
     branches: [main]
