@@ -154,6 +154,10 @@ class Recording:
                     self.cur = cut
 
     def _from(self, start: int) -> int:
+        # Pieces join up: whatever was said between two breaths (even too softly for the
+        # voice detector) goes with the next breath. Only a long silence is skipped.
+        if start - self.last_end < 3 * SR:
+            return self.last_end
         return max(self.last_end, start - int(0.4 * SR))
 
     def _quietest(self, a: int, b: int) -> int:
@@ -180,6 +184,12 @@ class Recording:
             if self.cur is not None:
                 self._close(self._from(self.cur), len(self.buf))
                 self.cur = None
+            elif len(self.buf) - self.last_end > 0.3 * SR and self.breaths:
+                # A soft last word after the voice detector thought speech had ended.
+                tail = loudness(self.buf[self.last_end:])
+                levels = [float(np.percentile(loudness(self.buf[b.start:b.end]), 90)) for b in self.breaths]
+                if tail.size and float(np.percentile(tail, 90)) > 0.15 * float(np.median(levels)):
+                    self._close(self.last_end, len(self.buf))
             breaths = list(self.breaths)
         return [(*b.future.result(), b.start, b.end, loudness(self.buf[b.start:b.end])) for b in breaths]
 
@@ -505,13 +515,14 @@ def _best(seg: str, ref: Reference, cand: list[int], pointer: int | None, min_e:
     lens = [ref.span[i + 1] - ref.span[i] for i in range(ref.n)]
     L, best = len(seg), None
     for s0 in cand:
-        acc = 0
+        acc, tried = 0, False
         for e in range(s0, ref.n):
             acc += max(1, lens[e])
             if e < min_e or acc < 0.5 * L:
                 continue
-            if acc > 1.7 * L + 4 and best is not None:  # always try at least one span
+            if acc > 1.7 * L + 4 and tried:  # always try at least one span from each start
                 break
+            tried = True
             r = ref.slice(s0, e)
             d = lv.distance(seg, r) / max(len(seg), len(r), 1)
             if pointer is not None and s0 > pointer:
