@@ -97,6 +97,7 @@ class Recording:
     pos: int = 0
     cur: int | None = None
     breaths: list = field(default_factory=list)
+    last_end: int = 0
     lock: threading.Lock = field(default_factory=threading.Lock)
 
     def __post_init__(self):
@@ -119,12 +120,19 @@ class Recording:
                 if ev and "start" in ev and self.cur is None:
                     self.cur = int(ev["start"])
                 if ev and "end" in ev and self.cur is not None:
-                    self._close(self.cur, int(ev["end"]))
+                    if int(ev["end"]) - self.cur < 0.6 * SR:
+                        continue  # a tiny piece (a sound before a breath): keep it with what follows
+                    # The piece runs on to now (past the pause) and starts a little before the
+                    # detected start, so soft first and last sounds are never cut off.
+                    self._close(self._from(self.cur), self.pos)
                     self.cur = None
                 if self.cur is not None and self.pos - self.cur > MAX_BREATH_SECONDS * SR:
                     cut = self._quietest(self.pos - 3 * SR, self.pos)
-                    self._close(self.cur, cut)
+                    self._close(self._from(self.cur), cut)
                     self.cur = cut
+
+    def _from(self, start: int) -> int:
+        return max(self.last_end, start - int(0.4 * SR))
 
     def _quietest(self, a: int, b: int) -> int:
         """Where to split a very long breath: the quietest 20 ms in the window."""
@@ -142,12 +150,13 @@ class Recording:
         if e - s < 0.25 * SR:
             return
         wave = self.buf[s:e].copy()
+        self.last_end = e
         self.breaths.append(Breath(s, e, _EXEC.submit(M.phonemes, wave)))
 
     def finish(self) -> list[tuple[str, float, np.ndarray, int, int]]:
         with self.lock:
             if self.cur is not None:
-                self._close(self.cur, len(self.buf))
+                self._close(self._from(self.cur), len(self.buf))
                 self.cur = None
             breaths = list(self.breaths)
         return [(*b.future.result(), b.start, b.end) for b in breaths]
@@ -779,6 +788,38 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
                 "missing_rules": [_rule(r) for r in (er.missing_tajweed_rules or [])],
                 "extra_rules": [_rule(r) for r in (er.inserted_tajweed_rules or [])],
             })
+        # Whole words: a word whose sounds are mostly missing was left out, even when
+        # the comparison breaks that into many one-letter pieces.
+        if word_ph and heard is not None:
+            gone = [False] * len(alone.phonemes)
+            for tag, i1, i2, j1, j2 in lv.opcodes(alone.phonemes, heard):
+                if tag == "delete":
+                    for i in range(i1, i2):
+                        gone[i] = True
+            for lw, (wa, wb) in enumerate(word_ph):
+                if wb - wa < 2 or wa >= 10 ** 9:
+                    continue
+                miss = sum(gone[wa:wb]) / (wb - wa)
+                if miss < 0.6:
+                    continue
+                wi = s0 + lw
+                if not strict and joined_lp is not None:
+                    try:
+                        if model_prefers_reference(joined_lp, alone.phonemes, wa, wb, "", ref_score
+                                                   if ref_score is not None else ctc_score(joined_lp, _ids(alone.phonemes))):
+                            continue
+                    except Exception:
+                        pass
+                edge = ((lw == 0 and (s0 - 1) in edge_end) or (lw == len(word_ph) - 1 and (e + 1) in edge_start))
+                found = [f for f in found if not (f["w0"] == wi and f["w1"] == wi)]
+                try:
+                    where = at(wi, wi)
+                except Exception:
+                    where = None
+                found.append({"w0": wi, "w1": wi, "at": where, "whole": True, "origin": "word_missing", "type": "word",
+                              "severity": "tip" if (edge and not strict) else "mistake", "speech": "delete",
+                              "expected": alone.phonemes[wa:wb], "heard": "", "expected_len": None, "heard_len": None,
+                              "rules": [], "missing_rules": [], "extra_rules": []})
         span_words = set(range(s0, e + 1))
         for i in span_words:  # a word recited again later is judged by its last recitation
             by_word[i] = [f for f in found if f["w0"] <= i <= f["w1"]]
