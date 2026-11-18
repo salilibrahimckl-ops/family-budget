@@ -748,7 +748,10 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
                 at_word_end = 0 <= lw < len(word_ph) and er.ph_pos[1] >= word_ph[lw][1]
                 if at_word_end and len(exp_) <= 3 and set(exp_) <= _WAQF_TAIL and len(got_) <= len(exp_):
                     continue  # stopped on the word (waqf) instead of joining it: allowed
-                at_edge = (w0 == s0 and s0 in edge_start) or (w1 == e and e in edge_end)
+                # Only where this breath runs straight on from / into another breath, and
+                # only for the very first or last sounds of the breath.
+                at_edge = ((w0 == s0 and (s0 - 1) in edge_end and er.ph_pos[0] <= 3)
+                           or (w1 == e and (e + 1) in edge_start and er.ph_pos[1] >= len(alone.phonemes) - 3))
                 if at_edge and max(len(exp_), len(got_)) <= 4:
                     sev = "tip"  # right at a pause: the audio there is unreliable
             if sev is None:

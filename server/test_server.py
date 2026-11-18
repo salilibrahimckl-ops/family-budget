@@ -18,7 +18,13 @@ SR = 16000
 
 
 def mp3(path, reciter="Husary_Muallim_128kbps"):
-    return urllib.request.urlopen(f"https://everyayah.com/data/{reciter}/{path}.mp3", timeout=60).read()
+    for i in range(4):
+        try:
+            return urllib.request.urlopen(f"https://everyayah.com/data/{reciter}/{path}.mp3", timeout=60).read()
+        except Exception:
+            if i == 3:
+                raise
+            time.sleep(5)
 
 
 def pcm(audio_bytes) -> np.ndarray:
