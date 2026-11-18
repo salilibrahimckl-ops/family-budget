@@ -732,6 +732,8 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
                 a0, b0 = er.ph_pos
                 try:
                     if model_prefers_reference(joined_lp, alone.phonemes, a0, b0, er.preditected_ph or "", ref_score):
+                        if debug is not None:
+                            debug.append({"double_check_dropped": [s0, e], "expected": er.expected_ph, "heard": er.preditected_ph})
                         dropped += 1
                         continue
                 except Exception:

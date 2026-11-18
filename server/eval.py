@@ -158,9 +158,9 @@ def main():
     json.dump({"rows": rows, "falses": falses, "recall": recall}, open(f"eval-{shard}.json", "w"), ensure_ascii=False, indent=1)
 
 
-DEBUG_CASES = [("Minshawy_Teacher_128kbps", 36, 1, 8), ("Hani_Rifai_192kbps", 63, 1, 3), ("Parhizgar_48kbps", 1, 1, 7),
-               ("Husary_128kbps", 2, 1, 5), ("Salaah_AbdulRahman_Bukhatir_128kbps", 67, 1, 4),
-               ("Muhammad_Ayyoub_128kbps", 114, 1, 6), ("Ali_Jaber_64kbps", 63, 6, 8)]
+DEBUG_CASES = [("Muhammad_Ayyoub_128kbps", 36, 1, 8), ("Fares_Abbad_64kbps", 2, 1, 5), ("Muhammad_Jibreel_128kbps", 1, 1, 7),
+               ("Salaah_AbdulRahman_Bukhatir_128kbps", 36, 1, 8), ("Husary_128kbps", 93, 1, 11)]
+SKIP_CASES = [("Husary_128kbps", 63, 1, 3, 1), ("Alafasy_128kbps", 67, 1, 4, 2), ("Hudhaify_128kbps", 2, 255, 255, 0)]
 
 
 def debug():
@@ -178,6 +178,26 @@ def debug():
         for aya, words, e in mistakes(res):
             print("  MISTAKE", aya, " ".join(words[e["word_start"]:e["word_end"] + 1]),
                   json.dumps({k: e.get(k) for k in ("type", "speech", "expected", "heard", "origin", "at")}, ensure_ascii=False))
+    for reciter, sura, a0, a1, k in SKIP_CASES:
+        ayahs = [fetch(reciter, sura, a) for a in range(a0, a1 + 1)]
+        if any(x is None for x in ayahs):
+            continue
+        rng = np.random.default_rng(1)
+        x = ayahs[k]
+        w = int(1.5 * SR)
+        e2 = np.convolve(x ** 2, np.ones(w), mode="valid")
+        lo, hi = int(len(x) * 0.2), max(int(len(x) * 0.2) + 1, int(len(x) * 0.8) - w)
+        c0 = lo + int(np.argmax(e2[lo:hi])); c1 = c0 + w
+        ayahs[k] = np.concatenate([x[:c0], x[c1:]])
+        audio = np.concatenate([np.concatenate([y, gap(rng)]) for y in ayahs])
+        res, ref = run(audio, sura, a0, a1)
+        print(f"\n===== SKIP {reciter} {sura}:{a0 + k} cut at {c0/SR:.1f}s of the Ayah")
+        for d in res.get("debug") or []:
+            print("  BREATH", json.dumps(d, ensure_ascii=False))
+        for a in res["ayahs"]:
+            for e in a["errors"]:
+                print("  ERR", a["aya"], e["severity"], " ".join(a["words"][e["word_start"]:e["word_end"] + 1]),
+                      json.dumps({k2: e.get(k2) for k2 in ("type", "speech", "expected", "heard")}, ensure_ascii=False))
 
 
 if __name__ == "__main__":
