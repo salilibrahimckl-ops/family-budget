@@ -7,8 +7,11 @@ caught, and that the "You" clip points at the right place.
 
 Usage: python eval.py <shard> <shards>    (writes eval-<shard>.json and prints a report)
 """
-import json, random, subprocess, sys, time, urllib.request
+import json, os, random, subprocess, sys, time, urllib.request
 import numpy as np
+
+if len(sys.argv) > 1 and sys.argv[1] == "debug":
+    os.environ["HIFZ_DEBUG"] = "1"
 
 import app as server
 import engine
@@ -151,5 +154,27 @@ def main():
     json.dump({"rows": rows, "falses": falses, "recall": recall}, open(f"eval-{shard}.json", "w"), ensure_ascii=False, indent=1)
 
 
+DEBUG_CASES = [("Minshawy_Teacher_128kbps", 36, 1, 8), ("Hani_Rifai_192kbps", 63, 1, 3), ("Parhizgar_48kbps", 1, 1, 7),
+               ("Husary_128kbps", 2, 1, 5), ("Salaah_AbdulRahman_Bukhatir_128kbps", 67, 1, 4),
+               ("Muhammad_Ayyoub_128kbps", 114, 1, 6), ("Ali_Jaber_64kbps", 63, 6, 8)]
+
+
+def debug():
+    engine.M.load()
+    for reciter, sura, a0, a1 in DEBUG_CASES:
+        ayahs = [fetch(reciter, sura, a) for a in range(a0, a1 + 1)]
+        if any(x is None for x in ayahs):
+            continue
+        rng = np.random.default_rng(1)
+        audio = np.concatenate([np.concatenate([x, gap(rng)]) for x in ayahs])
+        res, ref = run(audio, sura, a0, a1)
+        print(f"\n===== {reciter} {sura}:{a0}-{a1} status={res['status']}")
+        for d in res.get("debug") or []:
+            print("  BREATH", json.dumps(d, ensure_ascii=False))
+        for aya, words, e in mistakes(res):
+            print("  MISTAKE", aya, " ".join(words[e["word_start"]:e["word_end"] + 1]),
+                  json.dumps({k: e.get(k) for k in ("type", "speech", "expected", "heard", "origin", "at")}, ensure_ascii=False))
+
+
 if __name__ == "__main__":
-    main()
+    debug() if sys.argv[1] == "debug" else main()

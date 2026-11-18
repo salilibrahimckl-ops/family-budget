@@ -496,12 +496,20 @@ def _align(segs: list[str], ref: Reference, debug: list | None = None) -> list[t
             continue
         if pointer is None:
             cand = sorted(set(ref.first_starts))
+            if k > 0 or len(seg) < 12:
+                # The first breath didn't fit (a cough, a word before starting, a poor
+                # first second of audio): look anywhere in the first Ayahs and at any
+                # Ayah start, so one bad breath can't lose the whole recitation.
+                first_words = range(ref.ayah_start[ref.aya_from], ref.ayah_start.get(ref.aya_from + 3, n))
+                cand = sorted(set(cand) | set(first_words) | set(ref.ayah_start.values()))
         else:
             window = set(range(max(0, pointer - 3), min(n, pointer + 12)))
             # repeating a recent Ayah from its start
             window |= {s for s in ref.ayah_start.values() if pointer - 80 <= s <= pointer + 12}
             cand = sorted(window)
         best = _best(seg, ref, cand, pointer)
+        if pointer is None and best is not None and best[1] not in ref.first_starts and best[0] > 0.45:
+            best = None
         if out and (best is None or best[0] > 0.3 or len(seg) < 10):
             # Try it as the end of the previous breath.
             pseg, ps0, pe, pd, pks = out[-1]
@@ -728,7 +736,7 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
                         t1 = (min(after) if after else max(before) + 3.0) + 0.3
                         t0 = max(0.0, max(t0, t1 - 8.0))
                         where = [round(t0, 2), round(t1, 2)]
-                    errors.append({"w0": i, "w1": i, "at": where, "whole": True, "type": "word", "severity": "mistake", "speech": "delete",
+                    errors.append({"w0": i, "w1": i, "at": where, "whole": True, "origin": "uncovered", "type": "word", "severity": "mistake", "speech": "delete",
                                    "expected": ref.slice(i, i), "heard": "", "expected_len": None, "heard_len": None,
                                    "rules": [], "missing_rules": [], "extra_rules": []})
                 for f in by_word.get(i, []):

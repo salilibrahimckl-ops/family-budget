@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [hifz]
-    paths: ['server/eval.py', 'server/eval_report.py', '.github/workflows/hifz-eval.yml']
+    paths: ['.eval-run']
 
 jobs:
   eval:
