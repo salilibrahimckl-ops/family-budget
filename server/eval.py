@@ -158,9 +158,8 @@ def main():
     json.dump({"rows": rows, "falses": falses, "recall": recall}, open(f"eval-{os.environ.get('HIFZ_DENOISE', '1')}-{shard}.json", "w"), ensure_ascii=False, indent=1)
 
 
-DEBUG_CASES = [("Muhammad_Ayyoub_128kbps", 36, 1, 8), ("Fares_Abbad_64kbps", 2, 1, 5), ("Muhammad_Jibreel_128kbps", 1, 1, 7),
-               ("Salaah_AbdulRahman_Bukhatir_128kbps", 36, 1, 8), ("Husary_128kbps", 93, 1, 11)]
-SKIP_CASES = [("Husary_128kbps", 63, 1, 3, 1), ("Alafasy_128kbps", 67, 1, 4, 2), ("Hudhaify_128kbps", 2, 255, 255, 0)]
+DEBUG_CASES = [("Husary_128kbps", 2, 1, 5), ("aziz_alili_128kbps", 2, 1, 5), ("Muhammad_Jibreel_128kbps", 1, 1, 7)]
+SKIP_CASES = []
 
 
 def debug():

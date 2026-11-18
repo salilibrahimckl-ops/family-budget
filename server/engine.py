@@ -80,7 +80,7 @@ class Model:
 
 M = Model()
 
-DENOISE = os.environ.get("HIFZ_DENOISE", "0") == "1"
+DENOISE = os.environ.get("HIFZ_DENOISE", "1") == "1"
 
 
 def denoise(wave: np.ndarray) -> np.ndarray:
