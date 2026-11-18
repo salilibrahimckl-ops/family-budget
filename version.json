@@ -1,0 +1,10 @@
+{
+ "build": 151,
+ "version": "0.13.2",
+ "notes": [
+  "AI teacher: about 60% fewer wrong corrections in our tests with 21 reciters, including phone-quality recordings with background noise.",
+  "Background noise is removed before listening, and no part of your recitation is lost at a pause.",
+  "Al-Baqarah's Alif-Lam-Mim and the other disjoint letters are now recognised.",
+  "If your voice fades at the end of an Ayah, the teacher now says “Too quiet to hear” instead of saying you left the word out."
+ ]
+}
