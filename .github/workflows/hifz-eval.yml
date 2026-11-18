@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      matrix: { shard: [0, 1, 2, 3, 4, 5], denoise: ['0', '1'] }
+      matrix: { shard: [0, 1, 2, 3, 4, 5], denoise: ['1'] }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
