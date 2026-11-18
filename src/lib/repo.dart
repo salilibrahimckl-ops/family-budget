@@ -737,6 +737,7 @@ class Repo {
     }
     for (final d in (await accounts.get()).docs) {
       final a = BankAccount.fromDoc(d);
+      if (a.ignored) continue; // "not a real account" must not count as savings
       if (a.balance != null) m(a.member)['bank'] = m(a.member)['bank']! + a.balance!;
     }
     final rates = goldRatesFrom(fam);
