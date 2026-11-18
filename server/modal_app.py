@@ -34,6 +34,7 @@ image = (
         "fastapi>=0.116.1",
         "python-multipart>=0.0.20",
         "silero-vad>=5.1",
+        "noisereduce>=3.0",
     )
     .run_function(_download)  # the model is baked into the image: quick wake-ups
     .add_local_dir(HERE, "/root/server", ignore=["test_*", "__pycache__", "Dockerfile", "README.md", "*.txt"])

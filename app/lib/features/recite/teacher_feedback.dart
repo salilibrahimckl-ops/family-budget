@@ -41,6 +41,7 @@ class FeedbackLine {
 }
 
 FeedbackLine describe(AppLocalizations l, TeacherError e, {String? word}) {
+  if (e.quiet) return FeedbackLine(l.tooQuietTitle, word ?? e.expected, l.tooQuietHow, '');
   final rule = e.rules.firstOrNull ?? e.missingRules.firstOrNull ?? e.extraRules.firstOrNull;
   switch (e.type) {
     case TeacherErrorType.tajweed:

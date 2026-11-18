@@ -1160,5 +1160,7 @@
   "compareQari": "Qari",
   "compareYou": "You",
   "hearMyVoice": "Hear what you recited here",
-  "compareHint": "Tap “You” to hear yourself at this spot, then “Qari” to hear it said correctly."
+  "compareHint": "Tap “You” to hear yourself at this spot, then “Qari” to hear it said correctly.",
+  "tooQuietTitle": "Too quiet to hear",
+  "tooQuietHow": "Your voice faded here, so the teacher could not hear it clearly. Recite this part a little louder — keep your voice up to the end of the Ayah."
 }

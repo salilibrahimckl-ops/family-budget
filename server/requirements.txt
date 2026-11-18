@@ -10,3 +10,4 @@ uvicorn>=0.35.0
 python-multipart>=0.0.20
 silero-vad>=5.1
 torchaudio>=2.7.0
+noisereduce>=3.0

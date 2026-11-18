@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      matrix: { shard: [0, 1, 2, 3, 4, 5] }
+      matrix: { shard: [0, 1, 2, 3, 4, 5], denoise: ['0', '1'] }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -27,11 +27,12 @@ jobs:
           key: hf-muaalem-v3_2
       - name: Run
         working-directory: server
+        env: { HIFZ_DENOISE: '${{ matrix.denoise }}' }
         run: python eval.py ${{ matrix.shard }} 6
       - uses: actions/upload-artifact@v4
         with:
-          name: eval-${{ matrix.shard }}
-          path: server/eval-${{ matrix.shard }}.json
+          name: eval-${{ matrix.denoise }}-${{ matrix.shard }}
+          path: server/eval-${{ matrix.denoise }}-${{ matrix.shard }}.json
   report:
     needs: eval
     if: always()

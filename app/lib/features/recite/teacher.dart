@@ -71,7 +71,11 @@ class TeacherError {
     this.extraRules = const [],
     this.at,
     this.whole = false,
+    this.quiet = false,
   });
+
+  /// The voice faded here (too quiet to hear clearly) rather than leaving the word out.
+  final bool quiet;
 
   /// The whole word (not just a sound of it) was left out.
   final bool whole;
@@ -114,6 +118,7 @@ class TeacherError {
       missingRules: rules('missing_rules'),
       extraRules: rules('extra_rules'),
       whole: j['whole'] == true,
+      quiet: j['quiet'] == true,
       at: (j['at'] is List && (j['at'] as List).length == 2)
           ? [for (final x in j['at'] as List) (x as num).toDouble()]
           : null,

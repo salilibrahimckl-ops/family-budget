@@ -155,7 +155,7 @@ def main():
                 caught = bool(bad) and (bad[0]["status"] != "recited" or any(e["severity"] == "mistake" for e in bad[0]["errors"]))
                 recall.append({"reciter": reciter, "kind": "wrong_ayah", "passage": f"{sura}:{a0 + k}", "caught": caught})
                 print(f"{reciter:38s} WRONG-AYAH {sura}:{a0 + k} caught={caught}", flush=True)
-    json.dump({"rows": rows, "falses": falses, "recall": recall}, open(f"eval-{shard}.json", "w"), ensure_ascii=False, indent=1)
+    json.dump({"rows": rows, "falses": falses, "recall": recall}, open(f"eval-{os.environ.get('HIFZ_DENOISE', '1')}-{shard}.json", "w"), ensure_ascii=False, indent=1)
 
 
 DEBUG_CASES = [("Muhammad_Ayyoub_128kbps", 36, 1, 8), ("Fares_Abbad_64kbps", 2, 1, 5), ("Muhammad_Jibreel_128kbps", 1, 1, 7),

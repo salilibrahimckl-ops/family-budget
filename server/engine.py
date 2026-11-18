@@ -61,6 +61,8 @@ class Model:
     def phonemes(self, wave: np.ndarray) -> tuple[str, float, np.ndarray]:
         """Phonetic script of one breath, the model's mean confidence (0-1), and its
         per-frame log-probabilities (kept to double-check findings later)."""
+        if DENOISE:
+            wave = denoise(wave)
         feats = self.processor(wave, sampling_rate=SR, return_tensors="pt")
         with torch.inference_mode():
             out = self.model(feats["input_features"], feats.get("attention_mask"), return_dict=False)[0]
@@ -77,6 +79,26 @@ class Model:
 
 
 M = Model()
+
+DENOISE = os.environ.get("HIFZ_DENOISE", "0") == "1"
+
+
+def denoise(wave: np.ndarray) -> np.ndarray:
+    """Takes steady background noise (fan, AC, traffic hum, hiss) out of a breath, so
+    quiet sounds such as the end of an Ayah stand out from it."""
+    try:
+        import noisereduce as nr
+        return nr.reduce_noise(y=wave, sr=SR, stationary=True, prop_decrease=0.85).astype(np.float32)
+    except Exception:
+        return wave
+
+
+def loudness(wave: np.ndarray, hop: int = 320) -> np.ndarray:
+    """Loudness every 20 ms."""
+    n = len(wave) // hop
+    if n == 0:
+        return np.zeros(1, dtype=np.float32)
+    return np.sqrt((wave[: n * hop].reshape(n, hop) ** 2).mean(axis=1)).astype(np.float32)
 _EXEC = ThreadPoolExecutor(max_workers=1)  # one breath at a time; torch uses all cores for it
 
 
@@ -159,7 +181,7 @@ class Recording:
                 self._close(self._from(self.cur), len(self.buf))
                 self.cur = None
             breaths = list(self.breaths)
-        return [(*b.future.result(), b.start, b.end) for b in breaths]
+        return [(*b.future.result(), b.start, b.end, loudness(self.buf[b.start:b.end])) for b in breaths]
 
 
 # ----------------------------------------------------------------- reference --
@@ -177,6 +199,7 @@ class Reference:
     span: list[int] = field(default_factory=list)  # phoneme index where each word begins
     moshaf: MoshafAttributes = None
     cache: dict = field(default_factory=dict)
+    muqattaat: set = field(default_factory=set)
 
     @property
     def n(self) -> int:
@@ -216,6 +239,10 @@ def build_reference(sura: int, aya_from: int, aya_to: int, moshaf: MoshafAttribu
             words.append(w); word_aya.append(a); word_pos.append(i)
     starts.append(ayah_start[aya_from])
     ref = Reference(sura, aya_from, aya_to, words, word_aya, word_pos, starts, ayah_start, moshaf=moshaf)
+    # Disjoint letters (الٓمٓ، طسٓمٓ، كٓهيعٓصٓ…): long, unusual words the model hears least well.
+    harakat = set("\u064e\u064f\u0650\u0652\u064b\u064c\u064d")
+    ref.muqattaat = {i for i, w in enumerate(words)
+                     if word_pos[i] == 0 and "\u0653" in w and not (set(w) & harakat)}
     text = " ".join(words)
     ref.phon = quran_phonetizer(text, moshaf, remove_spaces=True, sura_idx=sura)
     # Where each word's sounds begin, from the character mappings of one phonetization.
@@ -533,7 +560,8 @@ def _align(segs: list[str], ref: Reference, debug: list | None = None) -> list[t
         if debug is not None:
             debug.append({"breath": k, "heard": seg, "best": best and [round(best[0], 3), best[1], best[2]],
                           "ref": best and ref.slice(best[1], best[2]), "pointer": pointer})
-        if best is None or best[0] > 0.55:
+        limit = 0.75 if (best is not None and best[1] in ref.muqattaat) else 0.55
+        if best is None or best[0] > limit:
             continue  # not part of these Ayahs
         d, s0, e = best
         out.append((seg, s0, e, d, [k]))
@@ -596,6 +624,29 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
     confs = [x[1] for x in segs]
     logps = [x[2] if len(x) > 2 else None for x in segs]
     bounds = [(x[3] / SR, x[4] / SR) if len(x) > 4 else None for x in segs]
+    louds = [x[5] if len(x) > 5 else None for x in segs]
+    # How loud the voice is when reciting, and how loud the room is.
+    allv = np.concatenate([l for l in louds if l is not None]) if any(l is not None for l in louds) else np.zeros(1)
+    voice_level = float(np.percentile(allv, 90)) if len(allv) else 0.0
+    room_level = float(np.percentile(allv, 10)) if len(allv) else 0.0
+
+    def too_quiet(where) -> bool:
+        """Was the voice at this place in the recording too quiet to hear clearly
+        (faded into the background), rather than silent?"""
+        if not where or voice_level <= 0:
+            return False
+        vals = []
+        for k, b in enumerate(bounds):
+            if b is None or louds[k] is None:
+                continue
+            a0 = max(where[0], b[0]); a1 = min(where[1], b[1])
+            if a1 > a0:
+                i0 = int((a0 - b[0]) / 0.02); i1 = max(i0 + 1, int((a1 - b[0]) / 0.02))
+                vals.append(louds[k][i0:i1])
+        if not vals:
+            return False
+        lv_ = float(np.percentile(np.concatenate(vals), 75))
+        return room_level * 1.5 < lv_ < 0.3 * voice_level
     debug: list = []
     spans = _fill_gaps(_align(phon, ref, debug), ref, debug)
     # Breath edges that run straight on into another breath (a pause mid-phrase).
@@ -757,6 +808,8 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
             rules = [_rule(r) for r in (er.ref_tajweed_rules or [])]
             wl = max(1, ref.span[w0 + 1] - ref.span[w0]) if w0 < ref.n else 1
             sev = _severity(er, rules, strict, seg_conf, wl)
+            if sev == "mistake" and not strict and (w0 in ref.muqattaat):
+                sev = "tip"
             if sev is not None and not strict and er.error_type in ("normal", "tashkeel"):
                 exp_, got_ = er.expected_ph or "", er.preditected_ph or ""
                 lw = w1 - s0
@@ -820,8 +873,11 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
                     where = at(wi, wi)
                 except Exception:
                     where = None
+                quiet = not strict and too_quiet(where)
                 found.append({"w0": wi, "w1": wi, "at": where, "whole": True, "origin": "word_missing", "type": "word",
-                              "severity": "tip" if (edge and not strict) else "mistake", "speech": "delete",
+                              "quiet": quiet,
+                              "severity": "tip" if ((edge or quiet or wi in ref.muqattaat) and not strict) else "mistake",
+                              "speech": "delete",
                               "expected": alone.phonemes[wa:wb], "heard": "", "expected_len": None, "heard_len": None,
                               "rules": [], "missing_rules": [], "extra_rules": []})
         span_words = set(range(s0, e + 1))
@@ -848,7 +904,11 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
                         t1 = (min(after) if after else max(before) + 3.0) + 0.3
                         t0 = max(0.0, max(t0, t1 - 8.0))
                         where = [round(t0, 2), round(t1, 2)]
-                    errors.append({"w0": i, "w1": i, "at": where, "whole": True, "origin": "uncovered", "type": "word", "severity": "mistake", "speech": "delete",
+                    quiet = not strict and too_quiet(where)
+                    errors.append({"w0": i, "w1": i, "at": where, "whole": True, "origin": "uncovered", "type": "word",
+                                   "quiet": quiet,
+                                   "severity": "tip" if ((quiet or i in ref.muqattaat) and not strict) else "mistake",
+                                   "speech": "delete",
                                    "expected": ref.slice(i, i), "heard": "", "expected_len": None, "heard_len": None,
                                    "rules": [], "missing_rules": [], "extra_rules": []})
                 for f in by_word.get(i, []):
