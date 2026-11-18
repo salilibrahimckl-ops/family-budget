@@ -109,10 +109,10 @@ class _Preview extends StatelessWidget {
     String msg;
     Color c;
     if (p != null) {
-      msg = 'Payment ₹${p.amount.toStringAsFixed(p.amount % 1 == 0 ? 0 : 2)}${p.payee != null ? ' → ${p.payee}' : ''}';
+      msg = 'Payment ₹${p.amount.toStringAsFixed(p.amount % 1 == 0 ? 0 : 2)}${p.payee.isNotEmpty ? ' → ${p.payee}' : ''}';
       c = Colors.green;
     } else if (b != null && b.delta > 0) {
-      msg = 'Money in ₹${b.delta.toStringAsFixed(b.delta % 1 == 0 ? 0 : 2)}${b.payer != null ? ' from ${b.payer}' : ''}';
+      msg = 'Money in ₹${b.delta.toStringAsFixed(b.delta % 1 == 0 ? 0 : 2)}${(b.payer ?? '').isNotEmpty ? ' from ${b.payer}' : ''}';
       c = Colors.blue;
     } else if (b != null) {
       msg = 'Balance update';

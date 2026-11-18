@@ -121,8 +121,12 @@ class _MoneyScreenState extends State<MoneyScreen> with WidgetsBindingObserver {
       _goldLoading = false;
       if (g != null) _auto = g;
     });
-    if (g != null) widget.repo.rememberGoldRate(g.rate22);
+    if (g != null && g.rate22 != _remembered) {
+      _remembered = g.rate22;
+      widget.repo.rememberGoldRate(g.rate22);
+    }
   }
+  double? _remembered;
 
   @override
   void initState() {

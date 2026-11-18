@@ -345,6 +345,16 @@ class Repo {
   /// records are never overwritten, so your edits are kept.
   Future<bool> ingestSms(String body,
       {required DateTime receivedAt, required String member, required String source}) async {
+    // A payment you already added by hand (e.g. YONO before the SMS came):
+    // don't count it twice, and don't take it off the bank balance twice.
+    final p0 = SmsParser.parse(body);
+    final when0 = p0?.date != null && source == 'iphone' ? _withTime(p0!.date!, receivedAt) : receivedAt;
+    final smsId0 = p0 == null
+        ? null
+        : p0.ref != null
+            ? 'ref_${p0.ref}'
+            : 'sms_${receivedAt.millisecondsSinceEpoch ~/ 60000}_${(p0.amount * 100).round()}';
+    final manual = p0 == null ? null : await _matchingManual(p0.amount, when0, member, smsId0!);
     try {
       final info = SmsParser.parseBalance(body);
       if (info != null && info.delta > 0 && DateTime.now().difference(receivedAt).inHours < 48) {
@@ -352,9 +362,18 @@ class Repo {
         // (Only for fresh SMS — an old SMS found by a re-scan would snapshot today's balances.)
         await ensureClosing(monthKey(DateTime(receivedAt.year, receivedAt.month - 1)), before: receivedAt);
       }
-      await updateBalance(body, when: receivedAt, member: member);
+      final manualPaidFromBank = manual != null && manual.data()?['paidFrom'] != null && manual.data()?['paidFrom'] != 'cash';
+      if (!(manualPaidFromBank && info?.balance == null)) {
+        await updateBalance(body, when: receivedAt, member: member);
+      }
       if (info != null && info.delta > 0) await _addIncomeFromSms(info, receivedAt, member, source, body);
     } catch (_) {}
+    if (manual != null) {
+      try {
+        await manual.reference.update({'smsMatched': true, 'smsId': smsId0});
+      } catch (_) {}
+      return false;
+    }
     final p = SmsParser.parse(body);
     if (p == null) {
       final otp = SmsParser.parseCardOtp(body);
@@ -793,6 +812,25 @@ class Repo {
   /// Bank debit SMS that matches an OTP card payment (same person, same amount,
   /// within 3 hours): drop the pending item, and don't double-count one the
   /// user already confirmed.
+  /// A hand-entered payment of the same amount within a day, not yet matched.
+  Future<QueryDocumentSnapshot<Map<String, dynamic>>?> _matchingManual(
+      double amount, DateTime when, String member, String smsId) async {
+    try {
+      final q = await txns.where('member', isEqualTo: member).where('source', isEqualTo: 'manual').get();
+      // Already matched to this very SMS (a re-scan): still the same payment.
+      for (final d in q.docs) {
+        if (d.data()['smsId'] == smsId) return d;
+      }
+      for (final d in q.docs) {
+        final x = d.data();
+        if (x['smsMatched'] == true) continue;
+        final t = Txn.fromDoc(d);
+        if ((t.amount - amount).abs() < 0.01 && t.date.difference(when).inHours.abs() <= 24) return d;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<bool> _matchesCardPayment(double amount, DateTime when, String member) async {
     bool near(DateTime t) => t.difference(when).inMinutes.abs() <= 180;
     final p = await pending.where('member', isEqualTo: member).get();
