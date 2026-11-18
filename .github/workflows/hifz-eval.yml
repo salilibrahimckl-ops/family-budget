@@ -29,7 +29,9 @@ jobs:
         working-directory: server
         run: python eval.py ${{ matrix.shard }} 6
       - uses: actions/upload-artifact@v4
-        with: { name: 'eval-${{ matrix.shard }}', path: server/eval-${{ matrix.shard }}.json }
+        with:
+          name: eval-${{ matrix.shard }}
+          path: server/eval-${{ matrix.shard }}.json
   report:
     needs: eval
     if: always()
