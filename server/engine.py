@@ -474,7 +474,7 @@ def _best(seg: str, ref: Reference, cand: list[int], pointer: int | None, min_e:
             acc += max(1, lens[e])
             if e < min_e or acc < 0.5 * L:
                 continue
-            if acc > 1.7 * L + 4:
+            if acc > 1.7 * L + 4 and e > s0:  # always try at least one word (الٓمٓ is long)
                 break
             r = ref.slice(s0, e)
             d = lv.distance(seg, r) / max(len(seg), len(r), 1)
@@ -532,13 +532,66 @@ def _align(segs: list[str], ref: Reference, debug: list | None = None) -> list[t
     return out
 
 
+def _fill_gaps(spans: list, ref: Reference, debug: list | None = None) -> list:
+    """Words between two breaths that no breath was matched to are usually not missing:
+    the word was split by a pause, said at the very end of a breath and partly lost, or
+    misheard. Give such a word to the breath before (or after) it when that breath's sounds
+    account for most of it; only a word with nothing of it in the audio stays "left out"."""
+    spans = list(spans)
+    for _ in range(2):
+        covered = set()
+        for sp in spans:
+            covered |= set(range(sp[1], sp[2] + 1))
+        changed = False
+        for idx, (heard, s0, e, d, ks) in enumerate(spans):
+            # forward: words right after this span that nothing covers
+            k = e + 1
+            while k < ref.n and k not in covered:
+                old = lv.distance(heard, ref.alone(s0, k - 1).phonemes)
+                new = lv.distance(heard, ref.alone(s0, k).phonemes)
+                wl = max(1, ref.span[k + 1] - ref.span[k])
+                if new - old > 0.6 * wl:
+                    break
+                covered.add(k)
+                e = k
+                k += 1
+                changed = True
+            # backward: words right before this span
+            k = s0 - 1
+            while k >= 0 and k not in covered:
+                old = lv.distance(heard, ref.alone(k + 1, e).phonemes)
+                new = lv.distance(heard, ref.alone(k, e).phonemes)
+                wl = max(1, ref.span[k + 1] - ref.span[k])
+                if new - old > 0.6 * wl:
+                    break
+                covered.add(k)
+                s0 = k
+                k -= 1
+                changed = True
+            if (s0, e) != (spans[idx][1], spans[idx][2]):
+                if debug is not None:
+                    debug.append({"filled": [spans[idx][1], spans[idx][2]], "to": [s0, e]})
+                spans[idx] = (heard, s0, e, d, ks)
+        if not changed:
+            break
+    return spans
+
+
+# Sounds that differ between stopping on a word and joining it to the next: the last
+# vowel, tanween/noon (with its ghunnah) and a short Madd. Stopping is always allowed.
+_WAQF_TAIL = set("ںنَُِاۦۥم")
+
+
 def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
     phon = [x[0] for x in segs]
     confs = [x[1] for x in segs]
     logps = [x[2] if len(x) > 2 else None for x in segs]
     bounds = [(x[3] / SR, x[4] / SR) if len(x) > 4 else None for x in segs]
     debug: list = []
-    spans = _align(phon, ref, debug)
+    spans = _fill_gaps(_align(phon, ref, debug), ref, debug)
+    # Breath edges that run straight on into another breath (a pause mid-phrase).
+    edge_start = {sp[1] for sp in spans}
+    edge_end = {sp[2] for sp in spans}
     by_word: dict[int, list[dict]] = {}
     covered: set[int] = set()
     span_time: list[tuple[int, int, float, float]] = []  # (first word, last word, start s, end s)
@@ -689,6 +742,15 @@ def analyse(segs: list[tuple], ref: Reference, strict: bool) -> dict:
             rules = [_rule(r) for r in (er.ref_tajweed_rules or [])]
             wl = max(1, ref.span[w0 + 1] - ref.span[w0]) if w0 < ref.n else 1
             sev = _severity(er, rules, strict, seg_conf, wl)
+            if sev is not None and not strict and er.error_type in ("normal", "tashkeel"):
+                exp_, got_ = er.expected_ph or "", er.preditected_ph or ""
+                lw = w1 - s0
+                at_word_end = 0 <= lw < len(word_ph) and er.ph_pos[1] >= word_ph[lw][1]
+                if at_word_end and len(exp_) <= 3 and set(exp_) <= _WAQF_TAIL and len(got_) <= len(exp_):
+                    continue  # stopped on the word (waqf) instead of joining it: allowed
+                at_edge = (w0 == s0 and s0 in edge_start) or (w1 == e and e in edge_end)
+                if at_edge and max(len(exp_), len(got_)) <= 4:
+                    sev = "tip"  # right at a pause: the audio there is unreliable
             if sev is None:
                 continue
             try:

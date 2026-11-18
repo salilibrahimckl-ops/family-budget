@@ -41,10 +41,10 @@ def fetch(reciter, sura, aya):
             x = np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
             # Trim long silence at the ends (some files have seconds of it).
             env = np.convolve(np.abs(x), np.ones(400) / 400, mode="same")
-            idx = np.where(env > 0.01)[0]
+            idx = np.where(env > 0.003)[0]
             if len(idx) == 0:
                 return None
-            return x[max(0, idx[0] - 1600): idx[-1] + 1600]
+            return x[max(0, idx[0] - 4800): idx[-1] + 4800]
         except Exception:
             time.sleep(2)
     return None
@@ -132,7 +132,11 @@ def main():
             k = int(rng.integers(len(ayahs)))
             x = ayahs[k]
             if len(x) > 4 * SR:
-                c0, c1 = int(len(x) * 0.35), int(len(x) * 0.35 + 1.5 * SR)
+                # the loudest 1.5 s in the middle of the Ayah (so speech, not a pause, is cut)
+                w = int(1.5 * SR)
+                e2 = np.convolve(x ** 2, np.ones(w), mode="valid")
+                lo, hi = int(len(x) * 0.2), max(int(len(x) * 0.2) + 1, int(len(x) * 0.8) - w)
+                c0 = lo + int(np.argmax(e2[lo:hi])); c1 = c0 + w
                 parts = [np.concatenate([y, gap(rng)]) for y in ayahs]
                 start = sum(len(p) for p in parts[:k]) + c0
                 parts[k] = np.concatenate([x[:c0], x[c1:], gap(rng)])
