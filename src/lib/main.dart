@@ -170,6 +170,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     var added = 0;
     try {
       added += await widget.repo.processInbox();
+      await widget.repo.applyPendingRefunds();
       added += first ? await _sms.start() : await _sms.scan();
     } catch (e) {
       debugPrint('sync error: $e');

@@ -19,6 +19,7 @@ class Txn {
   final bool chittiSuggest;
   final String? note;
   final String? paidFrom; // manual payments: bank account id or 'cash'
+  final String? account; // SMS payments: account digits the money left from
 
   Txn.of({
     required this.amount,
@@ -31,7 +32,8 @@ class Txn {
     this.note,
   })  : payeeKey = payee.toLowerCase(),
         chittiSuggest = false,
-        paidFrom = null;
+        paidFrom = null,
+        account = null;
 
   Txn.fromDoc(DocumentSnapshot<Map<String, dynamic>> d)
       : id = d.id,
@@ -44,7 +46,9 @@ class Txn {
         source = d.data()!['source'] as String? ?? 'manual',
         chittiSuggest = d.data()!['chittiSuggest'] as bool? ?? false,
         note = d.data()!['note'] as String?,
-        paidFrom = d.data()!['paidFrom'] as String?;
+        paidFrom = d.data()!['paidFrom'] as String?,
+        account = d.data()!['account'] as String? ??
+            (d.data()!['raw'] is String ? SmsParser.parseBalance(d.data()!['raw'] as String)?.account : null);
 }
 
 /// Money moved into Savings / Chitti through the app.
@@ -196,6 +200,8 @@ class IncomeEntry {
   final String? note;
   final bool isInterest; // bank interest (riba)
   final bool givenAway; // interest already given away
+  final String? account; // account digits the money came into (SMS)
+  final bool refund;
   IncomeEntry.fromDoc(DocumentSnapshot<Map<String, dynamic>> d)
       : id = d.id,
         amount = (d.data()!['amount'] as num?)?.toDouble() ?? 0,
@@ -206,7 +212,9 @@ class IncomeEntry {
         counted = d.data()!['counted'] as bool? ?? true,
         note = d.data()!['note'] as String?,
         isInterest = d.data()!['kind'] == 'interest',
-        givenAway = d.data()!['givenAway'] as bool? ?? false;
+        givenAway = d.data()!['givenAway'] as bool? ?? false,
+        account = d.data()!['account'] as String?,
+        refund = (d.data()!['note'] as String? ?? '').startsWith('Refund');
 }
 
 /// What was left at the end of a month, before the next month's income.
@@ -423,6 +431,7 @@ class Repo {
         'date': Timestamp.fromDate(when),
         'month': monthKey(when),
         'source': source,
+        'account': SmsParser.parseBalance(body)?.account,
         'raw': body.length > 500 ? body.substring(0, 500) : body,
         'chittiSuggest': chittiAsk,
         'createdAt': FieldValue.serverTimestamp(),
@@ -639,9 +648,87 @@ class Repo {
       if (internal) 'note': 'Transfer between you two',
       if (!internal && own && !info.isInterest) 'note': 'Your own transfer — not income',
       if (!internal && !own && refund && !info.isInterest) 'note': 'Refund / reversal — not income',
+      'account': info.account,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    if (!internal && !own && refund && !info.isInterest) {
+      await _applyRefund(IncomeEntry.fromDoc(await ref.get()));
+    }
+  }
+
+  /// A refund gives money back to the budget: it is recorded as a negative
+  /// payment in the same category as the original payment (when found).
+  Future<void> _applyRefund(IncomeEntry e) async {
+    final id = 'refund_${e.id}';
+    final ref = txns.doc(id);
+    if ((await ref.get()).exists) return;
+    // The original: same person, same amount, within the 45 days before.
+    Txn? orig;
+    try {
+      final q = await txns.where('member', isEqualTo: e.member).where('amount', isEqualTo: e.amount).get();
+      for (final d in q.docs) {
+        final t = Txn.fromDoc(d);
+        final age = e.date.difference(t.date);
+        if (age.inMinutes >= 0 && age.inDays <= 45 && t.category != kIgnored) {
+          if (orig == null || t.date.isAfter(orig.date)) orig = t;
+        }
+      }
+    } catch (_) {}
+    await ref.set({
+      'amount': -e.amount,
+      'payee': orig != null ? 'REFUND · ${orig.payee}' : 'REFUND',
+      'payeeKey': 'refund',
+      'category': orig?.category ?? kUncategorised,
+      'member': e.member,
+      'date': Timestamp.fromDate(e.date),
+      'month': monthKey(e.date),
+      'source': 'refund',
+      'account': e.account,
+      'note': 'Money back: added to your budget again',
+      'chittiSuggest': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
+
+  /// Catch refunds recorded before this feature (this month and last).
+  Future<void> applyPendingRefunds() async {
+    final now = DateTime.now();
+    for (final mk in [monthKey(now), monthKey(DateTime(now.year, now.month - 1))]) {
+      try {
+        final q = await income.where('month', isEqualTo: mk).get();
+        for (final d in q.docs) {
+          final e = IncomeEntry.fromDoc(d);
+          if (e.refund && !e.isInterest) await _applyRefund(e);
+        }
+      } catch (_) {}
+    }
+  }
+
+  // ---------- spending account & balance correction ----------
+
+  /// Each person's "spending account": the account holding this month's budget money.
+  Future<void> setSpendAccount(String member, String? accountId) => family.update({
+        FieldPath(['spendAccounts', member]): accountId ?? FieldValue.delete(),
+      });
+
+  Future<void> setAutoMatch(String member, bool on) => family.update({FieldPath(['autoMatch', member]): on});
+
+  /// Make the budget's "left to spend" match the spending account's real balance.
+  Future<void> addCorrection(String member, double amount, DateTime when) => txns.add({
+        'amount': amount,
+        'payee': 'BALANCE CORRECTION',
+        'payeeKey': 'balance correction',
+        'category': kAdjust,
+        'member': member,
+        'date': Timestamp.fromDate(when),
+        'month': monthKey(when),
+        'source': 'adjust',
+        'note': amount >= 0
+            ? 'Spending the app did not see (matched to the bank balance)'
+            : 'Money back the app did not see (matched to the bank balance)',
+        'chittiSuggest': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
 
   Future<void> addIncome({required double amount, required String from, required String member, required DateTime date, String? note}) =>
       income.add({

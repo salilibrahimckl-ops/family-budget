@@ -9,6 +9,7 @@ import 'pending_cards.dart';
 import 'budget_screen.dart';
 import 'common.dart';
 import 'insights_cards.dart';
+import 'reconcile.dart';
 import '../updater.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -300,7 +301,7 @@ class _Body extends StatelessWidget {
           if (members.isEmpty)
             Text('No payments yet this month.', style: tt.bodyMedium)
           else
-            for (final e in members.entries)
+            for (final e in members.entries) ...[
               _MemberRow(
                 name: e.key,
                 spend: e.value.spend,
@@ -308,6 +309,8 @@ class _Body extends StatelessWidget {
                 limit: budget.members[e.key],
                 onTap: () => onOpenTxns(member: e.key),
               ),
+              SpendCheck(repo: repo, member: e.key, limit: budget.members[e.key], month: month),
+            ],
         ],
       ),
     ),

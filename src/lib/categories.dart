@@ -76,6 +76,8 @@ const kBuiltInCats = <Cat>[
 
 const kUncategorised = 'uncategorised';
 const kIgnored = 'ignored';
+const kAdjust = 'adjust'; // balance corrections: counted as spending, not a category bar
+const _adjustCat = Cat(kAdjust, 'Correction', 'label', Color(0xFF7A7F87));
 const _untagged = Cat(kUncategorised, 'To tag', 'label', Color(0xFFB0453A));
 
 /// Holds the family's categories: built-ins (possibly renamed / hidden) plus
@@ -138,4 +140,5 @@ class CatStore {
 /// Visible categories, in display order.
 List<Cat> get kCats => CatStore.all.where((c) => !c.hidden).toList();
 
-Cat catById(String id) => CatStore.all.firstWhere((c) => c.id == id, orElse: () => _untagged);
+Cat catById(String id) =>
+    id == kAdjust ? _adjustCat : CatStore.all.firstWhere((c) => c.id == id, orElse: () => _untagged);

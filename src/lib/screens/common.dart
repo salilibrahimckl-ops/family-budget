@@ -146,7 +146,7 @@ class _TxnSheetState extends State<_TxnSheet> {
               child: const Text('Save'),
             ),
           ]),
-          if (t.source == 'manual' || t.source == 'quick')
+          if (const ['manual', 'quick', 'adjust', 'refund'].contains(t.source))
             TextButton.icon(
               icon: const Icon(Icons.delete_outline),
               label: const Text('Delete'),
