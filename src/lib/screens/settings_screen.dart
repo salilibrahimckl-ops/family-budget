@@ -1,3 +1,4 @@
+import 'forwarding_status.dart';
 import 'paste_sms_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -170,6 +171,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               IconButton(icon: const Icon(Icons.copy), onPressed: () => _copy(shortcutUrl, 'Shortcut URL')),
             ]),
           ),
+        ForwardingStatus(repo: widget.repo),
         if (!SmsSync.supported)
           _Section(
             icon: Icons.content_paste,

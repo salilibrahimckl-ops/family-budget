@@ -1176,6 +1176,8 @@ class Repo {
             final ok = await ingestSms(text,
                 receivedAt: DateTime.now(), member: e.value as String, source: 'iphone');
             if (ok) added++;
+            final understood = ok || SmsParser.parse(text) != null || SmsParser.parseBalance(text) != null;
+            await _logForward(e.key, e.value as String, text, understood);
           }
         }
         await d.reference.delete();
@@ -1183,6 +1185,41 @@ class Repo {
     }
     return added;
   }
+
+  /// Forwarding monitor for iPhones: when the last SMS arrived, how many this
+  /// month, and the ones the app could not read (OTP messages are never kept).
+  Future<void> _logForward(String token, String member, String text, bool understood) async {
+    final now = DateTime.now();
+    try {
+      await family.update({
+        FieldPath(['inboxStats', token, 'lastAt']): FieldValue.serverTimestamp(),
+        FieldPath(['inboxStats', token, 'member']): member,
+        FieldPath(['inboxStats', token, 'm_${monthKey(now)}']): FieldValue.increment(1),
+      });
+      if (!understood && !RegExp(r'\botp\b|one.?time password', caseSensitive: false).hasMatch(text)) {
+        await family.collection('unread').add({
+          'text': text.length > 400 ? text.substring(0, 400) : text,
+          'member': member,
+          'at': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (_) {}
+  }
+
+  Stream<List<({String text, String member, DateTime at, String id})>> unreadStream() => family
+      .collection('unread')
+      .snapshots()
+      .map((q) => q.docs
+          .map((d) => (
+                id: d.id,
+                text: d.data()['text'] as String? ?? '',
+                member: d.data()['member'] as String? ?? '?',
+                at: (d.data()['at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+              ))
+          .toList()
+        ..sort((a, b) => b.at.compareTo(a.at)));
+
+  Future<void> clearUnread(String id) => family.collection('unread').doc(id).delete();
 
   // ---------- goals ----------
 
