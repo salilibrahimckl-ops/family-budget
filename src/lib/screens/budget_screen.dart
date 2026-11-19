@@ -80,7 +80,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
   double _val(TextEditingController? c) => double.tryParse((c?.text ?? '').replaceAll(',', '').trim()) ?? 0;
 
   Budget _current() => Budget(
-        {for (final c in kCats) c.id: _val(_cat[c.id])},
+        // Keep figures for categories not shown here (e.g. hidden ones).
+        {...?_saved?.categories, for (final c in kCats) c.id: _val(_cat[c.id])},
         {for (final e in _mem.entries) if (_val(e.value) > 0) e.key: _val(e.value)},
         {for (final e in _inc.entries) if (_val(e.value) > 0) e.key: _val(e.value)},
       );
@@ -230,8 +231,10 @@ class _BudgetScreenState extends State<BudgetScreen> {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
     if (_saved == null) return const Center(child: CircularProgressIndicator());
+    // Custom categories can arrive after the budget did (slower on iPhone):
+    // fill their boxes from the saved budget when they first appear.
     for (final c in kCats) {
-      _cat.putIfAbsent(c.id, () => TextEditingController());
+      _cat.putIfAbsent(c.id, () => TextEditingController(text: _fmt(_saved!.categories[c.id])));
     }
     final spendCats = kCats.where((c) => !c.goal).toList();
     final goalCats = kCats.where((c) => c.goal).toList();
